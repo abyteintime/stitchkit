@@ -1,0 +1,12 @@
+[package]
+name = "stitchkit-archive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+anyhow = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+
+rust-lzo = "0.6.2"

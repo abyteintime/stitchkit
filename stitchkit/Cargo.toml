@@ -1,0 +1,13 @@
+[package]
+name = "stitchkit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+anyhow = { workspace = true }
+clap = { version = "4.1.4", features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+
+stitchkit-archive = { path = "../stitchkit-archive" }

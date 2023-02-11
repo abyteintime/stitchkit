@@ -14,12 +14,18 @@ use tracing::{debug, info};
 
 #[derive(Clone, Copy, Subcommand)]
 pub enum Ardump {
-    /// Dump information about the archive summary (aka header).
+    /// Dump summarising information about the archive (aka the archive header).
     Summary,
-    /// Dump the name table.
-    NameTable,
 
-    /// Decompress the archive and exit. Used for diagnosing problems with decompression.
+    /// Dump the `FName` table.
+    Names,
+    /// Dump the object export table.
+    Exports,
+    /// Dump the object import table.
+    Imports,
+
+    /// Decompress the archive and exit. Used for diagnosing problems with decompression or testing
+    /// I/O speed.
     TestDecompression,
 }
 
@@ -46,7 +52,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
     match dump {
         Ardump::Summary => unreachable!(),
-        Ardump::NameTable => {
+        Ardump::Names => {
             debug!("Reading name table");
             let name_table = summary
                 .deserialize_name_table(&mut reader)
@@ -57,6 +63,8 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
                 println!("{i:6} {name:?} (0x{flags:016x})");
             }
         }
+        Ardump::Exports => todo!("exports"),
+        Ardump::Imports => todo!("imports"),
         Ardump::TestDecompression => (),
     }
 

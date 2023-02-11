@@ -1,4 +1,4 @@
-pub mod structure;
+pub mod macros;
 
 use std::io::{Cursor, Read};
 
@@ -9,37 +9,27 @@ pub trait Deserialize: Sized {
     fn deserialize(reader: impl Read) -> anyhow::Result<Self>;
 }
 
-impl Deserialize for u8 {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let mut buf = [0];
-        reader.read_exact(&mut buf)?;
-        Ok(buf[0])
-    }
+macro_rules! deserialize_primitive_le {
+    ($T:ty) => {
+        impl Deserialize for $T {
+            fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
+                let mut buf = [0; std::mem::size_of::<$T>()];
+                reader.read_exact(&mut buf)?;
+                Ok(<$T>::from_le_bytes(buf))
+            }
+        }
+    };
 }
 
-impl Deserialize for u16 {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let mut buf = [0; 2];
-        reader.read_exact(&mut buf)?;
-        Ok(u16::from_le_bytes(buf))
-    }
-}
+deserialize_primitive_le!(u8);
+deserialize_primitive_le!(u16);
+deserialize_primitive_le!(u32);
+deserialize_primitive_le!(u64);
 
-impl Deserialize for u32 {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let mut buf = [0; 4];
-        reader.read_exact(&mut buf)?;
-        Ok(u32::from_le_bytes(buf))
-    }
-}
-
-impl Deserialize for u64 {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let mut buf = [0; 8];
-        reader.read_exact(&mut buf)?;
-        Ok(u64::from_le_bytes(buf))
-    }
-}
+deserialize_primitive_le!(i8);
+deserialize_primitive_le!(i16);
+deserialize_primitive_le!(i32);
+deserialize_primitive_le!(i64);
 
 impl Deserialize for Uuid {
     fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {

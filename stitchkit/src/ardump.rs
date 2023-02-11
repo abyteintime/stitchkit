@@ -8,7 +8,7 @@ use anyhow::Context;
 use clap::Subcommand;
 use stitchkit_archive::{
     binary::ReadExt,
-    sections::{NameTableEntry, Summary},
+    sections::{NameTableEntry, ObjectExportDebug, ObjectImportDebug, Summary},
 };
 use tracing::{debug, info};
 
@@ -59,12 +59,40 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
                 .context("cannot deserialize name table")?;
 
             debug!("Printing name table");
-            for (i, NameTableEntry { name, flags }) in name_table.names.iter().enumerate() {
+            for (i, NameTableEntry { name, flags }) in name_table.iter().enumerate() {
                 println!("{i:6} {name:?} (0x{flags:016x})");
             }
         }
-        Ardump::Exports => todo!("exports"),
-        Ardump::Imports => todo!("imports"),
+        Ardump::Exports => {
+            debug!("Reading name table");
+            let name_table = summary
+                .deserialize_name_table(&mut reader)
+                .context("cannot deserialize name table")?;
+            debug!("Reading export table");
+            let export_table = summary
+                .deserialize_export_table(&mut reader)
+                .context("cannot deserialize export table")?;
+
+            debug!("Printing export table");
+            for (i, export) in export_table.iter().enumerate() {
+                println!("{i}: {:#?}", ObjectExportDebug::new(&name_table, export));
+            }
+        }
+        Ardump::Imports => {
+            debug!("Reading name table");
+            let name_table = summary
+                .deserialize_name_table(&mut reader)
+                .context("cannot deserialize name table")?;
+            debug!("Reading import table");
+            let import_table = summary
+                .deserialize_import_table(&mut reader)
+                .context("cannot deserialize import table")?;
+
+            debug!("Printing import table");
+            for (i, import) in import_table.iter().enumerate() {
+                println!("{i}: {:#?}", ObjectImportDebug::new(&name_table, import));
+            }
+        }
         Ardump::TestDecompression => (),
     }
 

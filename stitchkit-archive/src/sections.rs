@@ -28,7 +28,7 @@ serializable_structure! {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct CompressedChunk {
+pub struct CompressedChunkPointer {
     pub uncompressed_offset: u32,
     pub uncompressed_size: u32,
     pub compressed_offset: u32,
@@ -36,7 +36,7 @@ pub struct CompressedChunk {
 }
 
 serializable_structure! {
-    type CompressedChunk {
+    type CompressedChunkPointer {
         uncompressed_offset,
         uncompressed_size,
         compressed_offset,
@@ -59,25 +59,25 @@ serializable_structure! {
 
 #[derive(Debug, Clone, Default)]
 pub struct CompressedChunkHeader {
-    pub tag: u32,
+    pub magic: u32,
     pub block_size: u32,
     pub sum: CompressedChunkBlock,
 }
 
 serializable_structure! {
     type CompressedChunkHeader {
-        tag,
+        magic,
         block_size,
         sum,
     }
     deserialize_extra |header| {
-        ensure!(header.tag == 0x9E2A83C1, "mismatch in compressed chunk header tag");
+        ensure!(header.magic == 0x9E2A83C1, "mismatch in compressed chunk header tag");
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Summary {
-    pub tag: u32,
+    pub magic: u32,
     pub file_version: u16,
     pub licensee_version: u16,
     pub headers_size: u32,
@@ -104,12 +104,12 @@ pub struct Summary {
     pub cooker_version: u32,
 
     pub compression_kind: u32,
-    pub compressed_chunks: Vec<CompressedChunk>,
+    pub compressed_chunks: Vec<CompressedChunkPointer>,
 }
 
 serializable_structure! {
     type Summary {
-        tag,
+        magic,
         file_version,
         licensee_version,
         headers_size,
@@ -176,7 +176,7 @@ pub struct ObjectExport {
     /// - Negative values indicate an import index.
     /// - 0 means `UClass`.
     pub class_index: i32,
-    pub super_index: i32,
+    pub outer_index: i32,
     pub package_index: i32,
     pub object_name: Name,
     pub archetype: u32,
@@ -192,7 +192,7 @@ pub struct ObjectExport {
 serializable_structure! {
     type ObjectExport {
         class_index,
-        super_index,
+        outer_index,
         package_index,
         object_name,
         archetype,
@@ -243,7 +243,7 @@ impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ObjectExport")
             .field("class_index", &self.export.class_index)
-            .field("super_index", &self.export.super_index)
+            .field("super_index", &self.export.outer_index)
             .field("package_index", &self.export.package_index)
             .field(
                 "object_name",

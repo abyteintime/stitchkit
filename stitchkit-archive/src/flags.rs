@@ -1,3 +1,6 @@
+// I have no idea.
+#![allow(clippy::manual_strip)]
+
 use bitflags::bitflags;
 
 use crate::serializable_bitflags;
@@ -5,6 +8,7 @@ use crate::serializable_bitflags;
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ObjectFlags: u64 {
+        const DEFAULT        = 0x0000000000000200;
         const TRANSACTIONAL  = 0x0000000100000000;
         const PUBLIC         = 0x0000000400000000;
         const TRANSIENT      = 0x0000400000000000;

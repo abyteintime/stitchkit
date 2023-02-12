@@ -23,6 +23,8 @@ pub enum Ardump {
     Exports,
     /// Dump the object import table.
     Imports,
+    /// Dump the object dependency table.
+    Depends,
 
     /// Decompress the archive and exit. Used for diagnosing problems with decompression or testing
     /// I/O speed.
@@ -91,6 +93,17 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
             debug!("Printing import table");
             for (i, import) in import_table.iter().enumerate() {
                 println!("{i}: {:#?}", ObjectImportDebug::new(&name_table, import));
+            }
+        }
+        Ardump::Depends => {
+            debug!("Reading dependency table");
+            let depends_table = summary
+                .deserialize_dependency_table(&mut reader)
+                .context("cannot deserialize dependency table")?;
+
+            debug!("Printing dependency table");
+            for (i, depend) in depends_table.iter().enumerate() {
+                println!("{i}: {:?}", depend);
             }
         }
         Ardump::TestDecompression => (),

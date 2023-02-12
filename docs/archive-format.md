@@ -14,6 +14,7 @@ An FArchive is made up of multiple sections:
 - **Name table**
 - **Export table**
 - **Import table**
+- **Dependency table**
 
 **The summary is always located at the beginning of the archive**. The positions of other sections
 can be found by looking at what's stored in the summary.
@@ -85,7 +86,7 @@ Contains overall information about the structure of the archive.
 | export_offset | *u32* | The position of the export table in the file. |
 | import_count | *u32* | The number of *ObjectImport*s stored in the file's import table. |
 | import_offset | *u32* | The position of the import table in the file. |
-| depends_offset | *u32* | - |
+| depends_offset | *u32* | The position of the dependency table in the file. This table always has export_count elements. |
 | - | *u32* | Unknown; mirrors headers_size. |
 | - | *u32* | Unknown; always zero. |
 | - | *u32* | Unknown; always zero. |
@@ -206,3 +207,9 @@ to `Class`.
 | class_name | *name* | The name of the object's class. |
 | package_index | *PackageObjectIndex* | My best guess is that this specifies which *PackageObjectIndex* the imported object should occupy within this archive. |
 | object_name | *name* | The name of the imported object. |
+
+## *DependencyTable*
+
+| Name | Type | Description |
+| --- | :-: | --- |
+| object_dependencies | *array*<*PackageObjectIndex*>\[*Summary*.export_count] | For each exported object, contains a list of objects that need to be loaded before it. |

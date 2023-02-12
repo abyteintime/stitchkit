@@ -179,7 +179,7 @@ pub struct ObjectExport {
     pub outer_index: i32,
     pub package_index: i32,
     pub object_name: Name,
-    pub archetype: u32,
+    pub archetype: i32,
     pub object_flags: ObjectFlags,
     pub serial_size: u32,
     pub serial_offset: u32,
@@ -247,7 +247,7 @@ impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
             .field("package_index", &self.export.package_index)
             .field(
                 "object_name",
-                &NameDebug::new(&self.name_table, self.export.object_name),
+                &NameDebug::new(self.name_table, self.export.object_name),
             )
             .field("archetype", &self.export.archetype)
             .field("object_flags", &self.export.object_flags)
@@ -316,17 +316,55 @@ impl<'a> std::fmt::Debug for ObjectImportDebug<'a> {
         f.debug_struct("ObjectImport")
             .field(
                 "class_package",
-                &NameDebug::new(&self.name_table, self.import.class_package),
+                &NameDebug::new(self.name_table, self.import.class_package),
             )
             .field(
                 "class_name",
-                &NameDebug::new(&self.name_table, self.import.class_name),
+                &NameDebug::new(self.name_table, self.import.class_name),
             )
             .field("package_index", &self.import.package_index)
             .field(
                 "object_name",
-                &NameDebug::new(&self.name_table, self.import.object_name),
+                &NameDebug::new(self.name_table, self.import.object_name),
             )
             .finish()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectDependencies {
+    pub dependencies: Vec<i32>,
+}
+
+serializable_structure! {
+    type ObjectDependencies {
+        dependencies,
+    }
+}
+
+impl Summary {
+    pub fn depends_count(&self) -> u32 {
+        self.export_count
+    }
+
+    pub fn deserialize_dependency_table(
+        &self,
+        mut reader: impl Read + Seek,
+    ) -> anyhow::Result<Vec<ObjectDependencies>> {
+        debug!(
+            "Deserializing dependency table ({} dependencies at {:08x})",
+            self.depends_count(),
+            self.depends_offset
+        );
+        reader.seek(SeekFrom::Start(self.depends_offset as u64))?;
+        let mut depends = Vec::with_capacity(self.depends_count() as usize);
+        for i in 0..self.depends_count() {
+            depends.push(
+                reader
+                    .deserialize()
+                    .with_context(|| format!("cannot deserialize dependency {i}"))?,
+            );
+        }
+        Ok(depends)
     }
 }

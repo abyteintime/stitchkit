@@ -1,15 +1,14 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::{ensure, Context};
+use stitchkit_core::{
+    binary::ReadExt, flags::ObjectFlags, serializable_structure, string::UnrealString, uuid::Uuid,
+};
 use tracing::debug;
-use uuid::Uuid;
 
 use crate::{
-    binary::ReadExt,
-    flags::ObjectFlags,
-    name::{Name, NameDebug},
-    serializable_structure,
-    string::UnrealString,
+    hat,
+    name::{ArchiveName, ArchiveNameDebug},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -133,6 +132,14 @@ serializable_structure! {
         compression_kind,
         compressed_chunks,
     }
+    deserialize_extra |summary| {
+        ensure!(
+            summary.magic == hat::ARCHIVE_MAGIC,
+            "archive magic number does not match {:08x} (it is {:08x})",
+            hat::ARCHIVE_MAGIC,
+            summary.magic
+        );
+    }
 }
 
 pub struct NameTableEntry {
@@ -178,7 +185,7 @@ pub struct ObjectExport {
     pub class_index: i32,
     pub outer_index: i32,
     pub package_index: i32,
-    pub object_name: Name,
+    pub object_name: ArchiveName,
     pub archetype: i32,
     pub object_flags: ObjectFlags,
     pub serial_size: u32,
@@ -247,7 +254,7 @@ impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
             .field("package_index", &self.export.package_index)
             .field(
                 "object_name",
-                &NameDebug::new(self.name_table, self.export.object_name),
+                &ArchiveNameDebug::new(self.name_table, self.export.object_name),
             )
             .field("archetype", &self.export.archetype)
             .field("object_flags", &self.export.object_flags)
@@ -263,10 +270,10 @@ impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
 
 #[derive(Clone)]
 pub struct ObjectImport {
-    pub class_package: Name,
-    pub class_name: Name,
+    pub class_package: ArchiveName,
+    pub class_name: ArchiveName,
     pub package_index: i32,
-    pub object_name: Name,
+    pub object_name: ArchiveName,
 }
 
 serializable_structure! {
@@ -316,16 +323,16 @@ impl<'a> std::fmt::Debug for ObjectImportDebug<'a> {
         f.debug_struct("ObjectImport")
             .field(
                 "class_package",
-                &NameDebug::new(self.name_table, self.import.class_package),
+                &ArchiveNameDebug::new(self.name_table, self.import.class_package),
             )
             .field(
                 "class_name",
-                &NameDebug::new(self.name_table, self.import.class_name),
+                &ArchiveNameDebug::new(self.name_table, self.import.class_name),
             )
             .field("package_index", &self.import.package_index)
             .field(
                 "object_name",
-                &NameDebug::new(self.name_table, self.import.object_name),
+                &ArchiveNameDebug::new(self.name_table, self.import.object_name),
             )
             .finish()
     }

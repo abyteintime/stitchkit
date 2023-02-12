@@ -1,30 +1,32 @@
-use crate::{sections::NameTableEntry, serializable_structure};
+use stitchkit_core::serializable_structure;
+
+use crate::sections::NameTableEntry;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Name {
+pub struct ArchiveName {
     index: u32,
     serial_number: u32,
 }
 
 serializable_structure! {
-    type Name {
+    type ArchiveName {
         index,
         serial_number,
     }
 }
 
-pub struct NameDebug<'a> {
+pub struct ArchiveNameDebug<'a> {
     name_table: &'a [NameTableEntry],
-    name: Name,
+    name: ArchiveName,
 }
 
-impl<'a> NameDebug<'a> {
-    pub fn new(name_table: &'a [NameTableEntry], name: Name) -> Self {
+impl<'a> ArchiveNameDebug<'a> {
+    pub fn new(name_table: &'a [NameTableEntry], name: ArchiveName) -> Self {
         Self { name_table, name }
     }
 }
 
-impl<'a> std::fmt::Debug for NameDebug<'a> {
+impl<'a> std::fmt::Debug for ArchiveNameDebug<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(entry) = self.name_table.get(self.name.index as usize) {
             f.write_str("'")?;

@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 
 anyhow = { workspace = true }
-uuid = { workspace = true }
 tracing = { workspace = true }
 
 rust-lzo = "0.6.2"
-bitflags = "2.0.0-rc.2"
+
+stitchkit-core = { workspace = true }

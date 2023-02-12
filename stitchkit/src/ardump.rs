@@ -6,10 +6,8 @@ use std::{
 
 use anyhow::Context;
 use clap::Subcommand;
-use stitchkit_archive::{
-    binary::ReadExt,
-    sections::{NameTableEntry, ObjectExportDebug, ObjectImportDebug, Summary},
-};
+use stitchkit_archive::sections::{NameTableEntry, ObjectExportDebug, ObjectImportDebug, Summary};
+use stitchkit_core::binary::ReadExt;
 use tracing::{debug, info};
 
 #[derive(Clone, Copy, Subcommand)]

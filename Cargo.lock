@@ -305,6 +305,7 @@ dependencies = [
  "anyhow",
  "clap",
  "stitchkit-archive",
+ "stitchkit-core",
  "tracing",
  "tracing-subscriber",
 ]
@@ -314,9 +315,18 @@ name = "stitchkit-archive"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.0.0-rc.2",
  "rust-lzo",
+ "stitchkit-core",
  "tracing",
+]
+
+[[package]]
+name = "stitchkit-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitflags 2.0.0-rc.2",
+ "once_cell",
  "uuid",
 ]
 

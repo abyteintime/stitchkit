@@ -2,12 +2,10 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use anyhow::{bail, ensure, Context};
 use rust_lzo::{LZOContext, LZOError};
+use stitchkit_core::binary::ReadExt;
 use tracing::{debug, trace};
 
-use crate::{
-    binary::ReadExt,
-    sections::{CompressedChunkBlock, CompressedChunkHeader, Summary},
-};
+use crate::sections::{CompressedChunkBlock, CompressedChunkHeader, Summary};
 
 impl Summary {
     const COMPRESSION_NONE: u32 = 0;

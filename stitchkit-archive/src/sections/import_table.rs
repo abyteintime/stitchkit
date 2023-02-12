@@ -4,7 +4,10 @@ use anyhow::Context;
 use stitchkit_core::{binary::ReadExt, serializable_structure};
 use tracing::debug;
 
-use crate::name::{ArchivedName, ArchivedNameDebug};
+use crate::{
+    index::OptionalPackageObjectIndex,
+    name::{ArchivedName, ArchivedNameDebug},
+};
 
 use super::{NameTableEntry, Summary};
 
@@ -12,7 +15,7 @@ use super::{NameTableEntry, Summary};
 pub struct ObjectImport {
     pub class_package: ArchivedName,
     pub class_name: ArchivedName,
-    pub package_index: i32,
+    pub outer_index: OptionalPackageObjectIndex,
     pub object_name: ArchivedName,
 }
 
@@ -20,7 +23,7 @@ serializable_structure! {
     type ObjectImport {
         class_package,
         class_name,
-        package_index,
+        outer_index,
         object_name,
     }
 }
@@ -69,7 +72,7 @@ impl<'a> std::fmt::Debug for ObjectImportDebug<'a> {
                 "class_name",
                 &ArchivedNameDebug::new(self.name_table, self.import.class_name),
             )
-            .field("package_index", &self.import.package_index)
+            .field("outer_index", &self.import.outer_index)
             .field(
                 "object_name",
                 &ArchivedNameDebug::new(self.name_table, self.import.object_name),

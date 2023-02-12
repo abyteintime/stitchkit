@@ -4,11 +4,13 @@ use anyhow::Context;
 use stitchkit_core::{binary::ReadExt, serializable_structure};
 use tracing::debug;
 
+use crate::index::PackageObjectIndex;
+
 use super::Summary;
 
 #[derive(Debug, Clone)]
 pub struct ObjectDependencies {
-    pub dependencies: Vec<i32>,
+    pub dependencies: Vec<PackageObjectIndex>,
 }
 
 serializable_structure! {

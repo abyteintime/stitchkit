@@ -75,7 +75,11 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
             debug!("Printing export table");
             for (i, export) in export_table.iter().enumerate() {
-                println!("{i}: {:#?}", ObjectExportDebug::new(&name_table, export));
+                println!(
+                    "{}: {:#?}",
+                    i + 1,
+                    ObjectExportDebug::new(&name_table, export)
+                );
             }
         }
         Ardump::Imports => {
@@ -90,7 +94,11 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
             debug!("Printing import table");
             for (i, import) in import_table.iter().enumerate() {
-                println!("{i}: {:#?}", ObjectImportDebug::new(&name_table, import));
+                println!(
+                    "{}: {:#?}",
+                    i + 1,
+                    ObjectImportDebug::new(&name_table, import)
+                );
             }
         }
         Ardump::Depends => {

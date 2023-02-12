@@ -16,8 +16,8 @@ An FArchive is made up of multiple sections:
 - **Import table**
 - **Dependency table**
 
-**The summary is always located at the beginning of the archive**. The positions of other sections
-can be found by looking at what's stored in the summary.
+**The summary is always located at the beginning of the archive.** The positions of other sections
+can be found by looking at the summary's fields.
 
 ## Fundamental types
 
@@ -91,7 +91,7 @@ Contains overall information about the structure of the archive.
 | - | *u32* | Unknown; always zero. |
 | - | *u32* | Unknown; always zero. |
 | - | *u32* | Unknown; always zero. |
-| guid | *guid* | The package's globally unique identifier (GUID.) |
+| guid | *guid* | The package's globally unique identifier. |
 | generations | *array*<*GenerationInfo*> | - |
 | engine_version | *u32* | - |
 | cooker_version | *u32* | - |
@@ -171,10 +171,10 @@ uncompressed_data in a *CompressedChunkPointer* and the *CompressedChunkHeader*'
 | Name | Type | Description |
 | --- | :-: | --- |
 | class_index | *PackageObjectIndex* | This object's class. |
-| outer_index | *PackageObjectIndex* | This object's outer object. Not sure what it means when this is negative. |
-| package_index | *PackageObjectIndex* | Unknown.
+| super_index | *PackageObjectIndex* | This object this object overrides or inherits from. |
+| outer_index | *PackageObjectIndex* | This object's outer object.
 | object_name | *name* | The name of this object.
-| archetype | *u32* | - |
+| archetype | *PackageObjectIndex* | - |
 | flags | *u64* | - |
 | serial_size | *u32* | The size of this object's serialized data. |
 | serial_offset | *u32* | The position of the object's serialized data in the package file. |
@@ -187,11 +187,14 @@ uncompressed_data in a *CompressedChunkPointer* and the *CompressedChunkHeader*'
 
 The index of an object within this package. When it's is positive, it refers to one of the package's
 exports. When it's negative, it refers to one of the package's imports. When it's zero it refers
-to `Class`.
+to no object, or `Class` when used in *ObjectExport*.class_index.
+
+Note that both negative and positive indices start at 1, because 0 is occupied. Thus 1 refers
+to the first exported object, and -1 refers to the first imported object.
 
 | Name | Type |
 | --- | :-: |
-| index | *u32* |
+| index | *i32* |
 
 ## *ImportTable*
 
@@ -203,9 +206,9 @@ to `Class`.
 
 | Name | Type | Description |
 | --- | :-: | --- |
-| package | *name* | The package of the imported object. |
+| class_package | *name* | The package of the imported object's class. |
 | class_name | *name* | The name of the object's class. |
-| package_index | *PackageObjectIndex* | My best guess is that this specifies which *PackageObjectIndex* the imported object should occupy within this archive. |
+| outer_index | *PackageObjectIndex* | In which object to look for the imported object. |
 | object_name | *name* | The name of the imported object. |
 
 ## *DependencyTable*

@@ -4,21 +4,20 @@ use anyhow::Context;
 use stitchkit_core::{binary::ReadExt, flags::ObjectFlags, serializable_structure, uuid::Uuid};
 use tracing::debug;
 
-use crate::name::{ArchivedName, ArchivedNameDebug};
+use crate::{
+    index::{OptionalPackageObjectIndex, PackageObjectIndex},
+    name::{ArchivedName, ArchivedNameDebug},
+};
 
 use super::{NameTableEntry, Summary};
 
 #[derive(Clone)]
 pub struct ObjectExport {
-    /// Note that this, as well as other indices, is signed.
-    /// - Positive values mean that the class resides within this archive.
-    /// - Negative values indicate an import index.
-    /// - 0 means `UClass`.
-    pub class_index: i32,
-    pub outer_index: i32,
-    pub package_index: i32,
+    pub class_index: PackageObjectIndex,
+    pub super_index: OptionalPackageObjectIndex,
+    pub outer_index: OptionalPackageObjectIndex,
     pub object_name: ArchivedName,
-    pub archetype: i32,
+    pub archetype: OptionalPackageObjectIndex,
     pub object_flags: ObjectFlags,
     pub serial_size: u32,
     pub serial_offset: u32,
@@ -31,8 +30,8 @@ pub struct ObjectExport {
 serializable_structure! {
     type ObjectExport {
         class_index,
+        super_index,
         outer_index,
-        package_index,
         object_name,
         archetype,
         object_flags,
@@ -82,8 +81,8 @@ impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ObjectExport")
             .field("class_index", &self.export.class_index)
-            .field("super_index", &self.export.outer_index)
-            .field("package_index", &self.export.package_index)
+            .field("super_index", &self.export.super_index)
+            .field("outer_index", &self.export.outer_index)
             .field(
                 "object_name",
                 &ArchivedNameDebug::new(self.name_table, self.export.object_name),

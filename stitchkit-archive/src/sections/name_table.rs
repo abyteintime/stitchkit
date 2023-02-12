@@ -1,14 +1,16 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, serializable_structure, string::UnrealString};
+use stitchkit_core::{
+    binary::ReadExt, flags::ObjectFlags, serializable_structure, string::UnrealString,
+};
 use tracing::debug;
 
 use super::Summary;
 
 pub struct NameTableEntry {
     pub name: UnrealString,
-    pub flags: u64,
+    pub flags: ObjectFlags,
 }
 
 serializable_structure! {

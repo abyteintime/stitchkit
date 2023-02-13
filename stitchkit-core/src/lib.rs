@@ -4,3 +4,5 @@ pub mod flags;
 pub mod string;
 
 pub extern crate uuid;
+
+pub use stitchkit_core_derive::*;

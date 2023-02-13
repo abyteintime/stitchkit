@@ -16,6 +16,12 @@ pub trait Deserialize: Sized {
     fn deserialize(reader: impl Read) -> anyhow::Result<Self>;
 }
 
+impl Deserialize for () {
+    fn deserialize(_: impl Read) -> anyhow::Result<Self> {
+        Ok(())
+    }
+}
+
 macro_rules! deserialize_primitive_le {
     ($T:ty) => {
         impl Deserialize for $T {

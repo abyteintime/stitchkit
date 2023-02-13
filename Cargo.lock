@@ -328,7 +328,18 @@ dependencies = [
  "anyhow",
  "bitflags 2.0.0-rc.2",
  "once_cell",
+ "stitchkit-core-derive",
  "uuid",
+]
+
+[[package]]
+name = "stitchkit-core-derive"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

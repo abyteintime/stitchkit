@@ -1,11 +1,10 @@
 use std::{
     fs::File,
     io::{BufReader, Cursor},
-    num::NonZeroU32,
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use clap::Subcommand;
 use stitchkit_archive::{
     index::PackageObjectIndex,
@@ -48,10 +47,13 @@ pub enum Ardump {
     ExportAll {
         output_directory: PathBuf,
 
-        /// Specify to only export objects whose class is imported and the imported class is the one
-        /// specified by this argument.
+        /// Remove all files from the output directory before exporting.
+        #[clap(short, long)]
+        clean: bool,
+
+        /// Specify to only export objects whose class is the one specified.
         #[clap(long)]
-        filter_by_imported_class: Option<NonZeroU32>,
+        filter_by_class: Option<PackageObjectIndex>,
     },
 
     /// Decompress an archive fully and dump it to disk. NOTE: This does not strip compression
@@ -194,7 +196,8 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         }
         Ardump::ExportAll {
             output_directory,
-            filter_by_imported_class,
+            clean,
+            filter_by_class,
         } => {
             debug!("Reading name table");
             let name_table = summary
@@ -205,6 +208,16 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
             let export_table = summary
                 .deserialize_export_table(&mut reader)
                 .context("cannot deserialize export table")?;
+
+            if clean {
+                debug!("Removing output directory");
+                if output_directory.is_dir() {
+                    std::fs::remove_dir_all(&output_directory)
+                        .context("cannot clean output directory")?;
+                } else if output_directory.exists() {
+                    bail!("specified output directory is not a directory and will not be cleaned");
+                }
+            }
 
             debug!("Saving object files");
             std::fs::create_dir_all(&output_directory).context("cannot create output directory")?;
@@ -218,8 +231,8 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
                 let (serial_offset, serial_size) = (serial_offset as usize, serial_size as usize);
                 let serial_data = &archive[serial_offset..serial_offset + serial_size];
 
-                if let Some(filter) = filter_by_imported_class {
-                    if class_index != PackageObjectIndex::Imported(filter) {
+                if let Some(filter) = filter_by_class {
+                    if class_index != filter {
                         continue;
                     }
                 }

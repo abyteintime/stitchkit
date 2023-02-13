@@ -1,22 +1,16 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, serializable_structure};
+use stitchkit_core::{binary::ReadExt, Deserialize};
 use tracing::debug;
 
 use crate::index::PackageObjectIndex;
 
 use super::Summary;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ObjectDependencies {
     pub dependencies: Vec<PackageObjectIndex>,
-}
-
-serializable_structure! {
-    type ObjectDependencies {
-        dependencies,
-    }
 }
 
 impl Summary {

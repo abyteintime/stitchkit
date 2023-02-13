@@ -1,26 +1,15 @@
-use anyhow::ensure;
-use stitchkit_core::{serializable_structure, string::UnrealString, uuid::Uuid};
-
-use crate::hat;
+use stitchkit_core::{string::UnrealString, uuid::Uuid, Deserialize};
 
 use super::CompressedChunkPointer;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct GenerationInfo {
     pub export_count: u32,
     pub name_count: u32,
     pub net_object_count: u32,
 }
 
-serializable_structure! {
-    type GenerationInfo {
-        export_count,
-        name_count,
-        net_object_count,
-    }
-}
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Summary {
     pub magic: u32,
     pub file_version: u16,
@@ -50,40 +39,4 @@ pub struct Summary {
 
     pub compression_kind: u32,
     pub compressed_chunks: Vec<CompressedChunkPointer>,
-}
-
-serializable_structure! {
-    type Summary {
-        magic,
-        file_version,
-        licensee_version,
-        headers_size,
-        package_group,
-        package_flags,
-        name_count,
-        name_offset,
-        export_count,
-        export_offset,
-        import_count,
-        import_offset,
-        depends_offset,
-        unknown_1,
-        unknown_2,
-        unknown_3,
-        unknown_4,
-        uuid,
-        generations,
-        engine_version,
-        cooker_version,
-        compression_kind,
-        compressed_chunks,
-    }
-    deserialize_extra |summary| {
-        ensure!(
-            summary.magic == hat::ARCHIVE_MAGIC,
-            "archive magic number does not match {:08x} (it is {:08x})",
-            hat::ARCHIVE_MAGIC,
-            summary.magic
-        );
-    }
 }

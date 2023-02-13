@@ -1,20 +1,13 @@
 use std::fmt;
 
-use stitchkit_core::{context, serializable_structure};
+use stitchkit_core::{context, Deserialize};
 
 use crate::sections::NameTableEntry;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct ArchivedName {
     pub index: u32,
     pub serial_number: u32,
-}
-
-serializable_structure! {
-    type ArchivedName {
-        index,
-        serial_number,
-    }
 }
 
 context! {

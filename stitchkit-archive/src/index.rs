@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, fmt, io::Read, num::NonZeroU32};
+use std::{cmp::Ordering, fmt, io::Read, num::NonZeroU32, str::FromStr};
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use stitchkit_core::binary::{Deserialize, ReadExt};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -16,6 +16,22 @@ impl fmt::Debug for PackageObjectIndex {
             Self::Imported(i) => write!(f, "Imported({i})"),
             Self::Class => write!(f, "Class"),
             Self::Exported(i) => write!(f, "Exported({i})"),
+        }
+    }
+}
+
+impl FromStr for PackageObjectIndex {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "class" {
+            Ok(Self::Class)
+        } else if let Some(number) = s.strip_prefix("export:") {
+            Ok(Self::Exported(number.parse()?))
+        } else if let Some(number) = s.strip_prefix("import:") {
+            Ok(Self::Imported(number.parse()?))
+        } else {
+            bail!("invalid package object index; it must be 'class', 'export:n', or 'import:n' where n is a 1-based index into the package's export/import table")
         }
     }
 }

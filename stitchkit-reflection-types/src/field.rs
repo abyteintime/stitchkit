@@ -1,17 +1,13 @@
-use stitchkit_archive::index::PackageObjectIndex;
-use stitchkit_core::serializable_structure;
+use stitchkit_archive::index::OptionalPackageObjectIndex;
+use stitchkit_core::{binary::Deserialize, Deserialize};
 
 use crate::Object;
 
-#[derive(Debug, Clone)]
-pub struct Field {
-    pub object: Object,
-    pub next_object: PackageObjectIndex,
-}
-
-serializable_structure! {
-    type Field {
-        object,
-        next_object,
-    }
+#[derive(Debug, Clone, Deserialize)]
+pub struct Field<X = ()>
+where
+    X: Deserialize,
+{
+    pub object: Object<X>,
+    pub next_object: OptionalPackageObjectIndex,
 }

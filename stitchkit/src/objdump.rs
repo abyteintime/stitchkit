@@ -8,13 +8,17 @@ use anyhow::Context;
 use clap::{Subcommand, ValueEnum};
 use stitchkit_archive::{name::archived_name_table, sections::Summary};
 use stitchkit_core::binary::{deserialize, ReadExt};
-use stitchkit_reflection_types::{Function, Object};
+use stitchkit_reflection_types::{Chunk, Field, Function, Object};
 use tracing::{debug, error, info};
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum ObjectKind {
     /// Deserialize UObjects.
     Object,
+    /// Deserialize UFields.
+    Field,
+    /// Deserialize UStructs.
+    Chunk,
     /// Deserialize UFunctions.
     Function,
 }
@@ -87,6 +91,8 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
 fn dump_object_of_kind(buffer: &[u8], kind: ObjectKind) -> anyhow::Result<()> {
     match kind {
         ObjectKind::Object => println!("{:#?}", deserialize::<Object>(buffer)?),
+        ObjectKind::Field => println!("{:#?}", deserialize::<Field>(buffer)?),
+        ObjectKind::Chunk => println!("{:#?}", deserialize::<Chunk>(buffer)?),
         ObjectKind::Function => {
             println!("{:#?}", deserialize::<Function>(buffer)?)
         }

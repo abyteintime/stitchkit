@@ -1,28 +1,19 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, serializable_structure};
+use stitchkit_core::{binary::ReadExt, Deserialize};
 use tracing::debug;
 
 use crate::{index::OptionalPackageObjectIndex, name::ArchivedName};
 
 use super::Summary;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ObjectImport {
     pub class_package: ArchivedName,
     pub class_name: ArchivedName,
     pub outer_index: OptionalPackageObjectIndex,
     pub object_name: ArchivedName,
-}
-
-serializable_structure! {
-    type ObjectImport {
-        class_package,
-        class_name,
-        outer_index,
-        object_name,
-    }
 }
 
 impl Summary {

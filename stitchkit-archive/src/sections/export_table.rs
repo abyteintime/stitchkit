@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, flags::ObjectFlags, serializable_structure, uuid::Uuid};
+use stitchkit_core::{binary::ReadExt, flags::ObjectFlags, uuid::Uuid, Deserialize};
 use tracing::debug;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 
 use super::Summary;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ObjectExport {
     pub class_index: PackageObjectIndex,
     pub super_index: OptionalPackageObjectIndex,
@@ -25,23 +25,6 @@ pub struct ObjectExport {
     pub net_object_count: u32,
     pub uuid: Uuid,
     pub unknown: u32,
-}
-
-serializable_structure! {
-    type ObjectExport {
-        class_index,
-        super_index,
-        outer_index,
-        object_name,
-        archetype,
-        object_flags,
-        serial_size,
-        serial_offset,
-        export_flags,
-        net_object_count,
-        uuid,
-        unknown,
-    }
 }
 
 impl Summary {

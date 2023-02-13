@@ -1,20 +1,23 @@
 use stitchkit_archive::index::OptionalPackageObjectIndex;
-use stitchkit_core::serializable_structure;
+use stitchkit_core::{binary::Deserialize, Deserialize};
 
 use crate::Field;
 
 /// Equivalent of an Unreal `UStruct`.
-#[derive(Debug, Clone)]
-pub struct Chunk {
-    pub field: Field,
+#[derive(Debug, Clone, Deserialize)]
+pub struct Chunk<X = ()>
+where
+    X: Deserialize,
+{
+    pub field: Field<X>,
     /// If present, indicates the "parent chunk." This may mean different things depending on the
     /// type of chunk. For instance, in functions it's the function this chunk overrides, in classes
     /// this is the parent class, so on and so forth.
     pub parent_chunk: OptionalPackageObjectIndex,
     /// Always zero.
     pub zero_1: u32,
-    /// The first parameter of this function.
-    pub first_parameter: OptionalPackageObjectIndex,
+    /// The first variable in this function.
+    pub first_variable: OptionalPackageObjectIndex,
     /// Always zero.
     pub zero_2: u32,
     /// Line number. This may be off by a few lines because `defaultproperties` blocks are
@@ -27,18 +30,4 @@ pub struct Chunk {
     pub file_length: u32,
     /// The function's bytecode.
     pub bytecode: Vec<u8>,
-}
-
-serializable_structure! {
-    type Chunk {
-        field,
-        parent_chunk,
-        zero_1,
-        first_parameter,
-        zero_2,
-        line_number,
-        file_position,
-        file_length,
-        bytecode,
-    }
 }

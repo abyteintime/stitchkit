@@ -4,13 +4,13 @@ use std::num::{NonZeroU16, NonZeroU8};
 
 use bitflags::bitflags;
 use stitchkit_archive::name::ArchivedName;
-use stitchkit_core::{serializable_bitflags, serializable_structure};
+use stitchkit_core::{serializable_bitflags, Deserialize};
 
 use crate::Chunk;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Function {
-    pub chunk: Chunk,
+    pub chunk: Chunk<ArchivedName>,
     /// Which VM opcode this function implements. This is the number in the `native(n)` specifier.
     pub native_index: Option<NonZeroU16>,
     /// The precedence this operator should take when parsing expressions. This is the number in the
@@ -18,16 +18,6 @@ pub struct Function {
     pub infix_operator_precedence: Option<NonZeroU8>,
     pub function_flags: FunctionFlags,
     pub name: ArchivedName,
-}
-
-serializable_structure! {
-    type Function {
-        chunk,
-        native_index,
-        infix_operator_precedence,
-        function_flags,
-        name,
-    }
 }
 
 bitflags! {

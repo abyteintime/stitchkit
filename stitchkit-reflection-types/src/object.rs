@@ -1,5 +1,8 @@
 use stitchkit_core::{binary::Deserialize, Deserialize};
 
+/// Base object.
+///
+/// X can be used to stuff extra data after the index, in case the class in question does that.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Object<X = ()>
 where

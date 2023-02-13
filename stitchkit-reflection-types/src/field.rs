@@ -4,7 +4,7 @@ use stitchkit_core::{binary::Deserialize, Deserialize};
 use crate::Object;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Field<X = ()>
+pub struct Field<X>
 where
     X: Deserialize,
 {

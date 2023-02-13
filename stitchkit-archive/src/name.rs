@@ -1,11 +1,13 @@
-use stitchkit_core::serializable_structure;
+use std::fmt;
+
+use stitchkit_core::{context, serializable_structure};
 
 use crate::sections::NameTableEntry;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArchivedName {
-    index: u32,
-    serial_number: u32,
+    pub index: u32,
+    pub serial_number: u32,
 }
 
 serializable_structure! {
@@ -15,28 +17,25 @@ serializable_structure! {
     }
 }
 
-pub struct ArchivedNameDebug<'a> {
-    name_table: &'a [NameTableEntry],
-    name: ArchivedName,
+context! {
+    pub let archived_name_table: Vec<NameTableEntry>;
 }
 
-impl<'a> ArchivedNameDebug<'a> {
-    pub fn new(name_table: &'a [NameTableEntry], name: ArchivedName) -> Self {
-        Self { name_table, name }
-    }
-}
-
-impl<'a> std::fmt::Debug for ArchivedNameDebug<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(entry) = self.name_table.get(self.name.index as usize) {
-            f.write_str("'")?;
-            std::fmt::Display::fmt(&entry.name, f)?;
-            f.write_str("'")?;
+impl fmt::Debug for ArchivedName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(name_table) = archived_name_table::get() {
+            if let Some(entry) = name_table.get(self.index as usize) {
+                f.write_str("'")?;
+                fmt::Display::fmt(&entry.name, f)?;
+                f.write_str("'")?;
+            } else {
+                write!(f, "<invalid name {}>", self.index)?;
+            }
         } else {
-            write!(f, "<invalid name {}>", self.name.index)?;
+            write!(f, "{}", self.index)?;
         }
-        if self.name.serial_number != 0 {
-            write!(f, "_{}", self.name.serial_number)?;
+        if self.serial_number != 0 {
+            write!(f, "_{}", self.serial_number)?;
         }
         Ok(())
     }

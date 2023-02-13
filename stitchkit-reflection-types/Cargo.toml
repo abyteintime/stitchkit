@@ -1,0 +1,11 @@
+[package]
+name = "stitchkit-reflection-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+bitflags = { workspace = true }
+tracing = { workspace = true }
+stitchkit-core = { workspace = true }
+stitchkit-archive = { workspace = true }

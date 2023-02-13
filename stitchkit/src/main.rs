@@ -1,9 +1,11 @@
 mod ardump;
+mod objdump;
 
 use std::path::PathBuf;
 
 use ardump::{ardump, Ardump};
 use clap::{Parser, Subcommand};
+use objdump::{objdump, Objdump};
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
@@ -21,6 +23,15 @@ enum Command {
         #[clap(subcommand)]
         what: Ardump,
     },
+
+    /// Operations on object serial data extracted from archives.
+    ///
+    /// This data can be obtained using the `ardump export-all` command.
+    Objdump {
+        /// Operation to perform.
+        #[clap(subcommand)]
+        what: Objdump,
+    },
 }
 
 #[derive(Parser)]
@@ -35,6 +46,7 @@ fn fallible_main() -> anyhow::Result<()> {
 
     match args.command {
         Command::Ardump { filename, what } => ardump(&filename, what)?,
+        Command::Objdump { what } => objdump(what)?,
     }
 
     Ok(())
@@ -47,7 +59,11 @@ fn main() {
                 .with_default_directive(LevelFilter::DEBUG.into())
                 .from_env_lossy(),
         )
-        .with(tracing_subscriber::fmt::layer().without_time());
+        .with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_writer(std::io::stderr),
+        );
     tracing::subscriber::set_global_default(subscriber)
         .expect("cannot set default tracing subscriber");
 

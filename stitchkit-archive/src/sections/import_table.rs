@@ -4,14 +4,11 @@ use anyhow::Context;
 use stitchkit_core::{binary::ReadExt, serializable_structure};
 use tracing::debug;
 
-use crate::{
-    index::OptionalPackageObjectIndex,
-    name::{ArchivedName, ArchivedNameDebug},
-};
+use crate::{index::OptionalPackageObjectIndex, name::ArchivedName};
 
-use super::{NameTableEntry, Summary};
+use super::Summary;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ObjectImport {
     pub class_package: ArchivedName,
     pub class_name: ArchivedName,
@@ -47,36 +44,5 @@ impl Summary {
             );
         }
         Ok(imports)
-    }
-}
-
-pub struct ObjectImportDebug<'a> {
-    name_table: &'a [NameTableEntry],
-    import: &'a ObjectImport,
-}
-
-impl<'a> ObjectImportDebug<'a> {
-    pub fn new(name_table: &'a [NameTableEntry], import: &'a ObjectImport) -> Self {
-        Self { name_table, import }
-    }
-}
-
-impl<'a> std::fmt::Debug for ObjectImportDebug<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ObjectImport")
-            .field(
-                "class_package",
-                &ArchivedNameDebug::new(self.name_table, self.import.class_package),
-            )
-            .field(
-                "class_name",
-                &ArchivedNameDebug::new(self.name_table, self.import.class_name),
-            )
-            .field("outer_index", &self.import.outer_index)
-            .field(
-                "object_name",
-                &ArchivedNameDebug::new(self.name_table, self.import.object_name),
-            )
-            .finish()
     }
 }

@@ -306,6 +306,7 @@ dependencies = [
  "clap",
  "stitchkit-archive",
  "stitchkit-core",
+ "stitchkit-reflection-types",
  "tracing",
  "tracing-subscriber",
 ]
@@ -328,6 +329,17 @@ dependencies = [
  "bitflags 2.0.0-rc.2",
  "once_cell",
  "uuid",
+]
+
+[[package]]
+name = "stitchkit-reflection-types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitflags 2.0.0-rc.2",
+ "stitchkit-archive",
+ "stitchkit-core",
+ "tracing",
 ]
 
 [[package]]

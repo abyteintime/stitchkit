@@ -6,12 +6,12 @@ use tracing::debug;
 
 use crate::{
     index::{OptionalPackageObjectIndex, PackageObjectIndex},
-    name::{ArchivedName, ArchivedNameDebug},
+    name::ArchivedName,
 };
 
-use super::{NameTableEntry, Summary};
+use super::Summary;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ObjectExport {
     pub class_index: PackageObjectIndex,
     pub super_index: OptionalPackageObjectIndex,
@@ -63,38 +63,5 @@ impl Summary {
             );
         }
         Ok(exports)
-    }
-}
-
-pub struct ObjectExportDebug<'a> {
-    name_table: &'a [NameTableEntry],
-    export: &'a ObjectExport,
-}
-
-impl<'a> ObjectExportDebug<'a> {
-    pub fn new(name_table: &'a [NameTableEntry], export: &'a ObjectExport) -> Self {
-        Self { name_table, export }
-    }
-}
-
-impl<'a> std::fmt::Debug for ObjectExportDebug<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ObjectExport")
-            .field("class_index", &self.export.class_index)
-            .field("super_index", &self.export.super_index)
-            .field("outer_index", &self.export.outer_index)
-            .field(
-                "object_name",
-                &ArchivedNameDebug::new(self.name_table, self.export.object_name),
-            )
-            .field("archetype", &self.export.archetype)
-            .field("object_flags", &self.export.object_flags)
-            .field("serial_size", &self.export.serial_size)
-            .field("serial_offset", &self.export.serial_offset)
-            .field("export_flags", &self.export.export_flags)
-            .field("net_object_count", &self.export.net_object_count)
-            .field("uuid", &self.export.uuid)
-            .field("unknown", &self.export.unknown)
-            .finish()
     }
 }

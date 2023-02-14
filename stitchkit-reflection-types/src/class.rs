@@ -99,7 +99,9 @@ bitflags! {
         const DEPRECATED           = 0x02000000;
         const HIDE_DROPDOWN        = 0x04000000;
         /// This is present on a vast majority of game classes, but not all of them.
-        /// It does not affect the game at all; not sure about it affecting the editor though.
+        /// It does not affect the game at all.
+        // Not sure about it affecting the editor though. Possibly it's what prevents certain assets
+        // from being cloned if inside a non-mod package?
         const GAME_CLASS_UNKNOWN   = 0x08000000;
         const NATIVE_ONLY          = 0x20000000;
         const PER_OBJECT_LOCALIZED = 0x40000000;

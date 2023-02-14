@@ -44,3 +44,46 @@ impl fmt::Display for Bool32 {
         fmt::Display::fmt(&bool::from(*self), f)
     }
 }
+
+macro_rules! const_primitive {
+    ($Underlying:ty, $NewType:tt) => {
+        #[doc = concat!("Always serializes to the same `", stringify!($Underlying), "`.\n\nDuring deserialization if the value is not that constant, an error is thrown.")]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub struct $NewType<const VALUE: $Underlying>;
+
+        impl<const VALUE: $Underlying> Deserialize for $NewType<VALUE> {
+            fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
+                let value = reader.deserialize::<$Underlying>()?;
+                ensure!(
+                    value == VALUE,
+                    "constant {} expected, but got {}",
+                    VALUE,
+                    value
+                );
+                Ok(Self)
+            }
+        }
+
+        impl<const VALUE: $Underlying> fmt::Debug for $NewType<VALUE> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                fmt::Debug::fmt(&VALUE, f)
+            }
+        }
+
+        impl<const VALUE: $Underlying> fmt::Display for $NewType<VALUE> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                fmt::Display::fmt(&VALUE, f)
+            }
+        }
+    }
+}
+
+const_primitive!(u8, ConstU8);
+const_primitive!(u16, ConstU16);
+const_primitive!(u32, ConstU32);
+const_primitive!(u64, ConstU64);
+
+const_primitive!(i8, ConstI8);
+const_primitive!(i16, ConstI16);
+const_primitive!(i32, ConstI32);
+const_primitive!(i64, ConstI64);

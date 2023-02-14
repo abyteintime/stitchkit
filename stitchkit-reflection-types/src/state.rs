@@ -7,6 +7,7 @@ use crate::Chunk;
 pub struct State {
     pub chunk: Chunk<()>,
     pub unknown_1: u32,
+    /// Always -1.
     pub unknown_2: i16,
     pub unknown_3: u32,
     pub function_map: Vec<FunctionMapEntry>,

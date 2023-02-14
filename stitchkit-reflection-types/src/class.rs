@@ -64,10 +64,8 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ClassFlags: u32 {
         const ABSTRACT           = 0x00000001;
-        // These two seem to be present on an empty object.
+        // These two seem to be present on all classes.
         const COMMON             = 0x00000012;
-        // const UNKNOWN_1          = 0x00000002;
-        // const UNKNOWN_2          = 0x00000010;
         const NATIVE             = 0x00000080;
         const NATIVE_REPLICATION = 0x00000800;
         const INTERFACE          = 0x00004000;

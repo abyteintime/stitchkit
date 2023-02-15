@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt, io::Read, num::NonZeroU32, str::FromStr};
 
 use anyhow::{bail, Context};
-use stitchkit_core::binary::{Deserialize, ReadExt};
+use stitchkit_core::binary::{Deserialize, Deserializer};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PackageObjectIndex {
@@ -37,8 +37,8 @@ impl FromStr for PackageObjectIndex {
 }
 
 impl Deserialize for PackageObjectIndex {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let index = reader
+    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+        let index = deserializer
             .deserialize::<i32>()
             .context("cannot deserialize package object index")?;
         Ok(match index.cmp(&0) {
@@ -67,8 +67,8 @@ impl fmt::Debug for OptionalPackageObjectIndex {
 }
 
 impl Deserialize for OptionalPackageObjectIndex {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let index = reader
+    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+        let index = deserializer
             .deserialize::<i32>()
             .context("cannot deserialize package object index")?;
         Ok(match index.cmp(&0) {

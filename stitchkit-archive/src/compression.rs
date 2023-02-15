@@ -1,8 +1,8 @@
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::{bail, ensure, Context};
 use rust_lzo::{LZOContext, LZOError};
-use stitchkit_core::binary::ReadExt;
+use stitchkit_core::binary::Deserializer;
 use tracing::{debug, trace};
 
 use crate::sections::{CompressedChunkBlock, CompressedChunkHeader, Summary};
@@ -13,13 +13,13 @@ impl Summary {
 
     pub fn decompress_archive_to_memory(
         &self,
-        mut reader: impl Read + Seek,
+        mut deserializer: Deserializer<impl Read + Seek>,
     ) -> anyhow::Result<Vec<u8>> {
         debug!("Loading entire file to memory");
-        let size = reader.seek(SeekFrom::End(0))?;
+        let size = deserializer.seek(SeekFrom::End(0))?;
         let mut buffer = vec![0; size as usize];
-        reader.seek(SeekFrom::Start(0))?;
-        reader
+        deserializer.seek(SeekFrom::Start(0))?;
+        deserializer
             .read_exact(&mut buffer)
             .context("cannot read entire archive to memory")?;
         debug!(
@@ -51,20 +51,20 @@ impl Summary {
                 let compressed_offset = chunk.compressed_offset as usize;
 
                 debug!("Decompressing compressed chunk {i} in archive (at offset {compressed_offset:08x})");
-                let mut reader = Cursor::new(&buffer);
-                reader.seek(SeekFrom::Current(compressed_offset as i64))?;
-                let header = reader.deserialize::<CompressedChunkHeader>()?;
+                let mut deserializer = Deserializer::from_buffer(buffer.as_slice());
+                deserializer.seek(SeekFrom::Current(compressed_offset as i64))?;
+                let header = deserializer.deserialize::<CompressedChunkHeader>()?;
                 trace!("Read header: {header:#?}");
 
                 let block_count =
                     (header.sum.uncompressed_size + header.block_size - 1) / header.block_size;
                 let mut blocks = Vec::with_capacity(block_count as usize);
                 for _ in 0..block_count {
-                    blocks.push(reader.deserialize::<CompressedChunkBlock>()?);
+                    blocks.push(deserializer.deserialize::<CompressedChunkBlock>()?);
                 }
                 trace!("Read {} blocks", blocks.len());
 
-                let mut in_position = reader.position() as usize;
+                let mut in_position = deserializer.position() as usize;
                 let mut out_position = chunk.uncompressed_offset as usize;
                 for (i, block) in blocks.iter().enumerate() {
                     trace!("Decompressing block {i} at {in_position:08x}: {block:#?}");

@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, Deserialize};
+use stitchkit_core::{binary::Deserializer, Deserialize};
 use tracing::{debug, trace};
 
 use crate::{index::OptionalPackageObjectIndex, name::ArchivedName};
@@ -35,24 +35,24 @@ impl ObjectImport {
 impl Summary {
     pub fn deserialize_import_table(
         &self,
-        mut reader: impl Read + Seek,
+        mut deserializer: Deserializer<impl Read + Seek>,
     ) -> anyhow::Result<Vec<ObjectImport>> {
         debug!(
             "Deserializing import table ({} imports at {:08x})",
             self.import_count, self.import_offset
         );
-        reader.seek(SeekFrom::Start(self.import_offset as u64))?;
+        deserializer.seek(SeekFrom::Start(self.import_offset as u64))?;
         let mut imports = Vec::with_capacity(self.import_count as usize);
         for i in 0..self.import_count {
             trace!(
                 "Import {} at position {:08x}",
                 i + 1,
-                reader
+                deserializer
                     .stream_position()
                     .context("cannot get stream position for trace logging")?
             );
             imports.push(
-                reader
+                deserializer
                     .deserialize()
                     .with_context(|| format!("cannot deserialize import {i}"))?,
             );

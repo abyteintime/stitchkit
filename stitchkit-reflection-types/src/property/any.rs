@@ -5,7 +5,7 @@ use stitchkit_archive::{
     index::PackageObjectIndex,
     sections::{NameTableEntry, ObjectImport},
 };
-use stitchkit_core::binary::ReadExt;
+use stitchkit_core::binary::Deserializer;
 
 use super::{
     ArrayProperty, ByteProperty, ClassProperty, ComponentProperty, DelegateProperty, IntProperty,
@@ -29,69 +29,69 @@ pub enum AnyProperty {
 }
 
 impl AnyProperty {
-    /// Deserializes an `AnyProperty` given [`PropertyClasses`], a class index, and a reader.
+    /// Deserializes an `AnyProperty` given [`PropertyClasses`], a class index, and a deserializer.
     ///
     /// Returns `Ok(Some(any))` when the property is successfully deserialized, `Ok(None)` when
     /// `class_index` is not a known property class, or `Err` when deserialization fails.
     pub fn deserialize(
         property_classes: &PropertyClasses,
         class_index: PackageObjectIndex,
-        mut reader: impl Read,
+        mut deserializer: Deserializer<impl Read>,
     ) -> anyhow::Result<Option<Self>> {
         let class_index = Some(class_index);
         Ok(match class_index {
             i if i == property_classes.byte_property => Some(Self::Byte(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize byte property")?,
             )),
             i if i == property_classes.int_property => Some(Self::Int(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize int property")?,
             )),
             i if i == property_classes.string_property => Some(Self::String(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize string property")?,
             )),
             i if i == property_classes.name_property => Some(Self::Name(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize name property")?,
             )),
             i if i == property_classes.array_property => Some(Self::Array(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize array property")?,
             )),
             i if i == property_classes.object_property => Some(Self::Object(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize object property")?,
             )),
             i if i == property_classes.class_property => Some(Self::Class(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize class property")?,
             )),
             i if i == property_classes.interface_property => Some(Self::Interface(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize interface property")?,
             )),
             i if i == property_classes.delegate_property => Some(Self::Delegate(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize delegate property")?,
             )),
             i if i == property_classes.struct_property => Some(Self::Struct(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize struct property")?,
             )),
             i if i == property_classes.component_property => Some(Self::Component(
-                reader
+                deserializer
                     .deserialize()
                     .context("cannot deserialize component property")?,
             )),

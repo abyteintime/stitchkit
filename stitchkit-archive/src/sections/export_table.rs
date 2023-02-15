@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::ReadExt, flags::ObjectFlags, uuid::Uuid, Deserialize};
+use stitchkit_core::{binary::Deserializer, flags::ObjectFlags, uuid::Uuid, Deserialize};
 use tracing::{debug, trace};
 
 use crate::{
@@ -30,24 +30,24 @@ pub struct ObjectExport {
 impl Summary {
     pub fn deserialize_export_table(
         &self,
-        mut reader: impl Read + Seek,
+        mut deserializer: Deserializer<impl Read + Seek>,
     ) -> anyhow::Result<Vec<ObjectExport>> {
         debug!(
             "Deserializing export table ({} exports at {:08x})",
             self.export_count, self.export_offset
         );
-        reader.seek(SeekFrom::Start(self.export_offset as u64))?;
+        deserializer.seek(SeekFrom::Start(self.export_offset as u64))?;
         let mut exports = Vec::with_capacity(self.export_count as usize);
         for i in 0..self.export_count {
             trace!(
                 "Export {} at position {:08x}",
                 i + 1,
-                reader
+                deserializer
                     .stream_position()
                     .context("cannot get stream position for trace logging")?
             );
             exports.push(
-                reader
+                deserializer
                     .deserialize()
                     .with_context(|| format!("cannot deserialize export {i}"))?,
             );

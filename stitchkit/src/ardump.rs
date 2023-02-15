@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Cursor},
+    io::BufReader,
     path::{Path, PathBuf},
 };
 
@@ -11,7 +11,7 @@ use stitchkit_archive::{
     name::archived_name_table,
     sections::{NameTableEntry, ObjectExport, Summary},
 };
-use stitchkit_core::binary::ReadExt;
+use stitchkit_core::binary::Deserializer;
 use tracing::{debug, info};
 
 #[derive(Clone, Subcommand)]
@@ -68,10 +68,11 @@ pub enum Ardump {
 
 pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
     info!(?filename, "Opening archive");
-    let mut reader = BufReader::new(File::open(filename)?);
+    let mut deserializer = Deserializer::new(BufReader::new(File::open(filename)?))
+        .context("cannot open file for deserialization")?;
 
     debug!("Reading summary");
-    let summary = reader
+    let summary = deserializer
         .deserialize::<Summary>()
         .context("cannot deserialize archive summary")?;
 
@@ -83,16 +84,16 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
     debug!("Reading entire archive into memory");
     let archive = summary
-        .decompress_archive_to_memory(&mut reader)
+        .decompress_archive_to_memory(deserializer.as_mut())
         .context("cannot fully load archive to memory")?;
-    let mut reader = Cursor::new(&archive);
+    let mut deserializer = Deserializer::from_buffer(archive.as_slice());
 
     match dump {
         Ardump::Summary => unreachable!(),
         Ardump::Names => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
 
             debug!("Printing name table");
@@ -103,11 +104,11 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Exports => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(&mut reader)
+                .deserialize_export_table(deserializer.as_mut())
                 .context("cannot deserialize export table")?;
 
             debug!("Printing export table");
@@ -120,11 +121,11 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Imports => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
             debug!("Reading import table");
             let import_table = summary
-                .deserialize_import_table(&mut reader)
+                .deserialize_import_table(deserializer.as_mut())
                 .context("cannot deserialize import table")?;
 
             debug!("Printing import table");
@@ -137,7 +138,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Depends => {
             debug!("Reading dependency table");
             let depends_table = summary
-                .deserialize_dependency_table(&mut reader)
+                .deserialize_dependency_table(deserializer.as_mut())
                 .context("cannot deserialize dependency table")?;
 
             debug!("Printing dependency table");
@@ -148,12 +149,12 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Export { index, output_file } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
 
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(&mut reader)
+                .deserialize_export_table(deserializer.as_mut())
                 .context("cannot deserialize export table")?;
 
             let export @ &ObjectExport {
@@ -181,11 +182,11 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Import { index } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
             debug!("Reading import table");
             let import_table = summary
-                .deserialize_import_table(&mut reader)
+                .deserialize_import_table(deserializer.as_mut())
                 .context("cannot deserialize import table")?;
             let import = import_table
                 .get(index - 1)
@@ -201,12 +202,12 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot deserialize name table")?;
 
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(&mut reader)
+                .deserialize_export_table(deserializer.as_mut())
                 .context("cannot deserialize export table")?;
 
             if clean {

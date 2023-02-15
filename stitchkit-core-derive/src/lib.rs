@@ -30,7 +30,7 @@ fn derive_deserialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
             .map(|cond| {
                 quote! {
                     if #cond {
-                        ::stitchkit_core::binary::Deserialize::deserialize(&mut reader)
+                        ::stitchkit_core::binary::Deserialize::deserialize(::stitchkit_core::binary::Deserializer::as_mut(&mut deserializer))
                             .map(|val| ::std::option::Option::Some(val))
                     } else {
                         ::std::result::Result::Ok(::std::option::Option::None)
@@ -39,7 +39,7 @@ fn derive_deserialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
             })
             .unwrap_or_else(|| {
                 quote! {
-                    ::stitchkit_core::binary::Deserialize::deserialize(&mut reader)
+                    ::stitchkit_core::binary::Deserialize::deserialize(::stitchkit_core::binary::Deserializer::as_mut(&mut deserializer))
                 }
             });
         let variable_value = quote! {
@@ -58,7 +58,7 @@ fn derive_deserialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics ::stitchkit_core::binary::Deserialize for #type_name #type_generics #where_clause {
-            fn deserialize(mut reader: impl ::std::io::Read) -> ::anyhow::Result<Self> {
+            fn deserialize(mut deserializer: ::stitchkit_core::binary::Deserializer<impl ::std::io::Read>) -> ::anyhow::Result<Self> {
                 #variables
                 Ok(Self {
                     #constructor_fields

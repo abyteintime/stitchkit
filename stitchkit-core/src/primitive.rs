@@ -2,7 +2,7 @@ use std::{fmt, io::Read};
 
 use anyhow::{ensure, Context};
 
-use crate::binary::{Deserialize, ReadExt};
+use crate::binary::{Deserialize, Deserializer};
 
 /// 32-bit Unreal `UBOOL`.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -21,8 +21,8 @@ impl From<Bool32> for bool {
 }
 
 impl Deserialize for Bool32 {
-    fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-        let underlying = reader
+    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+        let underlying = deserializer
             .deserialize::<u32>()
             .context("cannot deserialize Bool32")?;
         ensure!(
@@ -52,8 +52,8 @@ macro_rules! const_primitive {
         pub struct $NewType<const VALUE: $Underlying>;
 
         impl<const VALUE: $Underlying> Deserialize for $NewType<VALUE> {
-            fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
-                let value = reader.deserialize::<$Underlying>()?;
+            fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+                let value = deserializer.deserialize::<$Underlying>()?;
                 ensure!(
                     value == VALUE,
                     "constant {} expected, but got {}",

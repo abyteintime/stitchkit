@@ -1,10 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufReader, Cursor},
-    ops::RangeInclusive,
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{fs::File, io::BufReader, ops::RangeInclusive, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Context};
 use clap::{Subcommand, ValueEnum};
@@ -13,10 +7,10 @@ use stitchkit_archive::{
     name::archived_name_table,
     sections::{ObjectExport, Summary},
 };
-use stitchkit_core::binary::{deserialize, ReadExt};
+use stitchkit_core::binary::{deserialize, Deserializer};
 use stitchkit_reflection_types::{
     property::any::{AnyProperty, PropertyClasses},
-    Class, Function, State,
+    Class, Enum, Function, State, Struct,
 };
 use tracing::{debug, error, info, info_span, trace, warn};
 
@@ -30,6 +24,10 @@ pub enum ObjectKind {
     Class,
     /// Deserialize all types of UProperties.
     Properties,
+    /// Deserialize UEnums.
+    Enum,
+    /// Deserialize UStructs.
+    Struct,
 }
 
 #[derive(Debug, Clone)]
@@ -67,32 +65,34 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
             filter_by_class,
         } => {
             info!(filename = ?archive, "Opening archive");
-            let mut file =
+            let file =
                 BufReader::new(File::open(&archive).context("cannot open archive for reading")?);
+            let mut deserializer =
+                Deserializer::new(file).context("cannot open archive for deserialization")?;
 
             debug!("Reading summary");
-            let summary = file
+            let summary = deserializer
                 .deserialize::<Summary>()
                 .context("cannot read archive summary")?;
             debug!("Reading entire archive to memory");
             let archive = summary
-                .decompress_archive_to_memory(file)
+                .decompress_archive_to_memory(deserializer)
                 .context("cannot fully load archive to memory")?;
-            let mut reader = Cursor::new(&archive);
+            let mut deserializer = Deserializer::from_buffer(archive.as_slice());
 
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(&mut reader)
+                .deserialize_name_table(deserializer.as_mut())
                 .context("cannot read archive name table")?;
 
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(&mut reader)
+                .deserialize_export_table(deserializer.as_mut())
                 .context("cannot read archive export table")?;
 
             debug!("Reading import table");
             let import_table = summary
-                .deserialize_import_table(&mut reader)
+                .deserialize_import_table(deserializer.as_mut())
                 .context("cannot read archive import table")?;
             debug!("Finding external classes in import table");
             let property_classes = PropertyClasses::new(&name_table, &import_table);
@@ -142,7 +142,7 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                                 // Remember that println! and error! output to different streams.
                                 // We still want something sensible in stdout, rather than piling
                                 // a bunch of failures on top of one line.
-                                println!("[serialization error]");
+                                println!("{prefix}: [serialization error]");
                                 error!("while dumping object {index} {object_name:?}: {err:?}")
                             }
                         }
@@ -173,11 +173,19 @@ fn dump_object_of_kind(
             println!("{prefix}: {:#?}", deserialize::<Class>(buffer)?)
         }
         ObjectKind::Properties => {
-            if let Some(property) =
-                AnyProperty::deserialize(property_classes, class_index, Cursor::new(buffer))?
-            {
+            if let Some(property) = AnyProperty::deserialize(
+                property_classes,
+                class_index,
+                Deserializer::from_buffer(buffer),
+            )? {
                 println!("{prefix}: {property:#?}",);
             }
+        }
+        ObjectKind::Enum => {
+            println!("{prefix}: {:#?}", deserialize::<Enum>(buffer)?)
+        }
+        ObjectKind::Struct => {
+            println!("{prefix}: {:#?}", deserialize::<Struct>(buffer)?)
         }
     }
     Ok(())

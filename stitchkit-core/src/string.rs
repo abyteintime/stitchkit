@@ -1,11 +1,12 @@
 use std::{
     fmt::{Debug, Display},
+    io::Read,
     ops::Deref,
 };
 
 use anyhow::Context;
 
-use crate::binary::{Deserialize, ReadExt};
+use crate::binary::{Deserialize, Deserializer};
 
 #[derive(Clone, PartialEq, Eq, Default, Hash)]
 pub struct UnrealString {
@@ -20,10 +21,10 @@ impl UnrealString {
 }
 
 impl Deserialize for UnrealString {
-    fn deserialize(mut reader: impl std::io::Read) -> anyhow::Result<Self> {
-        let length = reader.deserialize::<u32>()?;
+    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+        let length = deserializer.deserialize::<u32>()?;
         let mut bytes = vec![0; length as usize];
-        reader
+        deserializer
             .read_exact(&mut bytes)
             .with_context(|| format!("cannot read string of length {length}"))?;
         Ok(Self { bytes })

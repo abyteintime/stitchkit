@@ -9,7 +9,7 @@ use std::{
     ops::Deref,
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use uuid::Uuid;
 
 pub trait Deserialize: Sized {
@@ -43,6 +43,27 @@ deserialize_primitive_le!(i8);
 deserialize_primitive_le!(i16);
 deserialize_primitive_le!(i32);
 deserialize_primitive_le!(i64);
+
+macro_rules! deserialize_nonzero_primitive_le {
+    ($Underlying:ty, $NonZero:ty) => {
+        impl Deserialize for $NonZero {
+            fn deserialize(mut reader: impl Read) -> anyhow::Result<Self> {
+                let num = reader.deserialize::<$Underlying>()?;
+                <$NonZero>::new(num).ok_or_else(|| anyhow!("non-zero value expected but got zero"))
+            }
+        }
+    };
+}
+
+deserialize_nonzero_primitive_le!(u8, NonZeroU8);
+deserialize_nonzero_primitive_le!(u16, NonZeroU16);
+deserialize_nonzero_primitive_le!(u32, NonZeroU32);
+deserialize_nonzero_primitive_le!(u64, NonZeroU64);
+
+deserialize_nonzero_primitive_le!(i8, NonZeroI8);
+deserialize_nonzero_primitive_le!(i16, NonZeroI16);
+deserialize_nonzero_primitive_le!(i32, NonZeroI32);
+deserialize_nonzero_primitive_le!(i64, NonZeroI64);
 
 macro_rules! deserialize_optional_nonzero_primitive_le {
     ($Underlying:ty, $NonZero:ty) => {

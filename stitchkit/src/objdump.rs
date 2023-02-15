@@ -14,10 +14,13 @@ use stitchkit_archive::{
     sections::{ObjectExport, Summary},
 };
 use stitchkit_core::binary::{deserialize, ReadExt};
-use stitchkit_reflection_types::{Class, Function, State};
-use tracing::{debug, error, info, info_span, warn};
+use stitchkit_reflection_types::{
+    property::any::{AnyProperty, PropertyClasses},
+    Class, Function, State,
+};
+use tracing::{debug, error, info, info_span, trace, warn};
 
-#[derive(Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ObjectKind {
     /// Deserialize UFunctions.
     Function,
@@ -25,6 +28,8 @@ pub enum ObjectKind {
     State,
     /// Deserialize UClasses.
     Class,
+    /// Deserialize all types of UProperties.
+    Properties,
 }
 
 #[derive(Debug, Clone)]
@@ -41,7 +46,7 @@ pub enum Objdump {
         kind: ObjectKind,
 
         /// The export indices of the objects to be deserialized.
-        objects: Vec<ObjectIndexRange>,
+        objects: Option<Vec<ObjectIndexRange>>,
 
         /// The archive the objects are contained within.
         #[clap(short, long)]
@@ -85,10 +90,18 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                 .deserialize_export_table(&mut reader)
                 .context("cannot read archive export table")?;
 
+            debug!("Reading import table");
+            let import_table = summary
+                .deserialize_import_table(&mut reader)
+                .context("cannot read archive import table")?;
+            debug!("Finding external classes in import table");
+            let property_classes = PropertyClasses::new(&name_table, &import_table);
+            trace!("Property classes: {property_classes:#?}");
+
             debug!("Printing objects");
-            for range in objects {
+            for range in objects.unwrap_or_else(|| vec![ObjectIndexRange::All]) {
                 for index in range.to_range(export_table.len()) {
-                    let _span = info_span!("object", index).entered();
+                    let _span = info_span!("object", index = index + 1).entered();
 
                     let &ObjectExport {
                         class_index,
@@ -116,8 +129,14 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                     }
 
                     archived_name_table::with(&name_table, || {
-                        print!("{index} {object_name:?}: ");
-                        match dump_object_of_kind(binary, kind) {
+                        let prefix = format!("{} {object_name:?}", index + 1);
+                        match dump_object_of_kind(
+                            &prefix,
+                            &property_classes,
+                            class_index,
+                            binary,
+                            kind,
+                        ) {
                             Ok(()) => (),
                             Err(err) => {
                                 // Remember that println! and error! output to different streams.
@@ -136,16 +155,29 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn dump_object_of_kind(buffer: &[u8], kind: ObjectKind) -> anyhow::Result<()> {
+fn dump_object_of_kind(
+    prefix: &str,
+    property_classes: &PropertyClasses,
+    class_index: PackageObjectIndex,
+    buffer: &[u8],
+    kind: ObjectKind,
+) -> anyhow::Result<()> {
     match kind {
         ObjectKind::Function => {
-            println!("{:#?}", deserialize::<Function>(buffer)?)
+            println!("{prefix}: {:#?}", deserialize::<Function>(buffer)?)
         }
         ObjectKind::State => {
-            println!("{:#?}", deserialize::<State>(buffer)?)
+            println!("{prefix}: {:#?}", deserialize::<State>(buffer)?)
         }
         ObjectKind::Class => {
-            println!("{:#?}", deserialize::<Class>(buffer)?)
+            println!("{prefix}: {:#?}", deserialize::<Class>(buffer)?)
+        }
+        ObjectKind::Properties => {
+            if let Some(property) =
+                AnyProperty::deserialize(property_classes, class_index, Cursor::new(buffer))?
+            {
+                println!("{prefix}: {property:#?}",);
+            }
         }
     }
     Ok(())

@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    ops::Deref,
+};
 
 use anyhow::Context;
 
@@ -7,6 +10,13 @@ use crate::binary::{Deserialize, ReadExt};
 #[derive(Clone, PartialEq, Eq, Default, Hash)]
 pub struct UnrealString {
     bytes: Vec<u8>,
+}
+
+impl UnrealString {
+    /// Returns the string's byte representation without the NUL terminator.
+    pub fn to_bytes(&self) -> &[u8] {
+        self.bytes.strip_suffix(&[b'\0']).unwrap_or(&self.bytes)
+    }
 }
 
 impl Deserialize for UnrealString {
@@ -48,5 +58,13 @@ impl Display for UnrealString {
             f.write_str("<invalid UTF-8> ")?;
             Debug::fmt(&self.bytes, f)
         }
+    }
+}
+
+impl Deref for UnrealString {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.bytes
     }
 }

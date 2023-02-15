@@ -2,7 +2,7 @@ use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
 use stitchkit_core::{binary::ReadExt, flags::ObjectFlags, uuid::Uuid, Deserialize};
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{
     index::{OptionalPackageObjectIndex, PackageObjectIndex},
@@ -22,7 +22,7 @@ pub struct ObjectExport {
     pub serial_size: u32,
     pub serial_offset: u32,
     pub export_flags: u32,
-    pub net_object_count: u32,
+    pub unknown_list: Vec<u32>,
     pub uuid: Uuid,
     pub unknown: u32,
 }
@@ -39,6 +39,13 @@ impl Summary {
         reader.seek(SeekFrom::Start(self.export_offset as u64))?;
         let mut exports = Vec::with_capacity(self.export_count as usize);
         for i in 0..self.export_count {
+            trace!(
+                "Export {} at position {:08x}",
+                i + 1,
+                reader
+                    .stream_position()
+                    .context("cannot get stream position for trace logging")?
+            );
             exports.push(
                 reader
                     .deserialize()

@@ -13,14 +13,14 @@ impl Summary {
 
     pub fn decompress_archive_to_memory(
         &self,
-        mut deserializer: Deserializer<impl Read + Seek>,
+        deserializer: &mut Deserializer<impl Read + Seek>,
     ) -> anyhow::Result<Vec<u8>> {
         debug!("Loading entire file to memory");
         let size = deserializer.seek(SeekFrom::End(0))?;
         let mut buffer = vec![0; size as usize];
         deserializer.seek(SeekFrom::Start(0))?;
         deserializer
-            .read_exact(&mut buffer)
+            .read_bytes(&mut buffer)
             .context("cannot read entire archive to memory")?;
         debug!(
             "Size on disk: {} bytes | {:.2} MiB",
@@ -64,7 +64,7 @@ impl Summary {
                 }
                 trace!("Read {} blocks", blocks.len());
 
-                let mut in_position = deserializer.position() as usize;
+                let mut in_position = deserializer.stream_position() as usize;
                 let mut out_position = chunk.uncompressed_offset as usize;
                 for (i, block) in blocks.iter().enumerate() {
                     trace!("Decompressing block {i} at {in_position:08x}: {block:#?}");

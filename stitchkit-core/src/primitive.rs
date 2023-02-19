@@ -21,7 +21,7 @@ impl From<Bool32> for bool {
 }
 
 impl Deserialize for Bool32 {
-    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
         let underlying = deserializer
             .deserialize::<u32>()
             .context("cannot deserialize Bool32")?;
@@ -52,7 +52,7 @@ macro_rules! const_primitive {
         pub struct $NewType<const VALUE: $Underlying>;
 
         impl<const VALUE: $Underlying> Deserialize for $NewType<VALUE> {
-            fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
                 let value = deserializer.deserialize::<$Underlying>()?;
                 ensure!(
                     value == VALUE,

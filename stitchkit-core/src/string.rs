@@ -21,11 +21,11 @@ impl UnrealString {
 }
 
 impl Deserialize for UnrealString {
-    fn deserialize(mut deserializer: Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
         let length = deserializer.deserialize::<u32>()?;
         let mut bytes = vec![0; length as usize];
         deserializer
-            .read_exact(&mut bytes)
+            .read_bytes(&mut bytes)
             .with_context(|| format!("cannot read string of length {length}"))?;
         Ok(Self { bytes })
     }

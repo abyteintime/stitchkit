@@ -3,14 +3,12 @@ use std::{fs::File, io::BufReader, ops::RangeInclusive, path::PathBuf, str::From
 use anyhow::{anyhow, Context};
 use clap::{Subcommand, ValueEnum};
 use stitchkit_archive::{
-    index::PackageObjectIndex,
-    name::archived_name_table,
-    sections::{ObjectExport, Summary},
+    index::PackageClassIndex, name::archived_name_table, sections::ObjectExport, Archive,
 };
 use stitchkit_core::binary::{deserialize, Deserializer};
 use stitchkit_reflection_types::{
     property::any::{AnyProperty, PropertyClasses},
-    Class, Enum, Function, State, Struct,
+    Class, DefaultObject, Enum, Function, State, Struct,
 };
 use tracing::{debug, error, info, info_span, trace, warn};
 
@@ -28,6 +26,8 @@ pub enum ObjectKind {
     Enum,
     /// Deserialize UStructs.
     Struct,
+    /// Deserialize default objects (those generated from `defaultproperties`).
+    Default,
 }
 
 #[derive(Debug, Clone)]
@@ -52,7 +52,7 @@ pub enum Objdump {
 
         /// Specify to only deserialize objects whose class is the one specified.
         #[clap(long)]
-        filter_by_class: Option<PackageObjectIndex>,
+        filter_by_class: Option<PackageClassIndex>,
     },
 }
 
@@ -70,48 +70,31 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
             let mut deserializer =
                 Deserializer::new(file).context("cannot open archive for deserialization")?;
 
-            debug!("Reading summary");
-            let summary = deserializer
-                .deserialize::<Summary>()
-                .context("cannot read archive summary")?;
-            debug!("Reading entire archive to memory");
-            let archive = summary
-                .decompress_archive_to_memory(deserializer)
-                .context("cannot fully load archive to memory")?;
-            let mut deserializer = Deserializer::from_buffer(archive.as_slice());
+            debug!("Reading archive");
+            let archive = Archive::deserialize(&mut deserializer).context("cannot read archive")?;
 
-            debug!("Reading name table");
-            let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
-                .context("cannot read archive name table")?;
-
-            debug!("Reading export table");
-            let export_table = summary
-                .deserialize_export_table(deserializer.as_mut())
-                .context("cannot read archive export table")?;
-
-            debug!("Reading import table");
-            let import_table = summary
-                .deserialize_import_table(deserializer.as_mut())
-                .context("cannot read archive import table")?;
             debug!("Finding external classes in import table");
-            let property_classes = PropertyClasses::new(&name_table, &import_table);
+            let property_classes =
+                PropertyClasses::new(&archive.name_table, &archive.import_table)?;
             trace!("Property classes: {property_classes:#?}");
 
             debug!("Printing objects");
             for range in objects.unwrap_or_else(|| vec![ObjectIndexRange::All]) {
-                for index in range.to_range(export_table.len()) {
+                for index in range.to_range(archive.export_table.exports.len()) {
                     let _span = info_span!("object", index = index + 1).entered();
 
+                    let export = archive
+                        .export_table
+                        .exports
+                        .get(index as usize)
+                        .ok_or_else(|| {
+                            anyhow!("object index {index} out of bounds (range {range:?})")
+                        })?;
                     let &ObjectExport {
                         class_index,
                         object_name,
-                        serial_offset,
-                        serial_size,
                         ..
-                    } = export_table.get(index as usize).ok_or_else(|| {
-                        anyhow!("object index {index} out of bounds (range {range:?})")
-                    })?;
+                    } = export;
 
                     if let Some(filter) = filter_by_class {
                         if class_index != filter {
@@ -119,19 +102,17 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                         }
                     }
 
-                    let (serial_offset, serial_size) =
-                        (serial_offset as usize, serial_size as usize);
-                    let binary = &archive[serial_offset..serial_offset + serial_size];
-
+                    let binary = &export.get_serial_data(&archive.decompressed_data);
                     if binary.is_empty() {
                         warn!("Object has no serial data");
                         continue;
                     }
 
-                    archived_name_table::with(&name_table, || {
+                    archived_name_table::with(&archive.name_table, || {
                         let prefix = format!("{} {object_name:?}", index + 1);
                         match dump_object_of_kind(
                             &prefix,
+                            &archive,
                             &property_classes,
                             class_index,
                             binary,
@@ -157,8 +138,9 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
 
 fn dump_object_of_kind(
     prefix: &str,
+    archive: &Archive,
     property_classes: &PropertyClasses,
-    class_index: PackageObjectIndex,
+    class_index: PackageClassIndex,
     buffer: &[u8],
     kind: ObjectKind,
 ) -> anyhow::Result<()> {
@@ -176,7 +158,7 @@ fn dump_object_of_kind(
             if let Some(property) = AnyProperty::deserialize(
                 property_classes,
                 class_index,
-                Deserializer::from_buffer(buffer),
+                &mut Deserializer::from_buffer(buffer),
             )? {
                 println!("{prefix}: {property:#?}",);
             }
@@ -185,7 +167,35 @@ fn dump_object_of_kind(
             println!("{prefix}: {:#?}", deserialize::<Enum>(buffer)?)
         }
         ObjectKind::Struct => {
-            println!("{prefix}: {:#?}", deserialize::<Struct>(buffer)?)
+            println!(
+                "{prefix}: {:#?}",
+                Struct::deserialize(
+                    &mut Deserializer::from_buffer(buffer),
+                    archive,
+                    property_classes
+                )?
+            )
+        }
+        ObjectKind::Default => {
+            let class_buffer =
+                archive
+                    .export_table
+                    .get(class_index.export_index().ok_or_else(|| {
+                        anyhow!("class for default object must be an exported class")
+                    })?)
+                    .ok_or_else(|| anyhow!("default object has an invalid class index"))?
+                    .get_serial_data(&archive.decompressed_data);
+            let class = deserialize::<Class>(class_buffer)
+                .context("cannot deserialize the default object's class")?;
+            println!(
+                "{prefix}: {:#?}",
+                DefaultObject::deserialize(
+                    &mut Deserializer::from_buffer(buffer),
+                    archive,
+                    property_classes,
+                    &class,
+                )?
+            );
         }
     }
     Ok(())

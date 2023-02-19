@@ -18,3 +18,12 @@ The end goal is to have at least the following:
 - UnrealScript compiler
   - The goal is to build a compiler that is meant to replace the one in vanilla Unreal,
     sporting better error messages and blazingly fast compilation.
+
+## Crates in this repository
+
+- `stitchkit` - CLI that ties everything together
+- `stitchkit-core` - core types, binary serialization support
+  - `stitchkit-core-derive` - derive macros for serialization
+- Handling the FArchive binary format (.u, .upk, .umap)
+  - `stitchkit-archive` - core structure of archives (sections)
+  - `stitchkit-reflection-types` - reflection objects (`Class` et al.)

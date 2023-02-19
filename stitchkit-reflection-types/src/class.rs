@@ -1,10 +1,7 @@
 #![allow(clippy::manual_strip)]
 
 use bitflags::bitflags;
-use stitchkit_archive::{
-    index::{OptionalPackageObjectIndex, PackageObjectIndex},
-    name::ArchivedName,
-};
+use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName};
 use stitchkit_core::{
     primitive::{Bool32, ConstU32},
     serializable_bitflags,
@@ -21,7 +18,7 @@ pub struct Class {
     /// Flags that tell you information about the class.
     pub class_flags: ClassFlags,
     /// Index of the `Object` class. Not sure if it's ever anything else.
-    pub object_class: PackageObjectIndex,
+    pub object_class: OptionalPackageObjectIndex,
     /// The name of this class's configuration file, as specified using the `config(Name)`
     /// specifier.
     pub config_name: ArchivedName,
@@ -52,18 +49,18 @@ pub struct Class {
     // since archived names' IDs are determined at runtime.
     pub _none: ArchivedName,
     /// The class default object (CDO) of this class. Its name is usually prefixed with `Default__`.
-    pub class_default_object: PackageObjectIndex,
+    pub class_default_object: OptionalPackageObjectIndex,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Subobject {
     pub name: ArchivedName,
-    pub default: PackageObjectIndex,
+    pub default: OptionalPackageObjectIndex,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ImplementedInterface {
-    pub interface: PackageObjectIndex,
+    pub interface: OptionalPackageObjectIndex,
     pub vftable: OptionalPackageObjectIndex,
 }
 

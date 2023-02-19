@@ -3,7 +3,7 @@ macro_rules! serializable_bitflags {
     (type $T:ty; validate |$var:tt| $validate:tt) => {
         impl $crate::binary::Deserialize for $T {
             fn deserialize(
-                mut deserializer: $crate::binary::Deserializer<impl ::std::io::Read>,
+                deserializer: &mut $crate::binary::Deserializer<impl ::std::io::Read>,
             ) -> ::anyhow::Result<Self> {
                 let result = Self::from_bits_retain(deserializer.deserialize()?);
                 {

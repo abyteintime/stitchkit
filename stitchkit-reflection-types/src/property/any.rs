@@ -1,15 +1,15 @@
-use std::{io::Read, num::NonZeroU32};
+use std::io::Read;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use stitchkit_archive::{
-    index::PackageObjectIndex,
-    sections::{NameTableEntry, ObjectImport},
+    index::PackageClassIndex,
+    sections::{ImportTable, NameTable},
 };
 use stitchkit_core::binary::Deserializer;
 
 use super::{
-    ArrayProperty, ByteProperty, ClassProperty, ComponentProperty, DelegateProperty, IntProperty,
-    InterfaceProperty, NameProperty, ObjectProperty, StringProperty, StructProperty,
+    ArrayProperty, ByteProperty, ClassProperty, ComponentProperty, DelegateProperty, FloatProperty,
+    IntProperty, InterfaceProperty, NameProperty, ObjectProperty, StringProperty, StructProperty,
 };
 
 /// Represents any type of property.
@@ -17,6 +17,7 @@ use super::{
 pub enum AnyProperty {
     Byte(ByteProperty),
     Int(IntProperty),
+    Float(FloatProperty),
     String(StringProperty),
     Name(NameProperty),
     Array(ArrayProperty),
@@ -35,8 +36,8 @@ impl AnyProperty {
     /// `class_index` is not a known property class, or `Err` when deserialization fails.
     pub fn deserialize(
         property_classes: &PropertyClasses,
-        class_index: PackageObjectIndex,
-        mut deserializer: Deserializer<impl Read>,
+        class_index: PackageClassIndex,
+        deserializer: &mut Deserializer<impl Read>,
     ) -> anyhow::Result<Option<Self>> {
         let class_index = Some(class_index);
         Ok(match class_index {
@@ -49,6 +50,11 @@ impl AnyProperty {
                 deserializer
                     .deserialize()
                     .context("cannot deserialize int property")?,
+            )),
+            i if i == property_classes.float_property => Some(Self::Float(
+                deserializer
+                    .deserialize()
+                    .context("cannot deserialize float property")?,
             )),
             i if i == property_classes.string_property => Some(Self::String(
                 deserializer
@@ -103,31 +109,37 @@ impl AnyProperty {
 /// Contains the object indices of all property classes within the archive.
 #[derive(Debug, Clone, Default)]
 pub struct PropertyClasses {
-    pub byte_property: Option<PackageObjectIndex>,
-    pub int_property: Option<PackageObjectIndex>,
-    pub string_property: Option<PackageObjectIndex>,
-    pub name_property: Option<PackageObjectIndex>,
-    pub array_property: Option<PackageObjectIndex>,
-    pub object_property: Option<PackageObjectIndex>,
-    pub class_property: Option<PackageObjectIndex>,
-    pub interface_property: Option<PackageObjectIndex>,
-    pub delegate_property: Option<PackageObjectIndex>,
-    pub struct_property: Option<PackageObjectIndex>,
-    pub component_property: Option<PackageObjectIndex>,
+    pub byte_property: Option<PackageClassIndex>,
+    pub int_property: Option<PackageClassIndex>,
+    pub float_property: Option<PackageClassIndex>,
+    pub string_property: Option<PackageClassIndex>,
+    pub name_property: Option<PackageClassIndex>,
+    pub array_property: Option<PackageClassIndex>,
+    pub object_property: Option<PackageClassIndex>,
+    pub class_property: Option<PackageClassIndex>,
+    pub interface_property: Option<PackageClassIndex>,
+    pub delegate_property: Option<PackageClassIndex>,
+    pub struct_property: Option<PackageClassIndex>,
+    pub component_property: Option<PackageClassIndex>,
 }
 
 impl PropertyClasses {
     /// Extracts property classes from an archive's import and name tables.
-    pub fn new(name_table: &[NameTableEntry], import_table: &[ObjectImport]) -> Self {
+    pub fn new(name_table: &NameTable, import_table: &ImportTable) -> anyhow::Result<Self> {
         let mut result = Self::default();
-        for (i, import) in import_table.iter().enumerate() {
+        for (i, import) in import_table.imports.iter().enumerate() {
             if let (b"Core", b"Class", class_name) = import.resolve_names(name_table) {
-                let index = Some(PackageObjectIndex::Imported(
-                    NonZeroU32::new(i as u32 + 1).unwrap(),
-                ));
+                let index = Some(PackageClassIndex::new(-i32::try_from(i + 1).map_err(
+                    |_| {
+                        anyhow!(
+                            "import table has too many imports (the count must not exceed i32::MAX)"
+                        )
+                    },
+                )?));
                 match class_name {
                     b"ByteProperty" => result.byte_property = index,
                     b"IntProperty" => result.int_property = index,
+                    b"FloatProperty" => result.float_property = index,
                     b"StrProperty" => result.string_property = index,
                     b"NameProperty" => result.name_property = index,
                     b"ArrayProperty" => result.array_property = index,
@@ -141,6 +153,6 @@ impl PropertyClasses {
                 }
             }
         }
-        result
+        Ok(result)
     }
 }

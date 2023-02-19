@@ -1,6 +1,7 @@
 #![allow(clippy::manual_strip)]
 
 pub mod any;
+pub mod defaults;
 
 use std::num::NonZeroU32;
 
@@ -166,6 +167,11 @@ pub struct ByteProperty {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct IntProperty {
+    pub base: Property,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FloatProperty {
     pub base: Property,
 }
 

@@ -1,11 +1,11 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use stitchkit_core::{binary::Deserializer, flags::ObjectFlags, uuid::Uuid, Deserialize};
 use tracing::{debug, trace};
 
 use crate::{
-    index::{OptionalPackageObjectIndex, PackageObjectIndex},
+    index::{ExportIndex, OptionalPackageObjectIndex, PackageClassIndex},
     name::ArchivedName,
 };
 
@@ -13,7 +13,7 @@ use super::Summary;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ObjectExport {
-    pub class_index: PackageObjectIndex,
+    pub class_index: PackageClassIndex,
     pub super_index: OptionalPackageObjectIndex,
     pub outer_index: OptionalPackageObjectIndex,
     pub object_name: ArchivedName,
@@ -27,11 +27,38 @@ pub struct ObjectExport {
     pub unknown: u32,
 }
 
+#[derive(Debug, Clone)]
+pub struct ExportTable {
+    pub exports: Vec<ObjectExport>,
+}
+
+impl ExportTable {
+    pub fn get(&self, index: impl Into<ExportIndex>) -> Option<&ObjectExport> {
+        self.exports.get(index.into().0 as usize)
+    }
+
+    pub fn try_get(
+        &self,
+        index: impl TryInto<ExportIndex, Error = anyhow::Error>,
+    ) -> anyhow::Result<&ObjectExport> {
+        let index = index.try_into()?;
+        self.get(index)
+            .ok_or_else(|| anyhow!("{index:?} is outside the bounds of the export table"))
+    }
+}
+
+impl ObjectExport {
+    pub fn get_serial_data<'a>(&self, archive: &'a [u8]) -> &'a [u8] {
+        &archive
+            [self.serial_offset as usize..self.serial_offset as usize + self.serial_size as usize]
+    }
+}
+
 impl Summary {
     pub fn deserialize_export_table(
         &self,
-        mut deserializer: Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<Vec<ObjectExport>> {
+        deserializer: &mut Deserializer<impl Read + Seek>,
+    ) -> anyhow::Result<ExportTable> {
         debug!(
             "Deserializing export table ({} exports at {:08x})",
             self.export_count, self.export_offset
@@ -42,9 +69,7 @@ impl Summary {
             trace!(
                 "Export {} at position {:08x}",
                 i + 1,
-                deserializer
-                    .stream_position()
-                    .context("cannot get stream position for trace logging")?
+                deserializer.stream_position()
             );
             exports.push(
                 deserializer
@@ -52,6 +77,6 @@ impl Summary {
                     .with_context(|| format!("cannot deserialize export {i}"))?,
             );
         }
-        Ok(exports)
+        Ok(ExportTable { exports })
     }
 }

@@ -1,7 +1,8 @@
 mod chunk;
 mod class;
+mod default;
 mod enums;
-mod field;
+pub mod field;
 mod function;
 mod object;
 pub mod property;
@@ -10,8 +11,9 @@ mod structs;
 
 pub use chunk::*;
 pub use class::*;
+pub use default::*;
 pub use enums::*;
-pub use field::*;
+pub use field::Field;
 pub use function::*;
 pub use object::*;
 pub use property::Property;

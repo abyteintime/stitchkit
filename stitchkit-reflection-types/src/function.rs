@@ -6,11 +6,11 @@ use bitflags::bitflags;
 use stitchkit_archive::name::ArchivedName;
 use stitchkit_core::{serializable_bitflags, Deserialize};
 
-use crate::Chunk;
+use crate::{Chunk, StateOrFunctionChunkData};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Function {
-    pub chunk: Chunk<ArchivedName>,
+    pub chunk: Chunk<ArchivedName, StateOrFunctionChunkData>,
     /// Which VM opcode this function implements. This is the number in the `native(n)` specifier.
     pub native_index: Option<NonZeroU16>,
     /// The precedence this operator should take when parsing expressions. This is the number in the

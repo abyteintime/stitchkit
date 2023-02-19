@@ -1,3 +1,5 @@
+pub mod walk;
+
 use stitchkit_archive::index::OptionalPackageObjectIndex;
 use stitchkit_core::{binary::Deserialize, Deserialize};
 

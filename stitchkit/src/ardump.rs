@@ -7,12 +7,12 @@ use std::{
 use anyhow::{anyhow, bail, Context};
 use clap::Subcommand;
 use stitchkit_archive::{
-    index::PackageObjectIndex,
+    index::PackageClassIndex,
     name::archived_name_table,
     sections::{NameTableEntry, ObjectExport, Summary},
 };
 use stitchkit_core::binary::Deserializer;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[derive(Clone, Subcommand)]
 pub enum Ardump {
@@ -53,7 +53,7 @@ pub enum Ardump {
 
         /// Specify to only export objects whose class is the one specified.
         #[clap(long)]
-        filter_by_class: Option<PackageObjectIndex>,
+        filter_by_class: Option<PackageClassIndex>,
     },
 
     /// Decompress an archive fully and dump it to disk. NOTE: This does not strip compression
@@ -84,7 +84,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
     debug!("Reading entire archive into memory");
     let archive = summary
-        .decompress_archive_to_memory(deserializer.as_mut())
+        .decompress_archive_to_memory(&mut deserializer)
         .context("cannot fully load archive to memory")?;
     let mut deserializer = Deserializer::from_buffer(archive.as_slice());
 
@@ -93,26 +93,26 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Names => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
 
             debug!("Printing name table");
-            for (i, NameTableEntry { name, flags }) in name_table.iter().enumerate() {
+            for (i, NameTableEntry { name, flags }) in name_table.entries.iter().enumerate() {
                 println!("{i:6} {name:?} (0x{flags:016x})");
             }
         }
         Ardump::Exports => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(deserializer.as_mut())
+                .deserialize_export_table(&mut deserializer)
                 .context("cannot deserialize export table")?;
 
             debug!("Printing export table");
-            for (i, export) in export_table.iter().enumerate() {
+            for (i, export) in export_table.exports.iter().enumerate() {
                 archived_name_table::with(&name_table, || {
                     println!("{}: {:#?}", i + 1, export);
                 });
@@ -121,15 +121,15 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Imports => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
             debug!("Reading import table");
             let import_table = summary
-                .deserialize_import_table(deserializer.as_mut())
+                .deserialize_import_table(&mut deserializer)
                 .context("cannot deserialize import table")?;
 
             debug!("Printing import table");
-            for (i, import) in import_table.iter().enumerate() {
+            for (i, import) in import_table.imports.iter().enumerate() {
                 archived_name_table::with(&name_table, || {
                     println!("{}: {:#?}", i + 1, import);
                 });
@@ -138,23 +138,23 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Depends => {
             debug!("Reading dependency table");
             let depends_table = summary
-                .deserialize_dependency_table(deserializer.as_mut())
+                .deserialize_dependency_table(&mut deserializer)
                 .context("cannot deserialize dependency table")?;
 
             debug!("Printing dependency table");
-            for (i, depend) in depends_table.iter().enumerate() {
+            for (i, depend) in depends_table.objects.iter().enumerate() {
                 println!("{i}: {:?}", depend);
             }
         }
         Ardump::Export { index, output_file } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
 
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(deserializer.as_mut())
+                .deserialize_export_table(&mut deserializer)
                 .context("cannot deserialize export table")?;
 
             let export @ &ObjectExport {
@@ -162,6 +162,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
                 serial_size,
                 ..
             } = export_table
+                .exports
                 .get(index - 1)
                 .ok_or_else(|| anyhow!("no object with index {index} found in the export table"))?;
             let (serial_offset, serial_size) = (serial_offset as usize, serial_size as usize);
@@ -182,13 +183,14 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         Ardump::Import { index } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
             debug!("Reading import table");
             let import_table = summary
-                .deserialize_import_table(deserializer.as_mut())
+                .deserialize_import_table(&mut deserializer)
                 .context("cannot deserialize import table")?;
             let import = import_table
+                .imports
                 .get(index - 1)
                 .ok_or_else(|| anyhow!("no object with index {index} found in the import table"))?;
             archived_name_table::with(&name_table, || {
@@ -202,12 +204,12 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
         } => {
             debug!("Reading name table");
             let name_table = summary
-                .deserialize_name_table(deserializer.as_mut())
+                .deserialize_name_table(&mut deserializer)
                 .context("cannot deserialize name table")?;
 
             debug!("Reading export table");
             let export_table = summary
-                .deserialize_export_table(deserializer.as_mut())
+                .deserialize_export_table(&mut deserializer)
                 .context("cannot deserialize export table")?;
 
             if clean {
@@ -222,7 +224,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
             debug!("Saving object files");
             std::fs::create_dir_all(&output_directory).context("cannot create output directory")?;
-            for (i, export) in export_table.iter().enumerate() {
+            for (i, export) in export_table.exports.iter().enumerate() {
                 let &ObjectExport {
                     serial_offset,
                     serial_size,
@@ -238,11 +240,17 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
                     }
                 }
 
-                let filename = format!(
-                    "{:04}_{}.uobject",
-                    i + 1,
-                    name_table[export.object_name.index as usize].name
-                );
+                let filename = if let Some(name) = name_table.get(export.object_name.index as usize)
+                {
+                    format!("{:04}_{}.uobject", i + 1, name.name)
+                } else {
+                    warn!(
+                        "Object at index {} has an invalid name {:?}",
+                        i + 1,
+                        export.object_name
+                    );
+                    format!("{:04}.uobject", i + 1)
+                };
                 debug!("Saving {filename}");
                 let path = output_directory.join(&filename);
                 std::fs::write(path, serial_data).context("cannot save object data")?;

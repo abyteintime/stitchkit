@@ -1,25 +1,35 @@
 use stitchkit_archive::index::OptionalPackageObjectIndex;
-use stitchkit_core::{binary::Deserialize, Deserialize};
+use stitchkit_core::{binary::Deserialize, primitive::ConstU32, Deserialize};
 
 use crate::Field;
 
 /// Equivalent of an Unreal `UStruct`.
 #[derive(Debug, Clone, Deserialize)]
-pub struct Chunk<X>
+pub struct Chunk<X, Y>
 where
     X: Deserialize,
+    Y: Deserialize,
 {
     pub field: Field<X>,
     /// If present, indicates the "parent chunk." This may mean different things depending on the
     /// type of chunk. For instance, in functions it's the function this chunk overrides, in classes
     /// this is the parent class, so on and so forth.
     pub parent_chunk: OptionalPackageObjectIndex,
+    /// The chunk's data. Depending on which type the chunk's a part of, the fields may mean
+    /// different things.
+    pub data: Y,
+    /// The function's bytecode.
+    pub bytecode: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StateOrFunctionChunkData {
     /// Classes use this field to store a pointer to a ScriptText object containing the source code.
     pub source_code: OptionalPackageObjectIndex,
-    /// The first variable in this function.
+    /// The first variable in this function or class.
     pub first_variable: OptionalPackageObjectIndex,
     /// Always zero.
-    pub zero_2: u32,
+    pub _zero: ConstU32<0>,
     /// Line number. This may be off by a few lines because `defaultproperties` blocks are
     /// incredibly janky.
     ///
@@ -32,6 +42,37 @@ where
     pub file_position: i32,
     /// The length of the declaration? This also seems to be hardly accurate.
     pub file_length: u32,
-    /// The function's bytecode.
-    pub bytecode: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StructChunkData {
+    /// Seems to be the previous declaration in the class, not sure.
+    pub previous: OptionalPackageObjectIndex,
+    /// Always None.
+    pub _none: OptionalPackageObjectIndex,
+    /// Always zero.
+    pub _zero_1: ConstU32<0>,
+    /// Line number. This may be off by a few lines because `defaultproperties` blocks are
+    /// incredibly janky.
+    ///
+    /// In classes this is -1.
+    pub first_variable: OptionalPackageObjectIndex,
+    pub _zero_2: ConstU32<0>,
+    pub _zero_3: ConstU32<0>,
+}
+
+pub trait ChunkData {
+    fn first_variable(&self) -> OptionalPackageObjectIndex;
+}
+
+impl ChunkData for StateOrFunctionChunkData {
+    fn first_variable(&self) -> OptionalPackageObjectIndex {
+        self.first_variable
+    }
+}
+
+impl ChunkData for StructChunkData {
+    fn first_variable(&self) -> OptionalPackageObjectIndex {
+        self.first_variable
+    }
 }

@@ -2,7 +2,7 @@ use std::fmt;
 
 use stitchkit_core::{context, Deserialize};
 
-use crate::sections::NameTableEntry;
+use crate::sections::NameTable;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct ArchivedName {
@@ -10,8 +10,14 @@ pub struct ArchivedName {
     pub serial_number: u32,
 }
 
+impl ArchivedName {
+    pub fn is_none(&self, name_table: &NameTable) -> bool {
+        name_table.name_to_str(*self) == Some(b"None")
+    }
+}
+
 context! {
-    pub let archived_name_table: Vec<NameTableEntry>;
+    pub let archived_name_table: NameTable;
 }
 
 impl fmt::Debug for ArchivedName {
@@ -28,7 +34,7 @@ impl fmt::Debug for ArchivedName {
             write!(f, "{}", self.index)?;
         }
         if self.serial_number != 0 {
-            write!(f, "_{}", self.serial_number)?;
+            write!(f, "_{}", self.serial_number - 1)?;
         }
         Ok(())
     }

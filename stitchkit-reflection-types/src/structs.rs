@@ -31,8 +31,20 @@ pub struct Struct {
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct StructFlags: u32 {
+        /// `native` specifier - marks the struct as exported to C++ headers.
+        const NATIVE                = 0x00000001;
+        /// `export` specifier.
+        const EXPORT                = 0x00000002;
+        /// `transient` specifier - acts as if all variables in the struct were `transient`.
+        const TRANSIENT             = 0x00000008;
+
+        // Note that the specifiers below use two flags instead of one, for some reason.
+        // They always appear together like that.
+
         /// `immutable` specifier - this struct uses compact binary serialization.
-        const IMMUTABLE = 0x00000030;
+        const IMMUTABLE             = 0x00000030;
+        /// `immutablewhencooked` specifier.
+        const IMMUTABLE_WHEN_COOKED = 0x00000180;
     }
 }
 

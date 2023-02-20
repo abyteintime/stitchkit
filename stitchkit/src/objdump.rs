@@ -3,7 +3,10 @@ use std::{fs::File, io::BufReader, ops::RangeInclusive, path::PathBuf, str::From
 use anyhow::{anyhow, Context};
 use clap::{Subcommand, ValueEnum};
 use stitchkit_archive::{
-    index::PackageClassIndex, name::archived_name_table, sections::ObjectExport, Archive,
+    index::{ExportIndex, OptionalPackageObjectIndex, PackageClassIndex, PackageObjectIndex},
+    name::archived_name_table,
+    sections::ObjectExport,
+    Archive,
 };
 use stitchkit_core::binary::{deserialize, Deserializer};
 use stitchkit_reflection_types::{
@@ -83,10 +86,10 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                 for index in range.to_range(archive.export_table.exports.len()) {
                     let _span = info_span!("object", index = index + 1).entered();
 
+                    let export_index = ExportIndex(index);
                     let export = archive
                         .export_table
-                        .exports
-                        .get(index as usize)
+                        .get(ExportIndex(index))
                         .ok_or_else(|| {
                             anyhow!("object index {index} out of bounds (range {range:?})")
                         })?;
@@ -114,6 +117,9 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                             &prefix,
                             &archive,
                             &property_classes,
+                            OptionalPackageObjectIndex(Some(PackageObjectIndex::from(
+                                export_index,
+                            ))),
                             class_index,
                             binary,
                             kind,
@@ -140,6 +146,7 @@ fn dump_object_of_kind(
     prefix: &str,
     archive: &Archive,
     property_classes: &PropertyClasses,
+    object_index: OptionalPackageObjectIndex,
     class_index: PackageClassIndex,
     buffer: &[u8],
     kind: ObjectKind,
@@ -172,28 +179,19 @@ fn dump_object_of_kind(
                 Struct::deserialize(
                     &mut Deserializer::from_buffer(buffer),
                     archive,
-                    property_classes
+                    property_classes,
+                    object_index,
                 )?
             )
         }
         ObjectKind::Default => {
-            let class_buffer =
-                archive
-                    .export_table
-                    .get(class_index.export_index().ok_or_else(|| {
-                        anyhow!("class for default object must be an exported class")
-                    })?)
-                    .ok_or_else(|| anyhow!("default object has an invalid class index"))?
-                    .get_serial_data(&archive.decompressed_data);
-            let class = deserialize::<Class>(class_buffer)
-                .context("cannot deserialize the default object's class")?;
             println!(
                 "{prefix}: {:#?}",
                 DefaultObject::deserialize(
                     &mut Deserializer::from_buffer(buffer),
                     archive,
                     property_classes,
-                    &class,
+                    OptionalPackageObjectIndex::from(class_index)
                 )?
             );
         }

@@ -7,6 +7,8 @@ use stitchkit_archive::{
 };
 use stitchkit_core::binary::Deserializer;
 
+use crate::Property;
+
 use super::{
     ArrayProperty, ByteProperty, ClassProperty, ComponentProperty, DelegateProperty, FloatProperty,
     IntProperty, InterfaceProperty, NameProperty, ObjectProperty, StringProperty, StructProperty,
@@ -30,6 +32,23 @@ pub enum AnyProperty {
 }
 
 impl AnyProperty {
+    pub fn base(&self) -> &Property {
+        match self {
+            AnyProperty::Byte(p) => &p.base,
+            AnyProperty::Int(p) => &p.base,
+            AnyProperty::Float(p) => &p.base,
+            AnyProperty::String(p) => &p.base,
+            AnyProperty::Name(p) => &p.base,
+            AnyProperty::Array(p) => &p.base,
+            AnyProperty::Object(p) => &p.base,
+            AnyProperty::Class(p) => &p.base,
+            AnyProperty::Interface(p) => &p.base,
+            AnyProperty::Delegate(p) => &p.base,
+            AnyProperty::Struct(p) => &p.base,
+            AnyProperty::Component(p) => &p.base,
+        }
+    }
+
     /// Deserializes an `AnyProperty` given [`PropertyClasses`], a class index, and a deserializer.
     ///
     /// Returns `Ok(Some(any))` when the property is successfully deserialized, `Ok(None)` when

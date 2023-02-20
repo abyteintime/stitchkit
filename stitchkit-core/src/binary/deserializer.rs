@@ -25,7 +25,9 @@ impl<R> Deserializer<R> {
     where
         R: Read,
     {
-        self.stream.read_exact(out_bytes)?;
+        self.stream
+            .read_exact(out_bytes)
+            .with_context(|| format!("at stream position {:08x}", self.stream_position))?;
         self.stream_position += out_bytes.len() as u64;
         Ok(())
     }

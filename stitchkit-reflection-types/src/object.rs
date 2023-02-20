@@ -4,7 +4,7 @@ use stitchkit_core::{binary::Deserialize, Deserialize};
 ///
 /// X can be used to stuff extra data after the index, in case the class in question does that.
 #[derive(Debug, Clone, Deserialize)]
-pub struct Object<X = ()>
+pub struct Object<X>
 where
     X: Deserialize,
 {

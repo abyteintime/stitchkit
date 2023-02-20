@@ -101,6 +101,13 @@ impl TryFrom<PackageObjectIndex> for ExportIndex {
     }
 }
 
+impl From<ExportIndex> for PackageObjectIndex {
+    fn from(value: ExportIndex) -> Self {
+        // SAFETY: We convert to an ExportNumber beforehand, so the value can never be zero.
+        Self(unsafe { NonZeroI32::new_unchecked(ExportNumber::from(value).0.get() as i32) })
+    }
+}
+
 impl TryFrom<PackageObjectIndex> for ImportIndex {
     type Error = anyhow::Error;
 
@@ -108,6 +115,13 @@ impl TryFrom<PackageObjectIndex> for ImportIndex {
         value
             .import_index()
             .ok_or_else(|| anyhow!("package object index is not an import"))
+    }
+}
+
+impl From<ImportIndex> for PackageObjectIndex {
+    fn from(value: ImportIndex) -> Self {
+        // SAFETY: We convert to an ExportNumber beforehand, so the value can never be zero.
+        Self(unsafe { NonZeroI32::new_unchecked(ImportNumber::from(value).0.get() as i32) })
     }
 }
 
@@ -261,6 +275,12 @@ impl PackageClassIndex {
 
     pub fn import_index(&self) -> Option<ImportIndex> {
         self.index.import_index()
+    }
+}
+
+impl From<PackageClassIndex> for OptionalPackageObjectIndex {
+    fn from(value: PackageClassIndex) -> Self {
+        value.index
     }
 }
 

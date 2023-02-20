@@ -4,11 +4,11 @@ use bitflags::bitflags;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName};
 use stitchkit_core::{primitive::ConstI16, serializable_bitflags, Deserialize};
 
-use crate::{Chunk, StateOrFunctionChunkData};
+use crate::Chunk;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct State {
-    pub chunk: Chunk<(), StateOrFunctionChunkData>,
+    pub chunk: Chunk<()>,
     /// Events implemented by this state. For an event to count as implemented, its body must
     /// not be empty.
     pub implements_events: Events,

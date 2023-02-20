@@ -1,18 +1,21 @@
 use std::io::Read;
 
 use anyhow::Context;
-use stitchkit_archive::Archive;
+use stitchkit_archive::{index::OptionalPackageObjectIndex, Archive};
 use stitchkit_core::binary::Deserializer;
 
 use crate::{
-    property::{any::PropertyClasses, defaults::AggregateDefaultProperties},
-    Class, Object,
+    property::{
+        any::PropertyClasses,
+        defaults::{DefaultProperties, DefaultPropertiesFormat},
+    },
+    Object,
 };
 
 #[derive(Debug, Clone)]
 pub struct DefaultObject {
-    pub object: Object,
-    pub default_properties: AggregateDefaultProperties,
+    pub object: Object<()>,
+    pub default_properties: DefaultProperties,
 }
 
 impl DefaultObject {
@@ -20,17 +23,18 @@ impl DefaultObject {
         deserializer: &mut Deserializer<impl Read>,
         archive: &Archive,
         property_classes: &PropertyClasses,
-        class: &Class,
+        class_index: OptionalPackageObjectIndex,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             object: deserializer
                 .deserialize()
                 .context("cannot deserialize field DefaultObject::object")?,
-            default_properties: AggregateDefaultProperties::deserialize(
+            default_properties: DefaultProperties::deserialize::<()>(
                 deserializer,
                 archive,
                 property_classes,
-                class.state.chunk.data.first_variable,
+                class_index,
+                DefaultPropertiesFormat::Full,
             )
             .context("cannot deserialize field DefaultObject::default_properties")?,
         })

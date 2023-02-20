@@ -1,7 +1,10 @@
 #![allow(clippy::manual_strip)]
 
 pub mod any;
+mod collect;
 pub mod defaults;
+
+pub use collect::*;
 
 use std::num::NonZeroU32;
 

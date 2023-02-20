@@ -1,25 +1,42 @@
 #![allow(clippy::manual_strip)]
 
-use std::io::Read;
+use std::{io::Read, ops::Deref};
 
 use anyhow::Context;
 use bitflags::bitflags;
 
-use stitchkit_archive::Archive;
-use stitchkit_core::{binary::Deserializer, primitive::ConstU64, serializable_bitflags};
+use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
+use stitchkit_core::{binary::Deserializer, serializable_bitflags, Deserialize};
 
 use crate::{
-    property::{any::PropertyClasses, defaults::AggregateDefaultProperties},
-    Chunk, StructChunkData,
+    property::{
+        any::PropertyClasses,
+        defaults::{DefaultProperties, DefaultPropertiesFormat},
+    },
+    Chunk,
 };
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StructHeader {
+    pub chunk: Chunk<ArchivedName>,
+    pub flags: StructFlags,
+}
 
 #[derive(Debug, Clone)]
 pub struct Struct {
-    pub chunk: Chunk<(), StructChunkData>,
-    pub flags: StructFlags,
-    pub _unknown: ConstU64<0>,
-    pub default_properties: AggregateDefaultProperties,
+    pub header: StructHeader,
+    pub default_properties: DefaultProperties,
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct StructFlags: u32 {
+        /// `immutable` specifier - this struct uses compact binary serialization.
+        const IMMUTABLE = 0x00000030;
+    }
+}
+
+serializable_bitflags!(StructFlags);
 
 impl Struct {
     /// Deserialize a struct from an input stream.
@@ -30,33 +47,28 @@ impl Struct {
         deserializer: &mut Deserializer<impl Read>,
         archive: &Archive,
         property_classes: &PropertyClasses,
+        this_struct: OptionalPackageObjectIndex,
     ) -> anyhow::Result<Self> {
-        let chunk: Chunk<(), StructChunkData> = deserializer
-            .deserialize()
-            .context("cannot deserialize field Struct::chunk")?;
         Ok(Self {
-            flags: deserializer
+            header: deserializer
                 .deserialize()
-                .context("cannot deserialize field Struct::flags")?,
-            _unknown: deserializer
-                .deserialize()
-                .context("cannot deserialize field Struct::_unknown")?,
-            default_properties: AggregateDefaultProperties::deserialize(
+                .context("cannot deserialize field Struct::header")?,
+            default_properties: DefaultProperties::deserialize::<ArchivedName>(
                 deserializer,
                 archive,
                 property_classes,
-                chunk.data.first_variable,
+                this_struct,
+                DefaultPropertiesFormat::Full,
             )
             .context("cannot deserialize field Struct::default_properties")?,
-            chunk,
         })
     }
 }
 
-bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct StructFlags: u32 {
+impl Deref for Struct {
+    type Target = StructHeader;
+
+    fn deref(&self) -> &Self::Target {
+        &self.header
     }
 }
-
-serializable_bitflags!(StructFlags);

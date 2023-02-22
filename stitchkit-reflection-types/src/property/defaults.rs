@@ -5,7 +5,7 @@ use std::io::Read;
 use anyhow::{anyhow, bail, Context};
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
 use stitchkit_core::{
-    binary::{deserialize, Deserialize, Deserializer},
+    binary::{deserialize, Deserialize, Deserializer, Serialize},
     primitive::ConstU32,
     string::UnrealString,
     Deserialize,
@@ -342,7 +342,7 @@ impl DefaultProperties {
         format: DefaultPropertiesFormat,
     ) -> anyhow::Result<Self>
     where
-        X: Deserialize,
+        X: Deserialize + Serialize,
     {
         let properties = collect_properties::<X>(archive, property_classes, parent_chunk)
             .context("cannot collect all properties for type")?;

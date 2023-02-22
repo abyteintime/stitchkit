@@ -1,14 +1,18 @@
+pub mod builder;
+
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
-use stitchkit_core::{binary::Deserializer, flags::ObjectFlags, string::UnrealString, Deserialize};
+use stitchkit_core::{
+    binary::Deserializer, flags::ObjectFlags, string::UnrealString, Deserialize, Serialize,
+};
 use tracing::{debug, trace};
 
 use crate::name::ArchivedName;
 
 use super::Summary;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct NameTableEntry {
     pub name: UnrealString,
     pub flags: ObjectFlags,
@@ -40,11 +44,11 @@ impl Summary {
     ) -> anyhow::Result<NameTable> {
         debug!(
             "Deserializing name table ({} names at {:08x})",
-            self.name_count, self.name_offset
+            self.name_table_len, self.name_table_offset
         );
-        deserializer.seek(SeekFrom::Start(self.name_offset as u64))?;
-        let mut entries = Vec::with_capacity(self.name_count as usize);
-        for i in 0..self.name_count {
+        deserializer.seek(SeekFrom::Start(self.name_table_offset as u64))?;
+        let mut entries = Vec::with_capacity(self.name_table_len as usize);
+        for i in 0..self.name_table_len {
             trace!(
                 "Name {i} at position {:08x}",
                 deserializer.stream_position()

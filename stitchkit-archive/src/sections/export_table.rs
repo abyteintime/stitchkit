@@ -1,7 +1,11 @@
+pub mod unlinked;
+
 use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::{anyhow, Context};
-use stitchkit_core::{binary::Deserializer, flags::ObjectFlags, uuid::Uuid, Deserialize};
+use stitchkit_core::{
+    binary::Deserializer, flags::ObjectFlags, uuid::Uuid, Deserialize, Serialize,
+};
 use tracing::{debug, trace};
 
 use crate::{
@@ -11,7 +15,7 @@ use crate::{
 
 use super::Summary;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ObjectExport {
     pub class_index: PackageClassIndex,
     pub super_index: OptionalPackageObjectIndex,
@@ -24,7 +28,7 @@ pub struct ObjectExport {
     pub export_flags: u32,
     pub unknown_list: Vec<u32>,
     pub uuid: Uuid,
-    pub unknown: u32,
+    pub unknown_flags: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +49,13 @@ impl ExportTable {
         self.get(index)
             .ok_or_else(|| anyhow!("{index:?} is outside the bounds of the export table"))
     }
+
+    pub fn push(&mut self, export: ObjectExport) -> ExportIndex {
+        // TODO: Error handling here in case there are too many imports.
+        let index = ExportIndex(self.exports.len() as u32);
+        self.exports.push(export);
+        index
+    }
 }
 
 impl ObjectExport {
@@ -61,11 +72,11 @@ impl Summary {
     ) -> anyhow::Result<ExportTable> {
         debug!(
             "Deserializing export table ({} exports at {:08x})",
-            self.export_count, self.export_offset
+            self.export_table_len, self.export_table_offset
         );
-        deserializer.seek(SeekFrom::Start(self.export_offset as u64))?;
-        let mut exports = Vec::with_capacity(self.export_count as usize);
-        for i in 0..self.export_count {
+        deserializer.seek(SeekFrom::Start(self.export_table_offset as u64))?;
+        let mut exports = Vec::with_capacity(self.export_table_len as usize);
+        for i in 0..self.export_table_len {
             trace!(
                 "Export {} at position {:08x}",
                 i + 1,

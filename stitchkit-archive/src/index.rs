@@ -1,15 +1,15 @@
 use std::{
     cmp::Ordering,
     fmt,
-    io::Read,
+    io::{Read, Write},
     num::{NonZeroI32, NonZeroU32},
     str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Context};
 use stitchkit_core::{
-    binary::{Deserialize, Deserializer},
-    Deserialize,
+    binary::{Deserialize, Deserializer, Serialize, Serializer},
+    Deserialize, Serialize,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,10 +101,16 @@ impl TryFrom<PackageObjectIndex> for ExportIndex {
     }
 }
 
+impl From<ExportNumber> for PackageObjectIndex {
+    fn from(value: ExportNumber) -> Self {
+        // SAFETY: An ExportNumber is always non-zero.
+        Self(unsafe { NonZeroI32::new_unchecked(value.0.get() as i32) })
+    }
+}
+
 impl From<ExportIndex> for PackageObjectIndex {
     fn from(value: ExportIndex) -> Self {
-        // SAFETY: We convert to an ExportNumber beforehand, so the value can never be zero.
-        Self(unsafe { NonZeroI32::new_unchecked(ExportNumber::from(value).0.get() as i32) })
+        Self::from(ExportNumber::from(value))
     }
 }
 
@@ -118,10 +124,28 @@ impl TryFrom<PackageObjectIndex> for ImportIndex {
     }
 }
 
+impl From<ImportNumber> for PackageObjectIndex {
+    fn from(value: ImportNumber) -> Self {
+        // SAFETY: An ImportNumber is always non-zero.
+        Self(unsafe { NonZeroI32::new_unchecked(-(value.0.get() as i32)) })
+    }
+}
+
 impl From<ImportIndex> for PackageObjectIndex {
     fn from(value: ImportIndex) -> Self {
-        // SAFETY: We convert to an ExportNumber beforehand, so the value can never be zero.
-        Self(unsafe { NonZeroI32::new_unchecked(ImportNumber::from(value).0.get() as i32) })
+        Self::from(ImportNumber::from(value))
+    }
+}
+
+impl From<PackageObjectIndex> for NonZeroI32 {
+    fn from(value: PackageObjectIndex) -> Self {
+        value.0
+    }
+}
+
+impl From<PackageObjectIndex> for i32 {
+    fn from(value: PackageObjectIndex) -> Self {
+        value.0.get()
     }
 }
 
@@ -190,6 +214,36 @@ impl From<OptionalPackageObjectIndex> for Option<PackageObjectIndex> {
     }
 }
 
+impl From<ExportIndex> for OptionalPackageObjectIndex {
+    fn from(value: ExportIndex) -> Self {
+        Self(Some(PackageObjectIndex::from(value)))
+    }
+}
+
+impl From<ExportNumber> for OptionalPackageObjectIndex {
+    fn from(value: ExportNumber) -> Self {
+        Self(Some(PackageObjectIndex::from(value)))
+    }
+}
+
+impl From<ImportIndex> for OptionalPackageObjectIndex {
+    fn from(value: ImportIndex) -> Self {
+        Self(Some(PackageObjectIndex::from(value)))
+    }
+}
+
+impl From<ImportNumber> for OptionalPackageObjectIndex {
+    fn from(value: ImportNumber) -> Self {
+        Self(Some(PackageObjectIndex::from(value)))
+    }
+}
+
+impl From<OptionalPackageObjectIndex> for i32 {
+    fn from(value: OptionalPackageObjectIndex) -> Self {
+        value.0.map(i32::from).unwrap_or(0)
+    }
+}
+
 impl TryFrom<OptionalPackageObjectIndex> for ExportIndex {
     type Error = anyhow::Error;
 
@@ -231,7 +285,13 @@ impl Deserialize for OptionalPackageObjectIndex {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
+impl Serialize for OptionalPackageObjectIndex {
+    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+        i32::from(*self).serialize(serializer)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct PackageClassIndex {
     index: OptionalPackageObjectIndex,
 }

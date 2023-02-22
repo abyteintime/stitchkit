@@ -1,6 +1,6 @@
 use anyhow::Context;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
-use stitchkit_core::binary::{Deserialize, Deserializer};
+use stitchkit_core::binary::{Deserialize, Deserializer, Serialize};
 
 use crate::{field::walk::WalkList, Chunk, Field};
 
@@ -18,7 +18,7 @@ pub fn collect_properties<X>(
     parent_chunk: OptionalPackageObjectIndex,
 ) -> anyhow::Result<Vec<PropertyInfo>>
 where
-    X: Deserialize,
+    X: Deserialize + Serialize,
 {
     let mut properties = vec![];
 

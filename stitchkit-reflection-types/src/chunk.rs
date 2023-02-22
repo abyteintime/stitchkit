@@ -1,13 +1,17 @@
 use stitchkit_archive::index::OptionalPackageObjectIndex;
-use stitchkit_core::{binary::Deserialize, primitive::ConstU32, Deserialize};
+use stitchkit_core::{
+    binary::{Deserialize, Serialize},
+    primitive::ConstU32,
+    Deserialize, Serialize,
+};
 
 use crate::Field;
 
 /// Equivalent of an Unreal `UStruct`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Chunk<X>
 where
-    X: Deserialize,
+    X: Deserialize + Serialize,
 {
     pub field: Field<X>,
     /// If present, indicates the "parent chunk." This may mean different things depending on the

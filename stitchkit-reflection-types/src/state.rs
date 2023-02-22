@@ -1,12 +1,10 @@
-#![allow(clippy::manual_strip)]
-
 use bitflags::bitflags;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName};
-use stitchkit_core::{primitive::ConstI16, serializable_bitflags, Deserialize};
+use stitchkit_core::{primitive::ConstI16, serializable_bitflags, Deserialize, Serialize};
 
 use crate::Chunk;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct State {
     pub chunk: Chunk<()>,
     /// Events implemented by this state. For an event to count as implemented, its body must
@@ -22,7 +20,7 @@ pub struct State {
 
 bitflags! {
     /// Events that can be `Enabled`d and `Disable`d.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct Events: u32 {
         const DESTROYED         = 0x00000001;
         const GAINED_CHILD      = 0x00000002;
@@ -61,7 +59,7 @@ bitflags! {
 
 serializable_bitflags!(Events);
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FunctionMapEntry {
     pub name: ArchivedName,
     pub function: OptionalPackageObjectIndex,

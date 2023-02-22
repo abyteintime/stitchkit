@@ -1,8 +1,11 @@
-use std::{fmt, io::Read};
+use std::{
+    fmt,
+    io::{Read, Write},
+};
 
 use anyhow::{ensure, Context};
 
-use crate::binary::{Deserialize, Deserializer};
+use crate::binary::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// 32-bit Unreal `UBOOL`.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -33,6 +36,12 @@ impl Deserialize for Bool32 {
     }
 }
 
+impl Serialize for Bool32 {
+    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+        self.0.serialize(serializer)
+    }
+}
+
 impl fmt::Debug for Bool32 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&bool::from(*self), f)
@@ -48,7 +57,7 @@ impl fmt::Display for Bool32 {
 macro_rules! const_primitive {
     ($Underlying:ty, $NewType:tt) => {
         #[doc = concat!("Always serializes to the same `", stringify!($Underlying), "`.\n\nDuring deserialization if the value is not that constant, an error is thrown.")]
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
         pub struct $NewType<const VALUE: $Underlying>;
 
         impl<const VALUE: $Underlying> Deserialize for $NewType<VALUE> {
@@ -61,6 +70,12 @@ macro_rules! const_primitive {
                     value
                 );
                 Ok(Self)
+            }
+        }
+
+        impl<const VALUE: $Underlying> Serialize for $NewType<VALUE> {
+            fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+                VALUE.serialize(serializer)
             }
         }
 

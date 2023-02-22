@@ -7,14 +7,14 @@ use anyhow::Context;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Deserializer<R> {
-    stream_length: u64,
+    stream_len: u64,
     stream_position: u64,
     stream: R,
 }
 
 impl<R> Deserializer<R> {
-    pub fn stream_length(&self) -> u64 {
-        self.stream_length
+    pub fn stream_len(&self) -> u64 {
+        self.stream_len
     }
 
     pub fn stream_position(&self) -> u64 {
@@ -37,7 +37,7 @@ impl<R> Deserializer<R> {
         R: Read,
     {
         self.stream.read_to_end(out_bytes)?;
-        self.stream_position = self.stream_length;
+        self.stream_position = self.stream_len;
         Ok(())
     }
 
@@ -74,7 +74,7 @@ where
             .seek(std::io::SeekFrom::Start(position))
             .context("cannot go back to previous stream position after obtaining its length")?;
         Ok(Self {
-            stream_length,
+            stream_len: stream_length,
             stream_position: position,
             stream: reader,
         })
@@ -87,7 +87,7 @@ where
 {
     fn from(cursor: Cursor<T>) -> Self {
         Self {
-            stream_length: cursor.get_ref().len() as u64,
+            stream_len: cursor.get_ref().len() as u64,
             stream_position: cursor.position(),
             stream: cursor,
         }

@@ -143,7 +143,7 @@ pub fn ardump(filename: &Path, dump: Ardump) -> anyhow::Result<()> {
 
             debug!("Printing dependency table");
             for (i, depend) in depends_table.objects.iter().enumerate() {
-                println!("{i}: {:?}", depend);
+                println!("{}: {:?}", i + 1, depend);
             }
         }
         Ardump::Export { index, output_file } => {

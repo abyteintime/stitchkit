@@ -1,12 +1,10 @@
-#![allow(clippy::manual_strip)]
-
 use std::{io::Read, ops::Deref};
 
 use anyhow::Context;
 use bitflags::bitflags;
 
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
-use stitchkit_core::{binary::Deserializer, serializable_bitflags, Deserialize};
+use stitchkit_core::{binary::Deserializer, serializable_bitflags, Deserialize, Serialize};
 
 use crate::{
     property::{
@@ -16,7 +14,7 @@ use crate::{
     Chunk,
 };
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StructHeader {
     pub chunk: Chunk<ArchivedName>,
     pub flags: StructFlags,
@@ -77,6 +75,7 @@ impl Struct {
     }
 }
 
+// Who doesn't love some deref abuse.
 impl Deref for Struct {
     type Target = StructHeader;
 

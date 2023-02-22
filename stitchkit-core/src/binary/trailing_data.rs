@@ -4,24 +4,6 @@ use anyhow::Context;
 
 use super::{Deserialize, Deserializer};
 
-impl<T> Deserialize for Vec<T>
-where
-    T: Deserialize,
-{
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
-        let len = deserializer
-            .deserialize::<u32>()
-            .context("cannot read array length")? as usize;
-        let mut vec = Vec::with_capacity(len);
-        for i in 0..len {
-            vec.push(deserializer.deserialize().with_context(|| {
-                format!("cannot deserialize array field {i} (array of length {len})")
-            })?);
-        }
-        Ok(vec)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct TrailingData(pub Vec<u8>);
 

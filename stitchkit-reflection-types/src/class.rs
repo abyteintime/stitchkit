@@ -1,18 +1,16 @@
-#![allow(clippy::manual_strip)]
-
 use bitflags::bitflags;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName};
 use stitchkit_core::{
     primitive::{Bool32, ConstU32},
     serializable_bitflags,
     string::UnrealString,
-    Deserialize,
+    Deserialize, Serialize,
 };
 use tracing::warn;
 
 use crate::State;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Class {
     pub state: State,
     /// Flags that tell you information about the class.
@@ -52,13 +50,13 @@ pub struct Class {
     pub class_default_object: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Subobject {
     pub name: ArchivedName,
     pub default: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ImplementedInterface {
     pub interface: OptionalPackageObjectIndex,
     pub vftable: OptionalPackageObjectIndex,

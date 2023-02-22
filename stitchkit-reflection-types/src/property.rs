@@ -1,5 +1,3 @@
-#![allow(clippy::manual_strip)]
-
 pub mod any;
 mod collect;
 pub mod defaults;
@@ -10,12 +8,12 @@ use std::num::NonZeroU32;
 
 use bitflags::bitflags;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName};
-use stitchkit_core::{serializable_bitflags, Deserialize};
+use stitchkit_core::{serializable_bitflags, Deserialize, Serialize};
 use tracing::warn;
 
 use crate::Field;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Property {
     pub field: Field<ArchivedName>,
     /// The size of an array property; 1 means that the variable is not an array but a single
@@ -160,7 +158,7 @@ serializable_bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ByteProperty {
     pub base: Property,
     /// When not None, specifies that this property is an enum and that the provided enum object
@@ -168,27 +166,27 @@ pub struct ByteProperty {
     pub enum_object: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IntProperty {
     pub base: Property,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FloatProperty {
     pub base: Property,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StringProperty {
     pub base: Property,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NameProperty {
     pub base: Property,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ArrayProperty {
     pub base: Property,
     /// Property specifying the type of the array (the `T` specified in angle brackets in
@@ -196,14 +194,14 @@ pub struct ArrayProperty {
     pub item_property: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ObjectProperty {
     pub base: Property,
     /// The class of the object.
     pub object_class: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ClassProperty {
     pub base: Property,
     /// The `Class` class itself. Included here for _some_ reason.
@@ -212,7 +210,7 @@ pub struct ClassProperty {
     pub super_class: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct InterfaceProperty {
     pub base: Property,
     /// The class of the stored interface.
@@ -226,7 +224,7 @@ pub struct InterfaceProperty {
 /// - For delegate variables. In delegate variables, `delegate_function` and `delegate_function_2`
 ///   contain the same value.
 /// - For delegate declarations. In delegate declarations, `delegate_function_2` is zero.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DelegateProperty {
     pub base: Property,
     /// The delegate function.
@@ -236,14 +234,14 @@ pub struct DelegateProperty {
     pub delegate_function_2: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StructProperty {
     pub base: Property,
     /// The struct type.
     pub struct_type: OptionalPackageObjectIndex,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ComponentProperty {
     pub base: Property,
     /// The component's class.

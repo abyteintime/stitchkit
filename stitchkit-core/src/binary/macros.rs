@@ -13,6 +13,15 @@ macro_rules! serializable_bitflags {
                 Ok(result)
             }
         }
+
+        impl $crate::binary::Serialize for $T {
+            fn serialize(
+                &self,
+                serializer: &mut $crate::binary::Serializer<impl ::std::io::Write>,
+            ) -> ::anyhow::Result<()> {
+                $crate::binary::Serialize::serialize(&self.bits(), serializer)
+            }
+        }
     };
     ($T:ty) => {
         $crate::serializable_bitflags! { type $T; validate |_| {} }

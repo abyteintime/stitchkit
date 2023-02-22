@@ -1,12 +1,9 @@
-// I have no idea.
-#![allow(clippy::manual_strip)]
-
 use bitflags::bitflags;
 
 use crate::serializable_bitflags;
 
 bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct ObjectFlags: u64 {
         const DEFAULT        = 0x0000000000000200;
         const TRANSACTIONAL  = 0x0000000100000000;
@@ -20,6 +17,9 @@ bitflags! {
         const NOT_FOR_CLIENT = 0x0010000000000000;
         const NOT_FOR_SERVER = 0x0020000000000000;
         const NOT_FOR_EDIT   = 0x0040000000000000;
+
+        /// These flags are present on all names in the name table.
+        const NAME           = 0x0007001000000000;
     }
 }
 

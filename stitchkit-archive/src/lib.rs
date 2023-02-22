@@ -9,6 +9,7 @@ pub mod hat;
 pub mod index;
 pub mod name;
 pub mod sections;
+pub mod welder;
 
 #[derive(Debug, Clone)]
 pub struct Archive {

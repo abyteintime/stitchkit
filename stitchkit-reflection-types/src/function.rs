@@ -1,14 +1,12 @@
-#![allow(clippy::manual_strip)]
-
 use std::num::{NonZeroU16, NonZeroU8};
 
 use bitflags::bitflags;
 use stitchkit_archive::name::ArchivedName;
-use stitchkit_core::{serializable_bitflags, Deserialize};
+use stitchkit_core::{serializable_bitflags, Deserialize, Serialize};
 
 use crate::Chunk;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Function {
     pub chunk: Chunk<ArchivedName>,
     /// Which VM opcode this function implements. This is the number in the `native(n)` specifier.

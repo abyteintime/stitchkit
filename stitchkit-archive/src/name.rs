@@ -1,10 +1,10 @@
 use std::fmt;
 
-use stitchkit_core::{context, Deserialize};
+use stitchkit_core::{context, Deserialize, Serialize};
 
 use crate::sections::NameTable;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ArchivedName {
     pub index: u32,
     pub serial_number: u32,

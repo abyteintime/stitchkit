@@ -16,9 +16,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.0.0-rc.2"
+version = "2.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebde8a2685242023acc9d9464bb75aa20f7774a5aaaf77894b1cc94061370e3"
+checksum = "c4a03f1cd193cbed3c9d3375ed0c1b795ef7ddbeb67c31ae93ffe6bb6a282da6"
 
 [[package]]
 name = "cc"
@@ -88,6 +88,17 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "getrandom"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "wasi",
 ]
 
 [[package]]
@@ -316,9 +327,12 @@ name = "stitchkit-archive"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.0.0-rc.3",
  "rust-lzo",
  "stitchkit-core",
+ "thiserror",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -326,7 +340,7 @@ name = "stitchkit-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.0.0-rc.2",
+ "bitflags 2.0.0-rc.3",
  "once_cell",
  "stitchkit-core-derive",
  "uuid",
@@ -347,7 +361,7 @@ name = "stitchkit-reflection-types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.0.0-rc.2",
+ "bitflags 2.0.0-rc.3",
  "stitchkit-archive",
  "stitchkit-core",
  "tracing",
@@ -377,6 +391,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "thiserror"
+version = "1.0.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -461,6 +495,9 @@ name = "uuid"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1674845326ee10d37ca60470760d4288a6f80f304007d92e5c53bab78c9cfd79"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "valuable"
@@ -473,6 +510,12 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "wasi"
+version = "0.11.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "winapi"

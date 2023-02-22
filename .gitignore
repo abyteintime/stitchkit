@@ -1,3 +1,6 @@
 /target
 _dumps
 .vscode
+
+*.u
+*.uobject

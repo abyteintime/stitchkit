@@ -44,7 +44,7 @@ impl NameTableBuilder {
             let entry = &mut entries[name.index as usize];
             entry.name = UnrealString::from(
                 CString::new(name_string.clone())
-                    .map_err(|_| Error::NameHasNullBytes(name_string))?,
+                    .map_err(|_| Error::NameHasNulBytes(name_string))?,
             );
             entry.flags = ObjectFlags::NAME;
         }
@@ -55,7 +55,7 @@ impl NameTableBuilder {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("name {0:?} contains nul bytes")]
-    NameHasNullBytes(String),
+    NameHasNulBytes(String),
     #[error("too many names (maximum of 2147483647 exceeded)")]
     TooManyNames,
 }

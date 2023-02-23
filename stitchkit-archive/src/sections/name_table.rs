@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod common;
 
 use std::io::{Read, Seek, SeekFrom};
 

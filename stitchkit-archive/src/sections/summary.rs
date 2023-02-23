@@ -48,6 +48,13 @@ pub struct Summary {
 
     pub compression_kind: u32,
     pub compressed_chunks: Vec<CompressedChunkPointer>,
+
+    // Unreal doesn't actually seem to care about this number.
+    pub unknown_4: u32,
+    pub unknown_5: ConstU32<0>,
+    // This one seems to be important for textures, however I have not looked into it yet.
+    // It's an array length, I think. Look at HatinTimeGame.u for an example.
+    pub unknown_6: u32,
 }
 
 bitflags::bitflags! {

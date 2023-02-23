@@ -1,9 +1,11 @@
-use std::{fs::File, io::BufReader, ops::RangeInclusive, path::PathBuf, str::FromStr};
+use std::{
+    fs::File, io::BufReader, num::NonZeroU32, ops::RangeInclusive, path::PathBuf, str::FromStr,
+};
 
 use anyhow::{anyhow, Context};
 use clap::{Subcommand, ValueEnum};
 use stitchkit_archive::{
-    index::{ExportIndex, OptionalPackageObjectIndex, PackageClassIndex, PackageObjectIndex},
+    index::{ExportNumber, OptionalPackageObjectIndex, PackageClassIndex},
     name::archived_name_table,
     sections::ObjectExport,
     Archive,
@@ -11,7 +13,7 @@ use stitchkit_archive::{
 use stitchkit_core::binary::{deserialize, Deserializer};
 use stitchkit_reflection_types::{
     property::any::{AnyProperty, PropertyClasses},
-    Class, DefaultObject, Enum, Function, State, Struct,
+    Class, DefaultObject, Enum, Function, State, Struct, TextBuffer,
 };
 use tracing::{debug, error, info, info_span, trace, warn};
 
@@ -31,6 +33,8 @@ pub enum ObjectKind {
     Struct,
     /// Deserialize default objects (those generated from `defaultproperties`).
     Default,
+    /// Deserialize text buffers.
+    TextBuffer,
 }
 
 #[derive(Debug, Clone)]
@@ -86,13 +90,13 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                 for index in range.to_range(archive.export_table.exports.len()) {
                     let _span = info_span!("object", index = index + 1).entered();
 
-                    let export_index = ExportIndex(index);
-                    let export = archive
-                        .export_table
-                        .get(ExportIndex(index))
-                        .ok_or_else(|| {
-                            anyhow!("object index {index} out of bounds (range {range:?})")
-                        })?;
+                    let export_number = ExportNumber(
+                        NonZeroU32::new(index)
+                            .ok_or_else(|| anyhow!("object indices must be positive"))?,
+                    );
+                    let export = archive.export_table.get(export_number).ok_or_else(|| {
+                        anyhow!("object index {index} out of bounds (range {range:?})")
+                    })?;
                     let &ObjectExport {
                         class_index,
                         object_name,
@@ -112,14 +116,12 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
                     }
 
                     archived_name_table::with(&archive.name_table, || {
-                        let prefix = format!("{} {object_name:?}", index + 1);
+                        let prefix = format!("{} {object_name:?}", index);
                         match dump_object_of_kind(
                             &prefix,
                             &archive,
                             &property_classes,
-                            OptionalPackageObjectIndex(Some(PackageObjectIndex::from(
-                                export_index,
-                            ))),
+                            OptionalPackageObjectIndex::from(export_number),
                             class_index,
                             binary,
                             kind,
@@ -194,6 +196,11 @@ fn dump_object_of_kind(
                     OptionalPackageObjectIndex::from(class_index)
                 )?
             );
+        }
+        ObjectKind::TextBuffer => {
+            let text_buffer = deserialize::<TextBuffer>(buffer)?;
+            println!("// {prefix}");
+            println!("{}", text_buffer.text);
         }
     }
     Ok(())

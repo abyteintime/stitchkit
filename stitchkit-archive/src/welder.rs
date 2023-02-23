@@ -36,6 +36,7 @@ impl<'a> Welder<'a> {
                 name_count: self.name_table.entries.len() as u32,
                 net_object_count: self.export_table.exports.len() as u32,
             }],
+            unknown_4: 0xAAAAAAAA,
             ..Default::default()
         };
 

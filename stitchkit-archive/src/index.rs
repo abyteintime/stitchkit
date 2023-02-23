@@ -338,6 +338,38 @@ impl PackageClassIndex {
     }
 }
 
+impl From<ExportIndex> for PackageClassIndex {
+    fn from(value: ExportIndex) -> Self {
+        Self {
+            index: value.into(),
+        }
+    }
+}
+
+impl From<ExportNumber> for PackageClassIndex {
+    fn from(value: ExportNumber) -> Self {
+        Self {
+            index: value.into(),
+        }
+    }
+}
+
+impl From<ImportIndex> for PackageClassIndex {
+    fn from(value: ImportIndex) -> Self {
+        Self {
+            index: value.into(),
+        }
+    }
+}
+
+impl From<ImportNumber> for PackageClassIndex {
+    fn from(value: ImportNumber) -> Self {
+        Self {
+            index: value.into(),
+        }
+    }
+}
+
 impl From<PackageClassIndex> for OptionalPackageObjectIndex {
     fn from(value: PackageClassIndex) -> Self {
         value.index

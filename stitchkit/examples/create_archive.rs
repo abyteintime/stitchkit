@@ -20,7 +20,7 @@ use stitchkit_archive::{
 use stitchkit_core::{
     binary::{serialize, Deserializer},
     flags::ObjectFlags,
-    primitive::{Bool32, ConstI16, ConstU16, ConstU32, ConstU64},
+    primitive::{ConstI16, ConstU32, ConstU64},
 };
 use stitchkit_reflection_types::{
     property::defaults::DefaultProperties, Chunk, Class, ClassFlags, DefaultObject, Events, Field,

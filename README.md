@@ -9,9 +9,7 @@ Stitchkit currently provides the following tools:
 
 - `ardump` - extract information about Unreal archives
 - `objdump` - extract information about serialized UObjects
-
-The project is currently in the research phase, where I'm researching how Unreal archives are put
-together and how various fundamental reflection types are serialized.
+- `manifest` - generate Script/Manifest.txt file with a class hierarchy for the editor
 
 The end goal is to have at least the following:
 
@@ -27,3 +25,4 @@ The end goal is to have at least the following:
 - Handling the FArchive binary format (.u, .upk, .umap)
   - `stitchkit-archive` - core structure of archives (sections)
   - `stitchkit-reflection-types` - reflection objects (`Class` et al.)
+- `stitchkit-manifest` - writing the Script/Manifest.txt format

@@ -4,7 +4,10 @@ use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::{anyhow, Context};
 use stitchkit_core::{
-    binary::Deserializer, flags::ObjectFlags, uuid::Uuid, Deserialize, Serialize,
+    binary::{deserialize, Deserialize, Deserializer},
+    flags::ObjectFlags,
+    uuid::Uuid,
+    Deserialize, Serialize,
 };
 use tracing::{debug, trace};
 
@@ -62,6 +65,13 @@ impl ObjectExport {
     pub fn get_serial_data<'a>(&self, archive: &'a [u8]) -> &'a [u8] {
         &archive
             [self.serial_offset as usize..self.serial_offset as usize + self.serial_size as usize]
+    }
+
+    pub fn deserialize_serial_data<T>(&self, archive: &[u8]) -> anyhow::Result<T>
+    where
+        T: Deserialize,
+    {
+        deserialize(self.get_serial_data(archive))
     }
 }
 

@@ -62,6 +62,8 @@ bitflags::bitflags! {
     pub struct PackageFlags: u32 {
         // Meaning unknown, but they seem to be present on all packages.
         const COMMON = 0x00200001;
+        // Again meaning unknown, but they seem to be present on cooked script packages.
+        const COOKED = 0x02880008;
     }
 }
 

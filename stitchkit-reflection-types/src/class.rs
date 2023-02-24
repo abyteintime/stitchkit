@@ -65,7 +65,7 @@ pub struct ImplementedInterface {
 bitflags! {
     /// Class flags; most are set whenever a class contains some specifier (like `ABSTRACT` comes
     /// from `abstract`.)
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct ClassFlags: u32 {
         // These two seem to be present on all classes. Not sure what they mean.
         const COMMON               = 0x00000012;

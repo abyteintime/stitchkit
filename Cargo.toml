@@ -5,6 +5,7 @@ members = [
     "stitchkit-core",
     "stitchkit-core-derive",
     "stitchkit-reflection-types",
+    "stitchkit-manifest",
 ]
 
 [workspace.dependencies]
@@ -18,3 +19,4 @@ stitchkit-archive = { path = "stitchkit-archive" }
 stitchkit-core = { path = "stitchkit-core" }
 stitchkit-core-derive = { path = "stitchkit-core-derive" }
 stitchkit-reflection-types = { path = "stitchkit-reflection-types" }
+stitchkit-manifest = { path = "stitchkit-manifest" }

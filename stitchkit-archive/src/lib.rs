@@ -1,4 +1,4 @@
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 
 use anyhow::Context;
 use sections::{DependencyTable, ExportTable, ImportTable, NameTable, Summary};
@@ -23,6 +23,7 @@ pub struct Archive {
 
 impl Archive {
     pub fn deserialize(deserializer: &mut Deserializer<impl Read + Seek>) -> anyhow::Result<Self> {
+        deserializer.seek(SeekFrom::Start(0))?;
         let summary = deserializer
             .deserialize::<Summary>()
             .context("cannot deserialize archive summary")?;
@@ -50,5 +51,12 @@ impl Archive {
             dependency_table,
             decompressed_data: decompressed,
         })
+    }
+
+    pub fn without_decompressed_data(self) -> Self {
+        Self {
+            decompressed_data: vec![],
+            ..self
+        }
     }
 }

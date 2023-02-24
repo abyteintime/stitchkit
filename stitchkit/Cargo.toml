@@ -9,7 +9,9 @@ anyhow = { workspace = true }
 clap = { version = "4.1.4", features = ["derive"] }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+walkdir = "2.3.2"
 
 stitchkit-archive = { workspace = true }
 stitchkit-core = { workspace = true }
 stitchkit-reflection-types = { workspace = true }
+stitchkit-manifest = { workspace = true }

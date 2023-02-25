@@ -8,10 +8,13 @@ use stitchkit_core::{
 };
 use thiserror::Error;
 
-use crate::sections::{
-    dependency_table::unlinked::UnlinkedDependencyTable,
-    export_table::unlinked::UnlinkedExportTable, GenerationInfo, ImportTable, NameTable,
-    ObjectExport, PackageFlags, Summary,
+use crate::{
+    hat,
+    sections::{
+        dependency_table::unlinked::UnlinkedDependencyTable,
+        export_table::unlinked::UnlinkedExportTable, GenerationInfo, ImportTable, NameTable,
+        ObjectExport, PackageFlags, Summary,
+    },
 };
 
 /// Archive welder. Assembles an archive from unlinked raw parts.
@@ -25,6 +28,7 @@ pub struct Welder<'a> {
 impl<'a> Welder<'a> {
     pub fn weld(self) -> anyhow::Result<Vec<u8>> {
         let mut summary = Summary {
+            file_version: hat::ARCHIVE_FORMAT_VERSION,
             package_group: UnrealString::try_from("None").unwrap(),
             package_flags: PackageFlags::COMMON,
             name_table_len: self.name_table.entries.len() as u32,

@@ -20,7 +20,7 @@ pub struct GenerationInfo {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Summary {
     pub magic: ConstU32<{ hat::ARCHIVE_MAGIC }>,
-    pub file_version: ConstU16<{ hat::ARCHIVE_FORMAT_VERSION }>,
+    pub file_version: u16,
     pub licensee_version: ConstU16<{ hat::ARCHIVE_LICENSEE_FORMAT_VERSION }>,
     pub headers_size: u32,
     pub package_group: UnrealString,

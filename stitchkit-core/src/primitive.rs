@@ -3,9 +3,9 @@ use std::{
     io::{Read, Write},
 };
 
-use anyhow::{ensure, Context};
-
-use crate::binary::{Deserialize, Deserializer, Serialize, Serializer};
+use crate::binary::{
+    Deserialize, Deserializer, Error, ErrorKind, ResultContextExt, Serialize, Serializer,
+};
 
 /// 32-bit Unreal `UBOOL`.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -24,20 +24,20 @@ impl From<Bool32> for bool {
 }
 
 impl Deserialize for Bool32 {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
         let underlying = deserializer
             .deserialize::<u32>()
             .context("cannot deserialize Bool32")?;
-        ensure!(
-            underlying == 0 || underlying == 1,
-            "Bool32 has invalid value (must be 0 or 1)"
-        );
-        Ok(Self(underlying))
+        if underlying != 0 && underlying != 1 {
+            Err(ErrorKind::Deserialize.make("Bool32 has invalid value (must be 0 or 1)"))
+        } else {
+            Ok(Self(underlying))
+        }
     }
 }
 
 impl Serialize for Bool32 {
-    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> Result<(), Error> {
         self.0.serialize(serializer)
     }
 }
@@ -61,20 +61,18 @@ macro_rules! const_primitive {
         pub struct $NewType<const VALUE: $Underlying>;
 
         impl<const VALUE: $Underlying> Deserialize for $NewType<VALUE> {
-            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
                 let value = deserializer.deserialize::<$Underlying>()?;
-                ensure!(
-                    value == VALUE,
-                    "constant {} expected, but got {}",
-                    VALUE,
-                    value
-                );
-                Ok(Self)
+                if value != VALUE {
+                    Err(ErrorKind::Deserialize.make(format!("constant {VALUE} expected, but got {value}")))
+                } else {
+                    Ok(Self)
+                }
             }
         }
 
         impl<const VALUE: $Underlying> Serialize for $NewType<VALUE> {
-            fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+            fn serialize(&self, serializer: &mut Serializer<impl Write>) -> Result<(), Error> {
                 VALUE.serialize(serializer)
             }
         }

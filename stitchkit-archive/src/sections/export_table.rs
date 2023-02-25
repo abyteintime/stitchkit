@@ -2,17 +2,20 @@ pub mod unlinked;
 
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::{anyhow, Context};
 use stitchkit_core::{
-    binary::{deserialize, Deserialize, Deserializer},
+    binary::{self, deserialize, Deserialize, Deserializer, ResultContextExt},
     flags::ObjectFlags,
     uuid::Uuid,
     Deserialize, Serialize,
 };
+use thiserror::Error;
 use tracing::{debug, trace};
 
 use crate::{
-    index::{ExportIndex, OptionalPackageObjectIndex, PackageClassIndex},
+    index::{
+        ExportIndex, ExportNumber, IndexConversionError, OptionalPackageObjectIndex,
+        PackageClassIndex,
+    },
     name::ArchivedName,
 };
 
@@ -39,6 +42,14 @@ pub struct ExportTable {
     pub exports: Vec<ObjectExport>,
 }
 
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("{0}")]
+    IndexConversion(#[from] IndexConversionError),
+    #[error("{0:?} is outside the bounds of the export table")]
+    OutOfBounds(ExportNumber),
+}
+
 impl ExportTable {
     pub fn get(&self, index: impl Into<ExportIndex>) -> Option<&ObjectExport> {
         self.exports.get(index.into().0 as usize)
@@ -46,11 +57,11 @@ impl ExportTable {
 
     pub fn try_get(
         &self,
-        index: impl TryInto<ExportIndex, Error = anyhow::Error>,
-    ) -> anyhow::Result<&ObjectExport> {
+        index: impl TryInto<ExportIndex, Error = IndexConversionError>,
+    ) -> Result<&ObjectExport, Error> {
         let index = index.try_into()?;
         self.get(index)
-            .ok_or_else(|| anyhow!("{index:?} is outside the bounds of the export table"))
+            .ok_or_else(|| Error::OutOfBounds(index.into()))
     }
 
     pub fn push(&mut self, export: ObjectExport) -> ExportIndex {
@@ -67,7 +78,7 @@ impl ObjectExport {
             [self.serial_offset as usize..self.serial_offset as usize + self.serial_size as usize]
     }
 
-    pub fn deserialize_serial_data<T>(&self, archive: &[u8]) -> anyhow::Result<T>
+    pub fn deserialize_serial_data<T>(&self, archive: &[u8]) -> Result<T, binary::Error>
     where
         T: Deserialize,
     {
@@ -79,7 +90,7 @@ impl Summary {
     pub fn deserialize_export_table(
         &self,
         deserializer: &mut Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<ExportTable> {
+    ) -> Result<ExportTable, binary::Error> {
         debug!(
             "Deserializing export table ({} exports at {:08x})",
             self.export_table_len, self.export_table_offset

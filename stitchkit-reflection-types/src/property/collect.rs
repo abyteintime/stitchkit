@@ -1,6 +1,8 @@
-use anyhow::Context;
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
-use stitchkit_core::binary::{Deserialize, Deserializer, Serialize};
+use stitchkit_core::binary::{
+    self, Deserialize, Deserializer, ErrorKind, ResultContextExt, ResultMapToBinaryErrorExt,
+    Serialize,
+};
 
 use crate::{field::walk::WalkList, Chunk, Field};
 
@@ -16,7 +18,7 @@ pub fn collect_properties<X>(
     archive: &Archive,
     property_classes: &PropertyClasses,
     parent_chunk: OptionalPackageObjectIndex,
-) -> anyhow::Result<Vec<PropertyInfo>>
+) -> Result<Vec<PropertyInfo>, binary::Error>
 where
     X: Deserialize + Serialize,
 {
@@ -44,9 +46,12 @@ where
             chunk.first_variable,
             |field: &Field<ArchivedName>| field.next_object,
         )
-        .map(|result| -> anyhow::Result<_> {
+        .map(|result| -> Result<_, binary::Error> {
             let (object_index, _) = result?;
-            let export = archive.export_table.try_get(object_index)?;
+            let export = archive
+                .export_table
+                .try_get(object_index)
+                .map_err_to_binary_error(ErrorKind::Deserialize)?;
 
             AnyProperty::deserialize(
                 property_classes,

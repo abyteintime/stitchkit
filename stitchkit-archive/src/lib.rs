@@ -1,8 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::Context;
 use sections::{DependencyTable, ExportTable, ImportTable, NameTable, Summary};
-use stitchkit_core::binary::Deserializer;
+use stitchkit_core::binary::{self, Deserializer, ResultContextExt};
 
 pub mod compression;
 pub mod hat;
@@ -22,7 +21,9 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn deserialize(deserializer: &mut Deserializer<impl Read + Seek>) -> anyhow::Result<Self> {
+    pub fn deserialize(
+        deserializer: &mut Deserializer<impl Read + Seek>,
+    ) -> Result<Self, binary::Error> {
         deserializer.seek(SeekFrom::Start(0))?;
         let summary = deserializer
             .deserialize::<Summary>()

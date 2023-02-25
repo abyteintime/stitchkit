@@ -42,7 +42,7 @@ pub fn derive_serialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
                 }
             });
         let stmt = quote! {
-            ::anyhow::Context::context(#expr, #error)?;
+            ::stitchkit_core::binary::ResultContextExt::context(#expr, #error)?;
         };
         stmts.push(stmt);
         constructor_fields.push(quote! { #field_name, })
@@ -54,7 +54,7 @@ pub fn derive_serialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics ::stitchkit_core::binary::Serialize for #type_name #type_generics #where_clause {
-            fn serialize(&self, serializer: &mut ::stitchkit_core::binary::Serializer<impl ::std::io::Write>) -> ::anyhow::Result<()> {
+            fn serialize(&self, serializer: &mut ::stitchkit_core::binary::Serializer<impl ::std::io::Write>) -> ::std::result::Result<(), ::stitchkit_core::binary::Error> {
                 #stmts
                 Ok(())
             }

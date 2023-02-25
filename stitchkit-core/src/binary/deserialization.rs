@@ -10,15 +10,18 @@ use std::{
     },
 };
 
-use anyhow::{anyhow, Context};
 use uuid::Uuid;
 
+use crate::binary::error::ResultContextExt;
+
+use super::{Error, ErrorKind};
+
 pub trait Deserialize: Sized {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self>;
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error>;
 }
 
 impl Deserialize for () {
-    fn deserialize(_: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(_: &mut Deserializer<impl Read>) -> Result<Self, Error> {
         Ok(())
     }
 }
@@ -26,7 +29,7 @@ impl Deserialize for () {
 macro_rules! deserialize_primitive_le {
     ($T:ty) => {
         impl Deserialize for $T {
-            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
                 let mut buf = [0; std::mem::size_of::<$T>()];
                 deserializer.read_bytes(&mut buf)?;
                 Ok(<$T>::from_le_bytes(buf))
@@ -51,9 +54,11 @@ deserialize_primitive_le!(f64);
 macro_rules! deserialize_nonzero_primitive_le {
     ($Underlying:ty, $NonZero:ty) => {
         impl Deserialize for $NonZero {
-            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
                 let num = deserializer.deserialize::<$Underlying>()?;
-                <$NonZero>::new(num).ok_or_else(|| anyhow!("non-zero value expected but got zero"))
+                <$NonZero>::new(num).ok_or_else(|| {
+                    ErrorKind::Deserialize.make("non-zero value expected but got zero")
+                })
             }
         }
     };
@@ -72,7 +77,7 @@ deserialize_nonzero_primitive_le!(i64, NonZeroI64);
 macro_rules! deserialize_optional_nonzero_primitive_le {
     ($Underlying:ty, $NonZero:ty) => {
         impl Deserialize for Option<$NonZero> {
-            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
                 let num = deserializer.deserialize::<$Underlying>()?;
                 Ok(<$NonZero>::new(num))
             }
@@ -94,7 +99,7 @@ impl<T> Deserialize for Vec<T>
 where
     T: Deserialize,
 {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
         let len = deserializer
             .deserialize::<u32>()
             .context("cannot read array length")? as usize;
@@ -109,7 +114,7 @@ where
 }
 
 impl Deserialize for Uuid {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
         let mut buf = [0; 16];
         deserializer.read_bytes(&mut buf)?;
         Ok(Uuid::from_bytes_le(buf))
@@ -117,7 +122,7 @@ impl Deserialize for Uuid {
 }
 
 impl<R> Deserializer<R> {
-    pub fn deserialize<T>(&mut self) -> anyhow::Result<T>
+    pub fn deserialize<T>(&mut self) -> Result<T, Error>
     where
         R: Read,
         T: Deserialize,
@@ -126,7 +131,7 @@ impl<R> Deserializer<R> {
     }
 }
 
-pub fn deserialize<T>(buffer: &[u8]) -> anyhow::Result<T>
+pub fn deserialize<T>(buffer: &[u8]) -> Result<T, Error>
 where
     T: Deserialize,
 {

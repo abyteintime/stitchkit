@@ -6,10 +6,10 @@ members = [
     "stitchkit-core-derive",
     "stitchkit-reflection-types",
     "stitchkit-manifest",
+    "stitchkit-uscript",
 ]
 
 [workspace.dependencies]
-anyhow = "1.0.69"
 bitflags = "2.0.0-rc.3"
 uuid = "1.3.0"
 tracing = "0.1.37"
@@ -20,3 +20,4 @@ stitchkit-core = { path = "stitchkit-core" }
 stitchkit-core-derive = { path = "stitchkit-core-derive" }
 stitchkit-reflection-types = { path = "stitchkit-reflection-types" }
 stitchkit-manifest = { path = "stitchkit-manifest" }
+stitchkit-uscript = { path = "stitchkit-uscript" }

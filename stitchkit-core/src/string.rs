@@ -5,9 +5,7 @@ use std::{
     ops::Deref,
 };
 
-use anyhow::Context;
-
-use crate::binary::{Deserialize, Deserializer, Serialize, Serializer};
+use crate::binary::{Deserialize, Deserializer, Error, ResultContextExt, Serialize, Serializer};
 
 #[derive(Clone, PartialEq, Eq, Default, Hash)]
 pub struct UnrealString {
@@ -85,7 +83,7 @@ impl TryFrom<&str> for UnrealString {
 }
 
 impl Deserialize for UnrealString {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error> {
         let length = deserializer.deserialize::<u32>()?;
         let mut bytes = vec![0; length as usize];
         deserializer
@@ -96,7 +94,7 @@ impl Deserialize for UnrealString {
 }
 
 impl Serialize for UnrealString {
-    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> Result<(), Error> {
         self.bytes
             .serialize(serializer)
             .context("cannot serialize string")

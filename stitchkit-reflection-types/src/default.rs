@@ -1,10 +1,9 @@
 use std::io::{Cursor, Read, Write};
 
-use anyhow::Context;
 use stitchkit_archive::{
     index::OptionalPackageObjectIndex, sections::name_table::common::CommonNames, Archive,
 };
-use stitchkit_core::binary::{Deserializer, Serialize, Serializer};
+use stitchkit_core::binary::{self, Deserializer, ResultContextExt, Serialize, Serializer};
 use tracing::warn;
 
 use crate::{
@@ -27,7 +26,7 @@ impl DefaultObject {
         archive: &Archive,
         property_classes: &PropertyClasses,
         class_index: OptionalPackageObjectIndex,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, binary::Error> {
         Ok(Self {
             object: deserializer
                 .deserialize()
@@ -47,7 +46,7 @@ impl DefaultObject {
         &self,
         serializer: &mut Serializer<impl Write>,
         names: &CommonNames,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), binary::Error> {
         self.object.serialize(serializer)?;
         warn!("Trying to serialize a default object but default property serialization is not yet implemented");
         // Just serialize a None to signal there's no default properties.
@@ -55,7 +54,7 @@ impl DefaultObject {
         Ok(())
     }
 
-    pub fn serialize(&self, names: &CommonNames) -> anyhow::Result<Vec<u8>> {
+    pub fn serialize(&self, names: &CommonNames) -> Result<Vec<u8>, binary::Error> {
         let mut buffer = vec![];
         self.serialize_into(&mut Serializer::new(Cursor::new(&mut buffer)), names)?;
         Ok(buffer)

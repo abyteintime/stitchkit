@@ -1,8 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::{bail, ensure, Context};
 use rust_lzo::{LZOContext, LZOError};
-use stitchkit_core::binary::Deserializer;
+use stitchkit_core::binary::{self, Deserializer, ErrorKind, ResultContextExt};
 use tracing::{debug, trace};
 
 use crate::sections::{CompressedChunkBlock, CompressedChunkHeader, Summary};
@@ -14,7 +13,7 @@ impl Summary {
     pub fn decompress_archive_to_memory(
         &self,
         deserializer: &mut Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, binary::Error> {
         debug!("Loading entire file to memory");
         let size = deserializer.seek(SeekFrom::End(0))?;
         let mut buffer = vec![0; size as usize];
@@ -28,12 +27,14 @@ impl Summary {
             buffer.len() as f64 / 1024.0 / 1024.0
         );
 
-        ensure!(
-            self.compression_kind == Self::COMPRESSION_NONE
-                || self.compression_kind == Self::COMPRESSION_LZO,
-            "unsupported compression kind {}",
-            self.compression_kind
-        );
+        if !(self.compression_kind == Self::COMPRESSION_NONE
+            || self.compression_kind == Self::COMPRESSION_LZO)
+        {
+            return Err(ErrorKind::Deserialize.make(format!(
+                "unsupported compression kind {}",
+                self.compression_kind
+            )));
+        }
 
         if let Some(output_buffer_size) = self
             .compressed_chunks
@@ -89,7 +90,8 @@ impl Summary {
                             LZOError::NOT_YET_IMPLEMENTED => "NOT_YET_IMPLEMENTED",
                             LZOError::INVALID_ARGUMENT => "INVALID_ARGUMENT",
                         };
-                        bail!("failed to decompress block (LZO error {result})");
+                        return Err(ErrorKind::Deserialize
+                            .make(format!("failed to decompress block (LZO error {result})")));
                     }
                 }
             }

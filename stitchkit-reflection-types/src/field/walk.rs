@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 
-use anyhow::{anyhow, bail, Context};
 use stitchkit_archive::{
     index::{OptionalPackageObjectIndex, PackageObjectIndex},
     sections::ExportTable,
 };
-use stitchkit_core::binary::{deserialize, Deserialize};
+use stitchkit_core::binary::{self, deserialize, Deserialize, ErrorKind, ResultContextExt};
 
 /// Walk a linked list of `Field`s.
 pub struct WalkList<'a, F, T> {
@@ -36,12 +35,10 @@ where
         }
     }
 
-    pub fn walk_to_next(&mut self) -> anyhow::Result<Option<(PackageObjectIndex, T)>> {
+    pub fn walk_to_next(&mut self) -> Result<Option<(PackageObjectIndex, T)>, binary::Error> {
         if let Some(export_index) = self.current.export_index() {
             let object_export = self.export_table.get(export_index).ok_or_else(|| {
-                anyhow!(
-                    "UField points to an invalid object ({export_index:?} out of bounds of the export table)"
-                )
+                ErrorKind::Deserialize.make(format!("UField points to an invalid object ({export_index:?} out of bounds of the export table)"))
             })?;
             let next_object = object_export.get_serial_data(self.archive);
             let field = deserialize::<T>(next_object)
@@ -51,7 +48,8 @@ where
             Ok(current.0.map(|index| (index, field)))
         } else {
             if self.current.is_imported() {
-                bail!("UField must not contain references to imported objects");
+                return Err(ErrorKind::Deserialize
+                    .make("UField must not contain references to imported objects"));
             }
             Ok(None)
         }
@@ -63,12 +61,9 @@ where
     F: Fn(&T) -> OptionalPackageObjectIndex,
     T: Deserialize,
 {
-    type Item = anyhow::Result<(PackageObjectIndex, T)>;
+    type Item = Result<(PackageObjectIndex, T), binary::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.walk_to_next() {
-            Ok(option) => option.map(Ok),
-            Err(error) => Some(Err(error)),
-        }
+        self.walk_to_next().transpose()
     }
 }

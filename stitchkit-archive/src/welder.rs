@@ -1,8 +1,7 @@
 use std::{io::Cursor, iter::zip};
 
-use anyhow::{bail, Context};
 use stitchkit_core::{
-    binary::{Serialize, Serializer},
+    binary::{self, ErrorKind, ResultContextExt, Serialize, Serializer},
     string::UnrealString,
     uuid::Uuid,
 };
@@ -26,7 +25,7 @@ pub struct Welder<'a> {
 }
 
 impl<'a> Welder<'a> {
-    pub fn weld(self) -> anyhow::Result<Vec<u8>> {
+    pub fn weld(self) -> Result<Vec<u8>, binary::Error> {
         let mut summary = Summary {
             file_version: hat::ARCHIVE_FORMAT_VERSION,
             package_group: UnrealString::try_from("None").unwrap(),
@@ -118,10 +117,10 @@ impl<'a> Welder<'a> {
             .try_into()
             .map_err(|_| Error::ArchiveTooBig)?;
         if self.dependency_table.objects.len() < self.export_table.exports.len() {
-            bail!(
+            return Err(ErrorKind::Serialize.make(format!(
                 "dependency table does not contain dependencies for objects from {} onward",
                 self.dependency_table.objects.len()
-            );
+            )));
         }
         for (i, object) in self.dependency_table.objects.iter().enumerate() {
             if let Some(object) = object {
@@ -177,4 +176,10 @@ pub enum Error {
     UnsetExport(usize),
     #[error("export {0} was specified but it has no counterpart dependency table entry")]
     UnsetDependency(usize),
+}
+
+impl From<Error> for binary::Error {
+    fn from(value: Error) -> Self {
+        ErrorKind::Serialize.make(value.to_string())
+    }
 }

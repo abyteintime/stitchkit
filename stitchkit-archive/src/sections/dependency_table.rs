@@ -2,8 +2,10 @@ pub mod unlinked;
 
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::Context;
-use stitchkit_core::{binary::Deserializer, Deserialize, Serialize};
+use stitchkit_core::{
+    binary::{self, Deserializer, ResultContextExt},
+    Deserialize, Serialize,
+};
 use tracing::debug;
 
 use crate::index::OptionalPackageObjectIndex;
@@ -28,7 +30,7 @@ impl Summary {
     pub fn deserialize_dependency_table(
         &self,
         deserializer: &mut Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<DependencyTable> {
+    ) -> Result<DependencyTable, binary::Error> {
         debug!(
             "Deserializing dependency table ({} dependencies at {:08x})",
             self.depends_count(),

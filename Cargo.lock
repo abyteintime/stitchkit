@@ -337,7 +337,6 @@ dependencies = [
 name = "stitchkit-archive"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bitflags 2.0.0-rc.3",
  "rust-lzo",
  "stitchkit-core",
@@ -350,10 +349,10 @@ dependencies = [
 name = "stitchkit-core"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bitflags 2.0.0-rc.3",
  "once_cell",
  "stitchkit-core-derive",
+ "thiserror",
  "uuid",
 ]
 
@@ -361,7 +360,6 @@ dependencies = [
 name = "stitchkit-core-derive"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "proc-macro2",
  "quote",
  "syn",
@@ -379,12 +377,15 @@ dependencies = [
 name = "stitchkit-reflection-types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bitflags 2.0.0-rc.3",
  "stitchkit-archive",
  "stitchkit-core",
  "tracing",
 ]
+
+[[package]]
+name = "stitchkit-uscript"
+version = "0.1.0"
 
 [[package]]
 name = "strsim"

@@ -2,10 +2,12 @@
 
 use std::io::Read;
 
-use anyhow::{anyhow, bail, Context};
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
 use stitchkit_core::{
-    binary::{deserialize, Deserialize, Deserializer, Serialize},
+    binary::{
+        self, deserialize, Deserialize, Deserializer, ErrorKind, ResultContextExt,
+        ResultMapToBinaryErrorExt, Serialize,
+    },
     primitive::ConstU32,
     string::UnrealString,
     Deserialize,
@@ -109,7 +111,7 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
         }
     }
 
-    pub fn next_property(&mut self) -> anyhow::Result<Option<DefaultProperty>>
+    pub fn next_property(&mut self) -> Result<Option<DefaultProperty>, binary::Error>
     where
         R: Read,
     {
@@ -144,7 +146,9 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
                     .property_map
                     .iter()
                     .find(|info| info.name == name)
-                    .ok_or_else(|| anyhow!("property {name:?} does not exist"))?;
+                    .ok_or_else(|| {
+                        ErrorKind::Deserialize.make(format!("property {name:?} does not exist"))
+                    })?;
 
                 Ok(Some(DefaultProperty {
                     name,
@@ -197,7 +201,7 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
         &mut self,
         property: &AnyProperty,
         is_top_level: bool,
-    ) -> anyhow::Result<DefaultPropertyValue>
+    ) -> Result<DefaultPropertyValue, binary::Error>
     where
         R: Read,
     {
@@ -259,6 +263,7 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
                     .archive
                     .export_table
                     .try_get(array_property.item_property)
+                    .map_err_to_binary_error(ErrorKind::Deserialize)
                     .context("array property contains an invalid item type")?;
                 let inner_type = AnyProperty::deserialize(
                     self.property_classes,
@@ -268,7 +273,9 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
                     ),
                 )
                 .context("cannot deserialize the inner type of the array")?
-                .ok_or_else(|| anyhow!("the inner type of the array is not a property"))?;
+                .ok_or_else(|| {
+                    ErrorKind::Deserialize.make("the inner type of the array is not a property")
+                })?;
 
                 let mut array = Vec::with_capacity(len as usize);
                 for i in 0..len {
@@ -306,6 +313,7 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
                     .archive
                     .export_table
                     .try_get(struct_property.struct_type)
+                    .map_err_to_binary_error(ErrorKind::Deserialize)
                     .context("cannot obtain the type of the struct")?;
                 let struct_type = deserialize::<StructHeader>(
                     struct_type_export.get_serial_data(&self.archive.decompressed_data),
@@ -328,7 +336,10 @@ impl<'a, R> DefaultPropertiesDeserializer<'a, R> {
 
                 DefaultPropertyValue::Aggregate(properties)
             }
-            other => bail!("unsupported type for default property: {other:#?}",),
+            other => {
+                return Err(ErrorKind::Deserialize
+                    .make(format!("unsupported type for default property: {other:#?}")))
+            }
         })
     }
 }
@@ -340,7 +351,7 @@ impl DefaultProperties {
         property_classes: &PropertyClasses,
         parent_chunk: OptionalPackageObjectIndex,
         format: DefaultPropertiesFormat,
-    ) -> anyhow::Result<Self>
+    ) -> Result<Self, binary::Error>
     where
         X: Deserialize + Serialize,
     {

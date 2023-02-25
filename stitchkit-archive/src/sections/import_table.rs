@@ -1,7 +1,9 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::Context;
-use stitchkit_core::{binary::Deserializer, Deserialize, Serialize};
+use stitchkit_core::{
+    binary::{self, Deserializer, ResultContextExt},
+    Deserialize, Serialize,
+};
 use tracing::{debug, trace};
 
 use crate::{
@@ -62,7 +64,7 @@ impl Summary {
     pub fn deserialize_import_table(
         &self,
         deserializer: &mut Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<ImportTable> {
+    ) -> Result<ImportTable, binary::Error> {
         debug!(
             "Deserializing import table ({} imports at {:08x})",
             self.import_table_len, self.import_table_offset

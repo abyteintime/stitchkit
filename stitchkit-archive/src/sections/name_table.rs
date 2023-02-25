@@ -3,9 +3,11 @@ pub mod common;
 
 use std::io::{Read, Seek, SeekFrom};
 
-use anyhow::Context;
 use stitchkit_core::{
-    binary::Deserializer, flags::ObjectFlags, string::UnrealString, Deserialize, Serialize,
+    binary::{self, Deserializer, ResultContextExt},
+    flags::ObjectFlags,
+    string::UnrealString,
+    Deserialize, Serialize,
 };
 use tracing::{debug, trace};
 
@@ -42,7 +44,7 @@ impl Summary {
     pub fn deserialize_name_table(
         &self,
         deserializer: &mut Deserializer<impl Read + Seek>,
-    ) -> anyhow::Result<NameTable> {
+    ) -> Result<NameTable, binary::Error> {
         debug!(
             "Deserializing name table ({} names at {:08x})",
             self.name_table_len, self.name_table_offset

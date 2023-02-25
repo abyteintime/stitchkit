@@ -2,15 +2,15 @@ use std::{
     cmp::Ordering,
     fmt,
     io::{Read, Write},
-    num::{NonZeroI32, NonZeroU32},
+    num::{NonZeroI32, NonZeroU32, ParseIntError},
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, Context};
 use stitchkit_core::{
-    binary::{Deserialize, Deserializer, Serialize, Serializer},
+    binary::{self, Deserialize, Deserializer, ResultContextExt, Serialize, Serializer},
     Deserialize, Serialize,
 };
+use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExportNumber(pub NonZeroU32);
@@ -91,13 +91,19 @@ impl PackageObjectIndex {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum IndexConversionError {
+    #[error("object index is not an export")]
+    ToExport,
+    #[error("object index is not an import")]
+    ToImport,
+}
+
 impl TryFrom<PackageObjectIndex> for ExportIndex {
-    type Error = anyhow::Error;
+    type Error = IndexConversionError;
 
     fn try_from(value: PackageObjectIndex) -> Result<Self, Self::Error> {
-        value
-            .export_index()
-            .ok_or_else(|| anyhow!("package object index is not an export"))
+        value.export_index().ok_or(IndexConversionError::ToExport)
     }
 }
 
@@ -115,12 +121,10 @@ impl From<ExportIndex> for PackageObjectIndex {
 }
 
 impl TryFrom<PackageObjectIndex> for ImportIndex {
-    type Error = anyhow::Error;
+    type Error = IndexConversionError;
 
     fn try_from(value: PackageObjectIndex) -> Result<Self, Self::Error> {
-        value
-            .import_index()
-            .ok_or_else(|| anyhow!("package object index is not an import"))
+        value.import_index().ok_or(IndexConversionError::ToImport)
     }
 }
 
@@ -245,22 +249,18 @@ impl From<OptionalPackageObjectIndex> for i32 {
 }
 
 impl TryFrom<OptionalPackageObjectIndex> for ExportIndex {
-    type Error = anyhow::Error;
+    type Error = IndexConversionError;
 
     fn try_from(value: OptionalPackageObjectIndex) -> Result<Self, Self::Error> {
-        value
-            .export_index()
-            .ok_or_else(|| anyhow!("package object index is not an export"))
+        value.export_index().ok_or(IndexConversionError::ToExport)
     }
 }
 
 impl TryFrom<OptionalPackageObjectIndex> for ImportIndex {
-    type Error = anyhow::Error;
+    type Error = IndexConversionError;
 
     fn try_from(value: OptionalPackageObjectIndex) -> Result<Self, Self::Error> {
-        value
-            .import_index()
-            .ok_or_else(|| anyhow!("package object index is not an import"))
+        value.import_index().ok_or(IndexConversionError::ToImport)
     }
 }
 
@@ -271,7 +271,7 @@ impl fmt::Debug for OptionalPackageObjectIndex {
 }
 
 impl Deserialize for OptionalPackageObjectIndex {
-    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> anyhow::Result<Self> {
+    fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, binary::Error> {
         let index = deserializer
             .deserialize::<i32>()
             .context("cannot deserialize OptionalPackageObjectIndex")?;
@@ -286,7 +286,7 @@ impl Deserialize for OptionalPackageObjectIndex {
 }
 
 impl Serialize for OptionalPackageObjectIndex {
-    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> anyhow::Result<()> {
+    fn serialize(&self, serializer: &mut Serializer<impl Write>) -> Result<(), binary::Error> {
         i32::from(*self).serialize(serializer)
     }
 }
@@ -385,8 +385,20 @@ impl fmt::Debug for PackageClassIndex {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ClassIndexFromStrError {
+    #[error("invalid package object index; it must be 'class', 'export:n', or 'import:n' where n is a 1-based index into the package's export/import table")]
+    InvalidSyntax,
+    #[error("class index must bot be zero")]
+    MustNotBeZero,
+    #[error("invalid integer: {0}")]
+    InvalidInt(#[from] ParseIntError),
+    #[error("class index out of the signed 32-bit integer range")]
+    OutOfRange,
+}
+
 impl FromStr for PackageClassIndex {
-    type Err = anyhow::Error;
+    type Err = ClassIndexFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self {
@@ -395,17 +407,21 @@ impl FromStr for PackageClassIndex {
             } else if let Some(number) = s.strip_prefix("export:") {
                 let index = number.parse::<u32>()?;
                 OptionalPackageObjectIndex(Some(PackageObjectIndex(
-                    NonZeroI32::new(i32::try_from(index)?)
-                        .ok_or_else(|| anyhow!("class index must not be zero"))?,
+                    NonZeroI32::new(
+                        i32::try_from(index).map_err(|_| ClassIndexFromStrError::OutOfRange)?,
+                    )
+                    .ok_or(ClassIndexFromStrError::MustNotBeZero)?,
                 )))
             } else if let Some(number) = s.strip_prefix("import:") {
                 let index = number.parse::<u32>()?;
                 OptionalPackageObjectIndex(Some(PackageObjectIndex(
-                    NonZeroI32::new(-i32::try_from(index)?)
-                        .ok_or_else(|| anyhow!("class index must not be zero"))?,
+                    NonZeroI32::new(
+                        -i32::try_from(index).map_err(|_| ClassIndexFromStrError::OutOfRange)?,
+                    )
+                    .ok_or(ClassIndexFromStrError::MustNotBeZero)?,
                 )))
             } else {
-                bail!("invalid package object index; it must be 'class', 'export:n', or 'import:n' where n is a 1-based index into the package's export/import table")
+                return Err(ClassIndexFromStrError::InvalidSyntax);
             },
         })
     }

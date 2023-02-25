@@ -43,7 +43,7 @@ pub fn derive_deserialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
                 }
             });
         let variable_value = quote! {
-            ::anyhow::Context::context(#variable_value, #error)?
+            ::stitchkit_core::binary::ResultContextExt::context(#variable_value, #error)?
         };
         variables.push(quote! {
             let #field_name: #field_type = #variable_value;
@@ -58,7 +58,7 @@ pub fn derive_deserialize_impl(st: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics ::stitchkit_core::binary::Deserialize for #type_name #type_generics #where_clause {
-            fn deserialize(deserializer: &mut ::stitchkit_core::binary::Deserializer<impl ::std::io::Read>) -> ::anyhow::Result<Self> {
+            fn deserialize(deserializer: &mut ::stitchkit_core::binary::Deserializer<impl ::std::io::Read>) -> ::std::result::Result<Self, ::stitchkit_core::binary::Error> {
                 #variables
                 Ok(Self {
                     #constructor_fields

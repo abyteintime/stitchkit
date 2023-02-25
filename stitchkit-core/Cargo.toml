@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { workspace = true }
 bitflags = { workspace = true }
 once_cell = "1.17.0"
+thiserror = { workspace = true }
 uuid = { workspace = true }
 
 stitchkit-core-derive = { workspace = true }

@@ -1,11 +1,10 @@
 use std::io::Read;
 
-use anyhow::{anyhow, Context};
 use stitchkit_archive::{
-    index::PackageClassIndex,
+    index::{ImportIndex, PackageClassIndex},
     sections::{ImportTable, NameTable},
 };
-use stitchkit_core::binary::Deserializer;
+use stitchkit_core::binary::{self, Deserializer, ResultContextExt};
 
 use crate::Property;
 
@@ -57,7 +56,7 @@ impl AnyProperty {
         property_classes: &PropertyClasses,
         class_index: PackageClassIndex,
         deserializer: &mut Deserializer<impl Read>,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> Result<Option<Self>, binary::Error> {
         let class_index = Some(class_index);
         Ok(match class_index {
             i if i == property_classes.byte_property => Some(Self::Byte(
@@ -144,17 +143,11 @@ pub struct PropertyClasses {
 
 impl PropertyClasses {
     /// Extracts property classes from an archive's import and name tables.
-    pub fn new(name_table: &NameTable, import_table: &ImportTable) -> anyhow::Result<Self> {
+    pub fn new(name_table: &NameTable, import_table: &ImportTable) -> Self {
         let mut result = Self::default();
         for (i, import) in import_table.imports.iter().enumerate() {
             if let (b"Core", b"Class", class_name) = import.resolve_names(name_table) {
-                let index = Some(PackageClassIndex::new(-i32::try_from(i + 1).map_err(
-                    |_| {
-                        anyhow!(
-                            "import table has too many imports (the count must not exceed i32::MAX)"
-                        )
-                    },
-                )?));
+                let index = Some(PackageClassIndex::from(ImportIndex(i as u32)));
                 match class_name {
                     b"ByteProperty" => result.byte_property = index,
                     b"IntProperty" => result.int_property = index,
@@ -172,6 +165,6 @@ impl PropertyClasses {
                 }
             }
         }
-        Ok(result)
+        result
     }
 }

@@ -4,7 +4,7 @@ macro_rules! serializable_bitflags {
         impl $crate::binary::Deserialize for $T {
             fn deserialize(
                 deserializer: &mut $crate::binary::Deserializer<impl ::std::io::Read>,
-            ) -> ::anyhow::Result<Self> {
+            ) -> ::std::result::Result<Self, $crate::binary::Error> {
                 let result = Self::from_bits_retain(deserializer.deserialize()?);
                 {
                     let $var = result;
@@ -18,7 +18,7 @@ macro_rules! serializable_bitflags {
             fn serialize(
                 &self,
                 serializer: &mut $crate::binary::Serializer<impl ::std::io::Write>,
-            ) -> ::anyhow::Result<()> {
+            ) -> ::std::result::Result<(), $crate::binary::Error> {
                 $crate::binary::Serialize::serialize(&self.bits(), serializer)
             }
         }

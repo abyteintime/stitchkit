@@ -81,8 +81,7 @@ pub fn objdump(dump: Objdump) -> anyhow::Result<()> {
             let archive = Archive::deserialize(&mut deserializer).context("cannot read archive")?;
 
             debug!("Finding external classes in import table");
-            let property_classes =
-                PropertyClasses::new(&archive.name_table, &archive.import_table)?;
+            let property_classes = PropertyClasses::new(&archive.name_table, &archive.import_table);
             trace!("Property classes: {property_classes:#?}");
 
             debug!("Printing objects");

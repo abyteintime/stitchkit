@@ -1,10 +1,12 @@
 use std::{io::Read, ops::Deref};
 
-use anyhow::Context;
 use bitflags::bitflags;
 
 use stitchkit_archive::{index::OptionalPackageObjectIndex, name::ArchivedName, Archive};
-use stitchkit_core::{binary::Deserializer, serializable_bitflags, Deserialize, Serialize};
+use stitchkit_core::{
+    binary::{self, Deserializer, ResultContextExt},
+    serializable_bitflags, Deserialize, Serialize,
+};
 
 use crate::{
     property::{
@@ -58,7 +60,7 @@ impl Struct {
         archive: &Archive,
         property_classes: &PropertyClasses,
         this_struct: OptionalPackageObjectIndex,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, binary::Error> {
         Ok(Self {
             header: deserializer
                 .deserialize()

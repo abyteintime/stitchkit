@@ -6,7 +6,9 @@ members = [
     "stitchkit-core-derive",
     "stitchkit-reflection-types",
     "stitchkit-manifest",
-    "stitchkit-uscript",
+
+    "muscript-foundation",
+    "muscript-frontend",
 ]
 
 [workspace.dependencies]
@@ -21,3 +23,6 @@ stitchkit-core-derive = { path = "stitchkit-core-derive" }
 stitchkit-reflection-types = { path = "stitchkit-reflection-types" }
 stitchkit-manifest = { path = "stitchkit-manifest" }
 stitchkit-uscript = { path = "stitchkit-uscript" }
+
+muscript-foundation = { path = "muscript-foundation" }
+muscript-frontend = { path = "muscript-frontend" }

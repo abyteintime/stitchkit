@@ -15,3 +15,6 @@ stitchkit-archive = { workspace = true }
 stitchkit-core = { workspace = true }
 stitchkit-reflection-types = { workspace = true }
 stitchkit-manifest = { workspace = true }
+
+muscript-foundation = { workspace = true }
+muscript-frontend = { workspace = true }

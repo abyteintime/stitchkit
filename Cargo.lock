@@ -70,6 +70,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "codespan-reporting"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
+dependencies = [
+ "termcolor",
+ "unicode-width",
+]
+
+[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -169,6 +179,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
 dependencies = [
  "regex-automata",
+]
+
+[[package]]
+name = "muscript-foundation"
+version = "0.1.0"
+dependencies = [
+ "codespan-reporting",
+]
+
+[[package]]
+name = "muscript-frontend"
+version = "0.1.0"
+dependencies = [
+ "muscript-foundation",
 ]
 
 [[package]]
@@ -324,6 +348,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "muscript-foundation",
+ "muscript-frontend",
  "stitchkit-archive",
  "stitchkit-core",
  "stitchkit-manifest",
@@ -382,10 +408,6 @@ dependencies = [
  "stitchkit-core",
  "tracing",
 ]
-
-[[package]]
-name = "stitchkit-uscript"
-version = "0.1.0"
 
 [[package]]
 name = "strsim"
@@ -509,6 +531,12 @@ name = "unicode-ident"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
+
+[[package]]
+name = "unicode-width"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "uuid"

@@ -6,13 +6,17 @@ use muscript_foundation::{
     errors::{Diagnostic, Severity},
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
-use muscript_frontend::lexer::{Lexer, TokenKind};
+use muscript_frontend::{
+    lexis::{token::TokenKind, Lexer, TokenStream},
+    parsing::{self, ast},
+};
 use tracing::debug;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Action {
     Lex,
+    Parse,
 }
 
 #[derive(Debug, Parser)]
@@ -101,12 +105,19 @@ fn perform_action_on_source_file(
         Action::Lex => {
             let mut lexer = Lexer::new(id, &file.source);
             loop {
-                let token = lexer.next_token_include_comments()?;
-                println!("{token:?} {:?}", &file.source[token.span.0.clone()]);
+                let token = lexer.next()?;
+                println!("{token:?} {:?}", &file.source[token.span.to_range()]);
                 if token.kind == TokenKind::EndOfFile {
                     break;
                 }
             }
+        }
+        Action::Parse => {
+            // No preprocessor for now unfortunately. Our parser will scream when it sees `.
+            let lexer = Lexer::new(id, &file.source);
+            let mut parser = parsing::Parser::new(id, &file.source, lexer);
+            let file = parser.parse::<ast::File>().map_err(|_| parser.errors)?;
+            println!("{file:#?}");
         }
     }
     Ok(())

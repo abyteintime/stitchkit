@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 pub use codespan_reporting::diagnostic::LabelStyle;
 pub use codespan_reporting::diagnostic::Severity;
 use codespan_reporting::term;
@@ -8,9 +6,7 @@ use codespan_reporting::term::termcolor::StandardStream;
 
 use crate::source::SourceFileId;
 use crate::source::SourceFileSet;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Span(pub Range<usize>);
+use crate::source::Span;
 
 pub struct Label {
     pub style: LabelStyle,
@@ -178,7 +174,7 @@ impl From<Diagnostic> for codespan_reporting::diagnostic::Diagnostic<SourceFileI
                 .map(|label| codespan_reporting::diagnostic::Label {
                     style: label.style,
                     file_id: label.file.unwrap_or(diag.source_file),
-                    range: label.span.0,
+                    range: label.span.into(),
                     message: label.message,
                 })
                 .collect(),

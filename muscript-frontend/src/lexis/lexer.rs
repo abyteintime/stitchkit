@@ -1,80 +1,14 @@
 use muscript_foundation::{
-    errors::{Diagnostic, Label, ReplacementSuggestion, Span},
-    source::SourceFileId,
+    errors::{Diagnostic, Label, ReplacementSuggestion},
+    source::{SourceFileId, Span},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TokenKind {
-    Comment,
+use super::{
+    token::{Token, TokenKind},
+    LexError, TokenStream,
+};
 
-    Ident,
-
-    None,
-    True,
-    False,
-
-    Int,
-    IntHex,
-    Float,
-    String,
-    Name,
-
-    Add,              // +
-    Sub,              // -
-    Mul,              // *
-    Div,              // /
-    Rem,              // %
-    Pow,              // **
-    KDot,             // dot
-    Cross,            // cross
-    Dollar,           // $
-    At,               // @
-    Colon,            // :
-    Question,         // ?
-    ShiftLeft,        // <<
-    ShiftRight,       // >>
-    TripleShiftRight, // >>>
-    BitNot,           // ~
-    BitAnd,           // &
-    BitOr,            // |
-    BitXor,           // ^
-    Not,              // !
-    Equal,            // ==
-    NotEqual,         // !=
-    ApproxEqual,      // ~=
-    Less,             // <
-    Greater,          // >
-    LessEqual,        // <=
-    GreaterEqual,     // >=
-    And,              // &&
-    Or,               // ||
-    Xor,              // ^^
-    Inc,              // ++
-    Dec,              // --
-    Assign,           // =
-
-    LeftParen,    // (
-    RightParen,   // )
-    LeftBracket,  // [
-    RightBracket, // ]
-    LeftBrace,    // {
-    RightBrace,   // }
-    Dot,          // .
-    Comma,        // ,
-    Semicolon,    // ;
-    Hash,         // #
-    Accent,       // `
-    Backslash,    // \
-
-    EndOfFile,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub span: Span,
-}
-
+#[derive(Debug)]
 pub struct Lexer<'a> {
     pub file: SourceFileId,
     pub input: &'a str,
@@ -101,7 +35,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn span(&self, start: usize) -> Span {
-        Span(start..self.position)
+        Span::from(start..self.position)
     }
 
     fn span_with_len(&self, start: usize, len: usize) -> Span {
@@ -111,7 +45,7 @@ impl<'a> Lexer<'a> {
             .map(|(index, _)| index)
             .next()
             .unwrap_or(self.input.len());
-        Span(start..start + len)
+        Span::from(start..start + len)
     }
 
     fn one_or_more(&mut self, mut test: impl Fn(char) -> bool) -> Result<(), ()> {
@@ -162,7 +96,8 @@ impl<'a> Lexer<'a> {
                             }
                         }
                         None => {
-                            return Err(LexError(
+                            return Err(LexError::new(
+                                self.span(start),
                                 Diagnostic::error(
                                     self.file,
                                     "block comment does not have a matching '*/' terminator",
@@ -189,7 +124,7 @@ impl<'a> Lexer<'a> {
         TokenKind::Ident
     }
 
-    fn decimal_number(&mut self) -> Result<TokenKind, LexError> {
+    fn decimal_number(&mut self, start: usize) -> Result<TokenKind, LexError> {
         while let Some('0'..='9') = self.current_char() {
             self.advance_char();
         }
@@ -198,7 +133,7 @@ impl<'a> Lexer<'a> {
             while let Some('0'..='9') = self.current_char() {
                 self.advance_char();
             }
-            if let Some('e' | 'E') = self.current_char() {
+            let result = if let Some('e' | 'E') = self.current_char() {
                 let exponent_start = self.position;
                 self.advance_char();
                 if let Some('+' | '-') = self.current_char() {
@@ -206,23 +141,28 @@ impl<'a> Lexer<'a> {
                 }
                 let exponent_end = self.position;
                 self.one_or_more(|c| c.is_ascii_digit()).map_err(|_| {
-                    LexError(
+                    LexError::new(
+                        self.span(start),
                         Diagnostic::error(
                             self.file,
                             "'e' in float literal with scientific notation must be followed by an exponent number",
                         )
                         .with_label(Label::primary(
-                            Span(exponent_start..exponent_end),
+                            Span::from(exponent_start..exponent_end),
                             "scientific notation used here",
                         )),
                     )
-                })?;
+                })
+            } else {
+                Ok(())
             }
+            .map(|_| TokenKind::Float);
+            // NOTE: Even in case of error above, we want to continue reading to skip the possible
+            // f suffix so that the parser doesn't have to deal with a stray identifier.
             if self.current_char() == Some('f') {
                 self.advance_char();
-                return Ok(TokenKind::Float);
             }
-            Ok(TokenKind::Float)
+            result
         } else if self.current_char() == Some('f') {
             self.advance_char();
             Ok(TokenKind::Float)
@@ -232,42 +172,45 @@ impl<'a> Lexer<'a> {
     }
 
     fn number(&mut self, start: usize) -> Result<TokenKind, LexError> {
-        let kind = if self.current_char() == Some('0') {
+        let result = if self.current_char() == Some('0') {
             self.advance_char();
             if let Some('x' | 'X') = self.current_char() {
                 self.advance_char();
                 while let Some('0'..='9' | 'A'..='F' | 'a'..='f') = self.current_char() {
                     self.advance_char();
                 }
-                TokenKind::IntHex
+                Ok(TokenKind::IntHex)
             } else {
-                self.decimal_number()?
+                // Again, we don't want to early-out here to not leave the parser with a
+                // stray identifier.
+                self.decimal_number(start)
             }
         } else {
-            self.decimal_number()?
+            self.decimal_number(start)
         };
 
         if let Some('A'..='Z' | 'a'..='z' | '_') = self.current_char() {
             let ident_start = self.position;
             self.identifier();
             let ident_end = self.position;
-            return Err(LexError(
+            return Err(LexError::new(
+                self.span(start),
                 Diagnostic::error(
                     self.file,
                     "number literal must not be immediately followed by an identifier",
                 )
                 .with_label(Label::secondary(
-                    Span(start..ident_start),
+                    Span::from(start..ident_start),
                     "number literal occurs here...",
                 ))
                 .with_label(Label::primary(
-                    Span(ident_start..ident_end),
+                    Span::from(ident_start..ident_end),
                     "...and is immediately followed by an identifier",
                 ))
                 .with_note((
                     "help: add a space between the number and the identifier",
                     ReplacementSuggestion {
-                        span: Span(start..ident_end),
+                        span: Span::from(start..ident_end),
                         replacement: format!(
                             "{} {}",
                             &self.input[start..ident_start],
@@ -278,7 +221,7 @@ impl<'a> Lexer<'a> {
             ));
         }
 
-        Ok(kind)
+        result
     }
 
     fn string_char(&mut self) -> Result<(), LexError> {
@@ -300,7 +243,8 @@ impl<'a> Lexer<'a> {
         while self.current_char() != Some('"') {
             if self.current_char().is_none() {
                 dbg!(self.span_with_len(start, 1));
-                return Err(LexError(
+                return Err(LexError::new(
+                    self.span(start),
                     Diagnostic::error(
                         self.file,
                         "string literal does not have a closing quote '\"'",
@@ -322,7 +266,8 @@ impl<'a> Lexer<'a> {
         while self.current_char() != Some('\'') {
             if self.current_char().is_none() {
                 dbg!(self.span_with_len(start, 1));
-                return Err(LexError(
+                return Err(LexError::new(
+                    self.span(start),
                     Diagnostic::error(self.file, "name does not have a closing quote '\"'")
                         .with_label(Label::primary(
                             self.span_with_len(start, 1),
@@ -355,8 +300,20 @@ impl<'a> Lexer<'a> {
             kind
         }
     }
+}
 
-    pub fn next_token_include_comments(&mut self) -> Result<Token, LexError> {
+impl<'a> TokenStream for Lexer<'a> {
+    type Position = usize;
+
+    fn position(&self) -> Self::Position {
+        self.position
+    }
+
+    fn seek(&mut self, to: Self::Position) {
+        self.position = to;
+    }
+
+    fn next_include_comments(&mut self) -> Result<Token, LexError> {
         self.skip_whitespace();
 
         let start = self.position;
@@ -412,12 +369,13 @@ impl<'a> Lexer<'a> {
                 '}' => self.single_char_token(TokenKind::RightBrace),
                 '.' => self.single_char_token(TokenKind::Dot),
                 ',' => self.single_char_token(TokenKind::Comma),
-                ';' => self.single_char_token(TokenKind::Semicolon),
+                ';' => self.single_char_token(TokenKind::Semi),
                 '#' => self.single_char_token(TokenKind::Hash),
                 '`' => self.single_char_token(TokenKind::Accent),
                 '\\' => self.single_char_token(TokenKind::Backslash),
                 unknown => {
-                    return Err(LexError(
+                    return Err(LexError::new(
+                        self.span(start),
                         Diagnostic::error(
                             self.file,
                             format!("unrecognized character: {unknown:?}"),
@@ -436,24 +394,7 @@ impl<'a> Lexer<'a> {
         let end = self.position;
         Ok(Token {
             kind,
-            span: Span(start..end),
+            span: Span::from(start..end),
         })
-    }
-
-    pub fn next_token(&mut self) -> Result<Token, LexError> {
-        loop {
-            let token = self.next_token_include_comments()?;
-            if token.kind != TokenKind::Comment {
-                return Ok(token);
-            }
-        }
-    }
-}
-
-pub struct LexError(pub Diagnostic);
-
-impl From<LexError> for Vec<Diagnostic> {
-    fn from(value: LexError) -> Self {
-        vec![value.0]
     }
 }

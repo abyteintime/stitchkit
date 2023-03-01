@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+unicase = "2.6.0"
+
 muscript-foundation = { workspace = true }

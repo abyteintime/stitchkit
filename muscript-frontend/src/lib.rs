@@ -1,1 +1,3 @@
-pub mod lexer;
+pub mod lexis;
+#[macro_use]
+pub mod parsing;

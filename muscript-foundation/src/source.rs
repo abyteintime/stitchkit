@@ -1,4 +1,54 @@
+use std::{fmt, ops::Range};
+
 use codespan_reporting::files::Files;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    pub fn to_range(self) -> Range<usize> {
+        Range::from(self)
+    }
+
+    pub fn join(&self, other: &Span) -> Span {
+        Span {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+
+    pub fn get_input<'a>(&self, input: &'a str) -> &'a str {
+        &input[self.to_range()]
+    }
+}
+
+impl From<Span> for Range<usize> {
+    fn from(value: Span) -> Self {
+        value.start..value.end
+    }
+}
+
+impl From<Range<usize>> for Span {
+    fn from(value: Range<usize>) -> Self {
+        Self {
+            start: value.start,
+            end: value.end,
+        }
+    }
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&Range::from(*self), f)
+    }
+}
+
+pub trait Spanned {
+    fn span(&self) -> Span;
+}
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {

@@ -3,6 +3,7 @@ use bitflags::bitflags;
 use crate::serializable_bitflags;
 
 bitflags! {
+    /// `UObject` flags.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct ObjectFlags: u64 {
         const DEFAULT        = 0x0000000000000200;

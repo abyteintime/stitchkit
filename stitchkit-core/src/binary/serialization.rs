@@ -13,6 +13,7 @@ use std::{
 
 use super::{Error, ResultContextExt};
 
+/// Implemented by everything serializable to bytes.
 pub trait Serialize: Sized {
     fn serialize(&self, serializer: &mut Serializer<impl Write>) -> Result<(), Error>;
 }
@@ -90,6 +91,7 @@ serialize_optional_nonzero_primitive_le!(NonZeroI16);
 serialize_optional_nonzero_primitive_le!(NonZeroI32);
 serialize_optional_nonzero_primitive_le!(NonZeroI64);
 
+/// `Vec<T>` is serialized as a `u32` size followed by the vector's elements.
 impl<T> Serialize for Vec<T>
 where
     T: Serialize,
@@ -115,6 +117,7 @@ impl Serialize for Uuid {
     }
 }
 
+/// Convenience function for serializing a serializable value into a new buffer of bytes.
 pub fn serialize(value: &impl Serialize) -> Result<Vec<u8>, Error> {
     let mut buffer = vec![];
     value.serialize(&mut Serializer::new(Cursor::new(&mut buffer)))?;

@@ -1,6 +1,10 @@
+//! Support for flexible binary serialization/deserialization.
+
+#[doc(hidden)]
+pub mod macros;
+
 mod deserialization;
 mod error;
-pub mod macros;
 mod serialization;
 mod trailing_data;
 

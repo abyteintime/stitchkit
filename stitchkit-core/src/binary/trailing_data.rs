@@ -2,6 +2,9 @@ use std::{io::Read, ops::Deref};
 
 use super::{Deserialize, Deserializer, Error, ResultContextExt};
 
+/// Deserialization helper that reads all trailing data until the end of the stream.
+///
+/// This is mostly useful for inspecting unknown data.
 #[derive(Debug, Clone)]
 pub struct TrailingData(pub Vec<u8>);
 

@@ -31,6 +31,26 @@ impl<T> Context<T> {
     }
 }
 
+/// Declare a thread-local context variable.
+///
+/// Usage:
+/// ```
+/// context! {
+///     let name: i32;
+/// }
+/// ```
+/// Initially, the variable starts out unset, and you can set it in a scope by using `name::with`.
+/// ```
+/// #context! {
+/// #    let name: i32;
+/// #}
+///
+/// assert_eq!(name::get(), None);
+///
+/// name::with(&123, || {
+///     assert_eq!(name::get(), Some(&123));
+/// });
+/// ```
 #[macro_export]
 macro_rules! context {
     (

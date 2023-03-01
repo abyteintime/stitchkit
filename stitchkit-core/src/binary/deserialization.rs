@@ -16,7 +16,9 @@ use crate::binary::error::ResultContextExt;
 
 use super::{Error, ErrorKind};
 
+/// Implemented by everything deserializable from bytes.
 pub trait Deserialize: Sized {
+    /// Deserializes the value from bytes.
     fn deserialize(deserializer: &mut Deserializer<impl Read>) -> Result<Self, Error>;
 }
 
@@ -95,6 +97,7 @@ deserialize_optional_nonzero_primitive_le!(i16, NonZeroI16);
 deserialize_optional_nonzero_primitive_le!(i32, NonZeroI32);
 deserialize_optional_nonzero_primitive_le!(i64, NonZeroI64);
 
+/// `Vec<T>` is serialized as a `u32` size followed by the vector's elements.
 impl<T> Deserialize for Vec<T>
 where
     T: Deserialize,
@@ -122,6 +125,8 @@ impl Deserialize for Uuid {
 }
 
 impl<R> Deserializer<R> {
+    /// Convenience function that deserializes a type implementing [`Deserialize`] from the current
+    /// stream position.
     pub fn deserialize<T>(&mut self) -> Result<T, Error>
     where
         R: Read,
@@ -131,6 +136,7 @@ impl<R> Deserializer<R> {
     }
 }
 
+/// Convenience function that deserializes a type implementing [`Deserialize`] from a buffer.
 pub fn deserialize<T>(buffer: &[u8]) -> Result<T, Error>
 where
     T: Deserialize,

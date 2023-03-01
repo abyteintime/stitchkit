@@ -1,3 +1,5 @@
+//! Extra primitive types.
+
 use std::{
     fmt,
     io::{Read, Write},

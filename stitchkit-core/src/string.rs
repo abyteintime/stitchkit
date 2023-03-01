@@ -1,3 +1,5 @@
+//! Unreal strings.
+
 use std::{
     ffi::{CString, NulError},
     fmt::{Debug, Display},
@@ -7,6 +9,10 @@ use std::{
 
 use crate::binary::{Deserialize, Deserializer, Error, ResultContextExt, Serialize, Serializer};
 
+/// An Unreal Engine string.
+///
+/// Unreal strings are NUL-terminated ANSI or UTF-16 strings, though stitchkit currently does not
+/// enforce either of those.
 #[derive(Clone, PartialEq, Eq, Default, Hash)]
 pub struct UnrealString {
     bytes: Vec<u8>,

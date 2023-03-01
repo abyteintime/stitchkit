@@ -1,7 +1,13 @@
+//! Types for representing source code.
+
 use std::{fmt, ops::Range};
 
 use codespan_reporting::files::Files;
 
+/// Represents a span of characters within the source code.
+///
+/// While conceptually this is very similar to [`Range<usize>`], it avoids the huge pitfall of
+/// [`Range`] not implementing [`Copy`], and is therefore a lot easier to handle.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
@@ -9,10 +15,12 @@ pub struct Span {
 }
 
 impl Span {
+    /// Converts the span to a [`Range`].
     pub fn to_range(self) -> Range<usize> {
         Range::from(self)
     }
 
+    /// Joins two spans together, forming one big span that includes both `self` and `other`.
     pub fn join(&self, other: &Span) -> Span {
         Span {
             start: self.start.min(other.start),
@@ -20,6 +28,7 @@ impl Span {
         }
     }
 
+    /// Returns the slice of the original input string that this span represents.
     pub fn get_input<'a>(&self, input: &'a str) -> &'a str {
         &input[self.to_range()]
     }
@@ -46,19 +55,25 @@ impl fmt::Debug for Span {
     }
 }
 
+/// Implemented by all types that have a source code span attached.
 pub trait Spanned {
     fn span(&self) -> Span;
 }
 
+/// Represents a single source file.
 #[derive(Debug, Clone)]
 pub struct SourceFile {
+    /// The Unreal package this source file belongs to.
     pub package: String,
+    /// The source file's name.
     pub filename: String,
+    /// The source code.
     pub source: String,
     line_starts: Vec<usize>,
 }
 
 impl SourceFile {
+    /// Creates a new [`SourceFile`].
     pub fn new(package: String, filename: String, source: String) -> Self {
         Self {
             package,
@@ -86,25 +101,30 @@ impl SourceFile {
     }
 }
 
+/// A set of source files needed to compile a single package.
 #[derive(Debug, Clone, Default)]
 pub struct SourceFileSet {
     pub source_files: Vec<SourceFile>,
 }
 
+/// Index of a source file inside of a [`SourceFileSet`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceFileId(usize);
 
 impl SourceFileSet {
+    /// Creates a new [`SourceFileSet`].
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Adds a new [`SourceFile`] to the set and returns its ID.
     pub fn add(&mut self, file: SourceFile) -> SourceFileId {
         let id = SourceFileId(self.source_files.len());
         self.source_files.push(file);
         id
     }
 
+    /// Iterates over all source files in this set.
     pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &'_ SourceFile)> {
         self.source_files
             .iter()

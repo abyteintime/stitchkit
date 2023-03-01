@@ -1,3 +1,5 @@
+//! High (and low) level structure of the `Manifest.txt` format.
+
 use std::{
     fmt::{Display, Formatter, Write},
     ops::Deref,
@@ -11,31 +13,43 @@ use crate::{
 };
 
 bitflags! {
+    /// Flags that each class can be marked with.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
     pub struct ManifestFlags: u8 {
-        const PLACEABLE = 0x1;     // P
-        const DEPRECATED = 0x2;    // H
-        const ABSTRACT = 0x4;      // A
-        const UNKNOWN_E = 0x8;     // E
+        /// `[P]` - the class is placeable.
+        const PLACEABLE = 0x1;
+        /// `[H]` - the class is deprecated (hidden?)
+        const DEPRECATED = 0x2;
+        /// `[A]` - the class is abstract (so non-placeable.)
+        const ABSTRACT = 0x4;
+        /// `[E]` - unknown.
+        const UNKNOWN_E = 0x8;
     }
 }
 
+/// An owned `Manifest.txt` node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
+    /// The class's name.
     pub class: String,
+    /// The package this class belongs to.
     pub package: String,
+    /// Flags informing the editor how to display the class.
     pub flags: ManifestFlags,
-    pub categories: Vec<String>,
+    /// `ClassGroup`s declared in the class.
+    pub groups: Vec<String>,
+    /// Classes that inherit from this one.
     pub children: Vec<Manifest>,
 }
 
 impl Manifest {
+    /// Write the node to the given writer.
     pub fn write_to(&self, writer: &mut ManifestWriter<impl Write>) -> Result<(), Error> {
         writer.write_entry(Entry {
             class: &self.class,
             package: &self.package,
             flags: self.flags,
-            groups: self.categories.iter().map(|x| x.deref()),
+            groups: self.groups.iter().map(|x| x.deref()),
         })?;
         writer.descend();
         for child in &self.children {

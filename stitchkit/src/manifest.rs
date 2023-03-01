@@ -11,7 +11,7 @@ use stitchkit_archive::{
     Archive,
 };
 use stitchkit_core::binary::Deserializer;
-use stitchkit_manifest::{structure::ManifestFlags, writer::ManifestWriter};
+use stitchkit_manifest::{ManifestFlags, ManifestWriter};
 use stitchkit_reflection_types::{Class, ClassFlags};
 use tracing::{debug, debug_span, error, trace, warn, Level};
 use walkdir::WalkDir;
@@ -241,7 +241,7 @@ pub fn manifest(args: Args) -> anyhow::Result<()> {
             .iter()
             .map(|group| String::from_utf8_lossy(group))
             .collect::<Vec<_>>();
-        writer.write_entry(stitchkit_manifest::writer::Entry {
+        writer.write_entry(stitchkit_manifest::Entry {
             class: &String::from_utf8_lossy(class_name),
             package: &info.package,
             flags,

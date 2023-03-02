@@ -6,10 +6,12 @@ pub trait Keyword: SingleToken {
 
 macro_rules! keyword {
     ($T:tt = $keyword:tt) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy, PartialEq, Eq)]
         pub struct $T {
             pub span: ::muscript_foundation::source::Span,
         }
+
+        $crate::debug_token!($T);
 
         impl ::std::convert::From<$T> for $crate::lexis::token::Token {
             fn from(keyword: $T) -> Self {
@@ -44,6 +46,10 @@ macro_rules! keyword {
                     }))
                 }
             }
+
+            fn matches(_: &$crate::lexis::token::Token, input: &str) -> bool {
+                ::unicase::UniCase::new(input) == ::unicase::UniCase::ascii($keyword)
+            }
         }
 
         impl $crate::parsing::Keyword for $T {
@@ -65,7 +71,7 @@ macro_rules! keyword {
         }
 
         impl $crate::parsing::PredictiveParse for $T {
-            fn starts_with(token: &crate::lexis::token::Token, input: &str) -> bool {
+            fn starts_with(token: &$crate::lexis::token::Token, input: &str) -> bool {
                 ::unicase::UniCase::new(token.span.get_input(input))
                     == ::unicase::UniCase::ascii($keyword)
             }

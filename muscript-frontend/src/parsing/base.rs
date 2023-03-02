@@ -38,21 +38,27 @@ impl<'a, T> Parser<'a, T> {
         self.errors.push(error);
         Err(ParseError::new(error_span))
     }
+
+    pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.errors.push(diagnostic);
+    }
 }
 
 impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
-    pub fn next_token(&mut self) -> Result<Token, Span> {
+    pub fn next_token(&mut self) -> Result<Token, ParseError> {
         self.tokens.next().map_err(|LexError { span, diagnostic }| {
             self.errors.push(*diagnostic);
-            span
+            ParseError { span }
         })
     }
 
-    pub fn peek_token(&mut self) -> Result<Token, Span> {
-        self.tokens.peek().map_err(|LexError { span, .. }| span)
+    pub fn peek_token(&mut self) -> Result<Token, ParseError> {
+        self.tokens
+            .peek()
+            .map_err(|LexError { span, .. }| ParseError { span })
     }
 
     pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
@@ -71,7 +77,7 @@ where
                     ParseError::new(token.span())
                 })
             }
-            Err(span) => {
+            Err(ParseError { span }) => {
                 // Try to recover from the lexis error and keep on parsing beyond this point.
                 // We fabricate the token from the reported span.
                 Ok(Tok::default_from_span(span))
@@ -101,6 +107,7 @@ where
 }
 
 /// The AST node could not be parsed.
+#[derive(Debug, Clone, Copy)]
 pub struct ParseError {
     pub span: Span,
 }

@@ -1,5 +1,7 @@
-mod lexer;
+#[macro_use]
 pub mod token;
+
+mod lexer;
 mod token_stream;
 
 use muscript_foundation::{errors::Diagnostic, source::Span};

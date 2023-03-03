@@ -1,18 +1,20 @@
+use muscript_parsing_derive::PredictiveParse;
+
 use crate::{
     lexis::{
-        token::{Greater, Ident, Less, Token, TokenKind},
+        token::{Greater, Ident, Less},
         TokenStream,
     },
-    parsing::{list::DelimitedListDiagnostics, Parse, ParseError, Parser, PredictiveParse},
+    parsing::{list::DelimitedListDiagnostics, Parse, ParseError, Parser},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PredictiveParse)]
 pub struct Type {
     pub name: Ident,
     pub generic: Option<Generic>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PredictiveParse)]
 pub struct Generic {
     pub less: Less,
     pub args: Vec<Type>,
@@ -51,11 +53,5 @@ impl Parse for Generic {
             args,
             greater,
         })
-    }
-}
-
-impl PredictiveParse for Generic {
-    fn starts_with(token: &Token, _: &str) -> bool {
-        token.kind == TokenKind::Less
     }
 }

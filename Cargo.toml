@@ -9,6 +9,7 @@ members = [
 
     "muscript-foundation",
     "muscript-parsing",
+    "muscript-parsing-derive",
 ]
 
 [workspace.dependencies]
@@ -26,3 +27,4 @@ stitchkit-uscript = { path = "stitchkit-uscript" }
 
 muscript-foundation = { path = "muscript-foundation" }
 muscript-parsing = { path = "muscript-parsing" }
+muscript-parsing-derive = { path = "muscript-parsing-derive" }

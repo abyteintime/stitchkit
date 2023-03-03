@@ -1,8 +1,9 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi, Token},
+        token::{Ident, LeftParen, RightParen, Semi},
         TokenStream,
     },
     parsing::{Parse, ParseError, Parser, PredictiveParse},
@@ -12,7 +13,7 @@ use super::Type;
 
 keyword!(KVar = "var");
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct ItemVar {
     pub var: KVar,
     pub editor: Option<VarEditor>,
@@ -21,47 +22,11 @@ pub struct ItemVar {
     pub semi: Semi,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct VarEditor {
     pub open: LeftParen,
     pub category: Option<Ident>,
     pub close: RightParen,
-}
-
-impl Parse for ItemVar {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        Ok(Self {
-            // TODO: Error recovery here; if any of those are incorrect, we should read until the
-            // next semicolon.
-            var: parser.parse()?,
-            editor: parser.parse()?,
-            ty: parser.parse()?,
-            name: parser.parse()?,
-            semi: parser.parse()?,
-        })
-    }
-}
-
-impl PredictiveParse for ItemVar {
-    fn starts_with(token: &Token, input: &str) -> bool {
-        KVar::starts_with(token, input)
-    }
-}
-
-impl Parse for VarEditor {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        Ok(Self {
-            open: parser.parse()?,
-            category: parser.parse()?,
-            close: parser.parse()?,
-        })
-    }
-}
-
-impl PredictiveParse for VarEditor {
-    fn starts_with(token: &Token, input: &str) -> bool {
-        LeftParen::starts_with(token, input)
-    }
 }
 
 #[derive(Debug, Clone)]

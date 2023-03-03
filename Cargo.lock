@@ -193,8 +193,18 @@ name = "muscript-parsing"
 version = "0.1.0"
 dependencies = [
  "muscript-foundation",
+ "muscript-parsing-derive",
  "thiserror",
  "unicase",
+]
+
+[[package]]
+name = "muscript-parsing-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

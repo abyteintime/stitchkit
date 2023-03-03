@@ -1,8 +1,9 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi, Token},
+        token::{Ident, LeftParen, RightParen, Semi},
         TokenStream,
     },
     parsing::diagnostics::{labels, notes},
@@ -16,7 +17,7 @@ use crate::parsing::{
 keyword!(KClass = "class");
 keyword!(KExtends = "extends");
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PredictiveParse)]
 pub struct Class {
     pub class: KClass,
     pub name: Ident,
@@ -25,7 +26,7 @@ pub struct Class {
     pub semi: Semi,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct Extends {
     pub extends: KExtends,
     pub parent_class: Ident,
@@ -48,7 +49,7 @@ pub enum Specifier {
     Transient(KTransient),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PredictiveParse)]
 pub struct SpecifierArgs {
     pub open: LeftParen,
     pub args: Vec<Ident>,
@@ -84,21 +85,6 @@ impl Parse for Class {
             specifiers,
             semi,
         })
-    }
-}
-
-impl Parse for Extends {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        Ok(Self {
-            extends: parser.parse()?,
-            parent_class: parser.parse()?,
-        })
-    }
-}
-
-impl PredictiveParse for Extends {
-    fn starts_with(token: &Token, input: &str) -> bool {
-        KExtends::starts_with(token, input)
     }
 }
 
@@ -160,11 +146,5 @@ impl Parse for SpecifierArgs {
             )
         })?;
         Ok(Self { open, args, close })
-    }
-}
-
-impl PredictiveParse for SpecifierArgs {
-    fn starts_with(token: &Token, input: &str) -> bool {
-        LeftParen::starts_with(token, input)
     }
 }

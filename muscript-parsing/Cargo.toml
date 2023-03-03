@@ -8,3 +8,4 @@ thiserror = { workspace = true }
 unicase = "2.6.0"
 
 muscript-foundation = { workspace = true }
+muscript-parsing-derive = { workspace = true }

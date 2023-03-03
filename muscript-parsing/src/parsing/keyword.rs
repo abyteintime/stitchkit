@@ -77,7 +77,7 @@ macro_rules! keyword {
         }
 
         impl $crate::parsing::PredictiveParse for $T {
-            fn starts_with(token: &$crate::lexis::token::Token, input: &str) -> bool {
+            fn started_by(token: &$crate::lexis::token::Token, input: &str) -> bool {
                 ::unicase::UniCase::new(token.span.get_input(input))
                     == ::unicase::UniCase::ascii($keyword)
             }

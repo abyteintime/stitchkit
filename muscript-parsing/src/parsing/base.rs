@@ -124,7 +124,7 @@ pub trait Parse: Sized {
 
 pub trait PredictiveParse: Parse {
     /// Returns `true` if this syntactic construct starts with the given token.
-    fn starts_with(token: &Token, input: &str) -> bool;
+    fn started_by(token: &Token, input: &str) -> bool;
 }
 
 impl<N> Parse for Option<N>
@@ -133,7 +133,7 @@ where
 {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         if let Ok(next_token) = parser.peek_token() {
-            if N::starts_with(&next_token, parser.input) {
+            if N::started_by(&next_token, parser.input) {
                 Ok(Some(N::parse(parser)?))
             } else {
                 Ok(None)

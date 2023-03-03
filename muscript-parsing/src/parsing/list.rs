@@ -1,6 +1,6 @@
 //! Parsing of delimited, comma-separated lists.
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, panic::Location};
 
 use muscript_foundation::{
     errors::{Diagnostic, Label},
@@ -57,6 +57,8 @@ where
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
+                    self.next_token()
+                        .map_err(error(DelimitedListErrorKind::Parse))?;
                     break R::default_from_span(token.span);
                 }
                 _ => (),
@@ -90,6 +92,7 @@ where
         Ok((open, elements, close))
     }
 
+    #[track_caller]
     pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
     where
         E: Parse,
@@ -104,6 +107,7 @@ where
             let token = self
                 .peek_token()
                 .map_err(error(TerminatedListErrorKind::Parse))?;
+            println!("{} {:?}", Location::caller(), &token);
             match token.kind {
                 _ if R::matches(&token, self.input) => {
                     self.next_token().expect("the token was already parsed");

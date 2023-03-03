@@ -92,22 +92,22 @@ impl Parse for Specifier {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let token = parser.peek_token()?;
         Ok(match () {
-            _ if KAbstract::starts_with(&token, parser.input) => {
+            _ if KAbstract::started_by(&token, parser.input) => {
                 Specifier::Abstract(parser.parse()?)
             }
-            _ if KImplements::starts_with(&token, parser.input) => {
+            _ if KImplements::started_by(&token, parser.input) => {
                 Specifier::Implements(parser.parse()?, parser.parse()?)
             }
-            _ if KInherits::starts_with(&token, parser.input) => {
+            _ if KInherits::started_by(&token, parser.input) => {
                 Specifier::Inherits(parser.parse()?, parser.parse()?)
             }
-            _ if KNative::starts_with(&token, parser.input) => {
+            _ if KNative::started_by(&token, parser.input) => {
                 Specifier::Native(parser.parse()?, parser.parse()?)
             }
-            _ if KNoExport::starts_with(&token, parser.input) => {
+            _ if KNoExport::started_by(&token, parser.input) => {
                 Specifier::NoExport(parser.parse()?)
             }
-            _ if KTransient::starts_with(&token, parser.input) => {
+            _ if KTransient::started_by(&token, parser.input) => {
                 Specifier::Transient(parser.parse()?)
             }
             _ => {

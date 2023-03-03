@@ -46,12 +46,12 @@ pub fn derive_predictive_parse_impl(st: ItemStruct) -> syn::Result<TokenStream> 
 
     Ok(quote! {
         impl #impl_generics ::muscript_parsing::parsing::PredictiveParse for #type_name #type_generics #where_clause {
-            fn starts_with(
+            fn started_by(
                 token: &::muscript_parsing::lexis::token::Token,
                 input: &::std::primitive::str,
             ) -> bool
             {
-                <#ty as ::muscript_parsing::parsing::PredictiveParse>::starts_with(token, input)
+                <#ty as ::muscript_parsing::parsing::PredictiveParse>::started_by(token, input)
             }
         }
     })

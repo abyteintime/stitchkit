@@ -75,7 +75,7 @@ macro_rules! define_tokens {
             }
 
             impl PredictiveParse for $name {
-                fn starts_with(token: &Token, _: &str) -> bool {
+                fn started_by(token: &Token, _: &str) -> bool {
                     token.kind == TokenKind::$name
                 }
             }

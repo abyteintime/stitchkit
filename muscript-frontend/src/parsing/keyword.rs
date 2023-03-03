@@ -1,7 +1,13 @@
+use unicase::UniCase;
+
 use crate::lexis::token::SingleToken;
 
 pub trait Keyword: SingleToken {
     const KEYWORD: &'static str;
+
+    fn matches(ident: &str) -> bool {
+        UniCase::new(ident) == UniCase::ascii(Self::KEYWORD)
+    }
 }
 
 macro_rules! keyword {
@@ -38,7 +44,7 @@ macro_rules! keyword {
                         $crate::lexis::token::TokenKindMismatch(Self { span: ident.span })
                     },
                 )?;
-                if ::unicase::UniCase::new(input) == ::unicase::UniCase::ascii($keyword) {
+                if <$T as $crate::parsing::Keyword>::matches(input) {
                     Ok(Self { span: ident.span })
                 } else {
                     Err($crate::lexis::token::TokenKindMismatch(Self {
@@ -48,7 +54,7 @@ macro_rules! keyword {
             }
 
             fn matches(_: &$crate::lexis::token::Token, input: &str) -> bool {
-                ::unicase::UniCase::new(input) == ::unicase::UniCase::ascii($keyword)
+                <$T as $crate::parsing::Keyword>::matches(input)
             }
         }
 

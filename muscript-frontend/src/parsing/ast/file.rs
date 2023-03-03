@@ -2,10 +2,10 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::{token::EndOfFile, TokenStream},
-    parsing::{diagnostics::notes::PARSER_BUG, Parse, ParseError, Parser},
+    parsing::{diagnostics::notes, Parse, ParseError, Parser},
 };
 
-use super::{class::Class, Item, TerminatedListErrorKind};
+use super::{Class, Item, TerminatedListErrorKind};
 
 #[derive(Debug, Clone)]
 pub enum FileKind {
@@ -37,7 +37,7 @@ impl Parse for File {
                             error.parse.span,
                             "this is where the file should end",
                         ))
-                        .with_note(PARSER_BUG),
+                        .with_note(notes::PARSER_BUG),
                 ),
             }
             error.parse

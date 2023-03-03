@@ -1,5 +1,3 @@
-use muscript_foundation::errors::{Diagnostic, Label};
-
 use crate::{
     lexis::{
         token::{Greater, Ident, Less, Token, TokenKind},
@@ -8,7 +6,7 @@ use crate::{
     parsing::{Parse, ParseError, Parser, PredictiveParse},
 };
 
-use super::DelimitedListErrorKind;
+use super::DelimitedListDiagnostics;
 
 #[derive(Debug, Clone)]
 pub struct Type {
@@ -35,42 +33,19 @@ impl Parse for Type {
 impl Parse for Generic {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let (less, args, greater) = parser.parse_delimited_list().map_err(|error| {
-            match error.kind {
-                DelimitedListErrorKind::Parse => (),
-                DelimitedListErrorKind::MissingLeft => {
-                    parser.emit_diagnostic(
-                        Diagnostic::error(parser.file, "generics `<T, U, ..>` expected")
-                            .with_label(Label::primary(
-                                error.parse.span,
-                                "generic arguments expected here",
-                            )),
-                    );
-                }
-                DelimitedListErrorKind::MissingRight { open } => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `>` to close generics")
-                        .with_label(Label::secondary(
-                            open,
-                            "the generic argument list starts here...",
-                        ))
-                        .with_label(Label::primary(
-                            error.parse.span,
-                            "...and was expected to end here",
-                        )),
-                ),
-                DelimitedListErrorKind::MissingComma { open } => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "`,` or `>` expected after generic argument")
-                        .with_label(Label::primary(
-                            error.parse.span,
-                            "this was expected to continue or close the generic argument list",
-                        ))
-                        .with_label(Label::secondary(
-                            open,
-                            "the generic argument list starts here",
-                        ))
-                        .with_note("note: generic arguments must be separated by commas `,`"),
-                ),
-            }
-            error.parse
+            parser.emit_delimited_list_diagnostic(
+                error,
+                DelimitedListDiagnostics {
+                    missing_left: "generics `<T, U, ..>` expected",
+                    missing_left_label: "generic arguments expected here",
+                    missing_right: "missing `>` to close generics",
+                    missing_comma: "`,` or `>` expected after generic argument",
+                    missing_comma_token:
+                        "this was expected to continue or close the generic argument list",
+                    missing_comma_open: "the generic argument list starts here",
+                    missing_comma_note: "note: generic arguments must be separated by commas `,`",
+                },
+            )
         })?;
 
         Ok(Self {

@@ -1,16 +1,16 @@
 use std::{ffi::OsStr, path::PathBuf};
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use muscript_foundation::{
-    errors::{Diagnostic, Severity},
+    errors::Diagnostic,
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
 use muscript_frontend::{
     lexis::{token::TokenKind, Lexer, TokenStream},
     parsing::{self, ast},
 };
-use tracing::debug;
+use tracing::{debug, error, info};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Subcommand)]
@@ -33,6 +33,11 @@ pub struct Args {
     /// Action to take on the source file set.
     #[clap(subcommand)]
     action: Action,
+
+    /// Print out statistical information telling you of how many files were processed and how many
+    /// of them failed.
+    #[clap(short, long)]
+    stats: bool,
 }
 
 pub fn muscript(args: Args) -> anyhow::Result<()> {
@@ -55,45 +60,61 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
     let mut source_file_set = SourceFileSet::new();
     for path in source_file_paths {
         let source = std::fs::read_to_string(&path)
-            .with_context(|| format!("cannot read source file at {path:?}"))?;
-        let pretty_file_name = path
-            .strip_prefix(&args.package)?
-            .to_string_lossy()
-            .into_owned();
-        source_file_set.add(SourceFile::new(
-            args.package_name.clone(),
-            pretty_file_name,
-            source,
-        ));
+            .with_context(|| format!("cannot read source file at {path:?}"));
+        match source {
+            Ok(source) => {
+                let pretty_file_name = path
+                    .strip_prefix(&args.package)?
+                    .to_string_lossy()
+                    .into_owned();
+                source_file_set.add(SourceFile::new(
+                    args.package_name.clone(),
+                    pretty_file_name,
+                    source,
+                ));
+            }
+            Err(error) => error!("{error:?}"),
+        }
     }
 
     debug!("Performing action");
-    perform_action(args.action, &source_file_set)?;
+    let stats = perform_action(args.action, &source_file_set)?;
+    if args.stats {
+        let num_successful = stats.num_processed - stats.num_failed;
+        let success_rate = num_successful as f64 / stats.num_processed as f64;
+        info!(
+            "Stats: {num_successful}/{} ({:.02}%) successful",
+            stats.num_processed,
+            success_rate * 100.0
+        );
+    }
 
     Ok(())
 }
 
-fn perform_action(action: Action, source_file_set: &SourceFileSet) -> anyhow::Result<()> {
-    let mut failed = false;
+struct Stats {
+    num_processed: usize,
+    num_failed: usize,
+}
+
+fn perform_action(action: Action, source_file_set: &SourceFileSet) -> anyhow::Result<Stats> {
+    let mut num_failed = 0;
     for (id, file) in source_file_set.iter() {
         debug!("Processing: {}", file.filename);
         match perform_action_on_source_file(&action, id, file) {
             Ok(()) => (),
             Err(diagnostics) => {
                 for diag in diagnostics {
-                    if diag.severity >= Severity::Error {
-                        failed = true;
-                    }
                     diag.emit_to_stderr(source_file_set)?;
                 }
+                num_failed += 1;
             }
         }
     }
-    if failed {
-        bail!("the MuScript compiler failed with errors")
-    } else {
-        Ok(())
-    }
+    Ok(Stats {
+        num_failed,
+        num_processed: source_file_set.len(),
+    })
 }
 
 fn perform_action_on_source_file(

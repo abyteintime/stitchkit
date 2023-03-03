@@ -124,6 +124,15 @@ impl SourceFileSet {
         id
     }
 
+    pub fn len(&self) -> usize {
+        self.source_files.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Iterates over all source files in this set.
     pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &'_ SourceFile)> {
         self.source_files

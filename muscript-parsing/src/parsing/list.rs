@@ -1,6 +1,6 @@
 //! Parsing of delimited, comma-separated lists.
 
-use std::{marker::PhantomData, panic::Location};
+use std::marker::PhantomData;
 
 use muscript_foundation::{
     errors::{Diagnostic, Label},
@@ -92,7 +92,6 @@ where
         Ok((open, elements, close))
     }
 
-    #[track_caller]
     pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
     where
         E: Parse,
@@ -107,7 +106,6 @@ where
             let token = self
                 .peek_token()
                 .map_err(error(TerminatedListErrorKind::Parse))?;
-            println!("{} {:?}", Location::caller(), &token);
             match token.kind {
                 _ if R::matches(&token, self.input) => {
                     self.next_token().expect("the token was already parsed");

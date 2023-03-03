@@ -3,7 +3,7 @@ use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
     lexis::{
-        token::{Ident, LeftBrace, LeftParen, RightBrace, RightParen},
+        token::{Ident, LeftBrace, LeftParen, RightBrace, RightParen, TokenKind},
         TokenStream,
     },
     parsing::{
@@ -19,6 +19,7 @@ keyword!(KFunction = "function");
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct ItemFunction {
     pub function: KFunction,
+    pub return_ty: Option<Type>,
     pub name: Ident,
     pub params: Params,
     pub body: Body,
@@ -44,17 +45,45 @@ pub struct Body {
     pub close: RightBrace,
 }
 
+impl ItemFunction {
+    fn parse_name(parser: &mut Parser<'_, impl TokenStream>) -> Result<Ident, ParseError> {
+        parser.parse_with_error::<Ident>(|parser, span| {
+            Diagnostic::error(parser.file, "function name expected")
+                .with_label(labels::invalid_identifier(span, parser.input))
+                .with_note(notes::IDENTIFIER_CHARS)
+        })
+    }
+}
+
 impl Parse for ItemFunction {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+        let function = parser.parse()?;
+
+        // NOTE: We need to do a little dance to parse return types (though it's still 100% possible
+        // to do predictively, which is very nice.) This would've been easier if return types
+        // weren't optional, but alas.
+        let name_or_type = Self::parse_name(parser)?;
+        let (return_ty, name) = if parser.peek_token()?.kind == TokenKind::LeftParen {
+            (None, name_or_type)
+        } else {
+            let generic = parser.parse()?;
+            (
+                Some(Type {
+                    name: name_or_type,
+                    generic,
+                }),
+                Self::parse_name(parser)?,
+            )
+        };
+
+        let params = parser.parse()?;
+        let body = parser.parse()?;
         Ok(Self {
-            function: parser.parse()?,
-            name: parser.parse_with_error(|parser, span| {
-                Diagnostic::error(parser.file, "function name expected")
-                    .with_label(labels::invalid_identifier(span, parser.input))
-                    .with_note(notes::IDENTIFIER_CHARS)
-            })?,
-            params: parser.parse()?,
-            body: parser.parse()?,
+            function,
+            return_ty,
+            name,
+            params,
+            body,
         })
     }
 }

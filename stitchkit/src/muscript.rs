@@ -79,9 +79,18 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
 
     debug!("Performing action");
     let stats = perform_action(args.action, &source_file_set)?;
+    if !stats.diagnostics.is_empty() {
+        eprintln!();
+        info!("Finished with the following diagnostics:");
+        eprintln!();
+        for diagnostic in stats.diagnostics {
+            diagnostic.emit_to_stderr(&source_file_set)?;
+        }
+    }
     if args.stats {
         let num_successful = stats.num_processed - stats.num_failed;
         let success_rate = num_successful as f64 / stats.num_processed as f64;
+        eprintln!();
         info!(
             "Stats: {num_successful}/{} ({:.02}%) successful",
             stats.num_processed,
@@ -95,18 +104,18 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
 struct Stats {
     num_processed: usize,
     num_failed: usize,
+    diagnostics: Vec<Diagnostic>,
 }
 
 fn perform_action(action: Action, source_file_set: &SourceFileSet) -> anyhow::Result<Stats> {
     let mut num_failed = 0;
+    let mut diagnostics = vec![];
     for (id, file) in source_file_set.iter() {
         debug!("Processing: {}", file.filename);
         match perform_action_on_source_file(&action, id, file) {
             Ok(()) => (),
-            Err(diagnostics) => {
-                for diag in diagnostics {
-                    diag.emit_to_stderr(source_file_set)?;
-                }
+            Err(mut diagnosis) => {
+                diagnostics.append(&mut diagnosis);
                 num_failed += 1;
             }
         }
@@ -114,6 +123,7 @@ fn perform_action(action: Action, source_file_set: &SourceFileSet) -> anyhow::Re
     Ok(Stats {
         num_failed,
         num_processed: source_file_set.len(),
+        diagnostics,
     })
 }
 

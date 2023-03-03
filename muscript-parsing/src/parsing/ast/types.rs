@@ -3,10 +3,8 @@ use crate::{
         token::{Greater, Ident, Less, Token, TokenKind},
         TokenStream,
     },
-    parsing::{Parse, ParseError, Parser, PredictiveParse},
+    parsing::{list::DelimitedListDiagnostics, Parse, ParseError, Parser, PredictiveParse},
 };
-
-use super::DelimitedListDiagnostics;
 
 #[derive(Debug, Clone)]
 pub struct Type {

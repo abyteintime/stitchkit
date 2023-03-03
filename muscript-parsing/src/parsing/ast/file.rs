@@ -2,10 +2,10 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::{token::EndOfFile, TokenStream},
-    parsing::{diagnostics::notes, Parse, ParseError, Parser},
+    parsing::{diagnostics::notes, list::TerminatedListErrorKind, Parse, ParseError, Parser},
 };
 
-use super::{Class, Item, TerminatedListErrorKind};
+use super::{Class, Item};
 
 #[derive(Debug, Clone)]
 pub enum FileKind {

@@ -8,9 +8,10 @@ use crate::{
     parsing::diagnostics::{labels, notes},
 };
 
-use crate::parsing::{Parse, ParseError, Parser, PredictiveParse};
-
-use super::{DelimitedListDiagnostics, TerminatedListErrorKind};
+use crate::parsing::{
+    list::{DelimitedListDiagnostics, TerminatedListErrorKind},
+    Parse, ParseError, Parser, PredictiveParse,
+};
 
 keyword!(KClass = "class");
 keyword!(KExtends = "extends");

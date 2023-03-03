@@ -6,7 +6,7 @@ use muscript_foundation::{
     errors::Diagnostic,
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
-use muscript_frontend::{
+use muscript_parsing::{
     lexis::{token::TokenKind, Lexer, TokenStream},
     parsing::{self, ast},
 };

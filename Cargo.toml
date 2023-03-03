@@ -8,7 +8,7 @@ members = [
     "stitchkit-manifest",
 
     "muscript-foundation",
-    "muscript-frontend",
+    "muscript-parsing",
 ]
 
 [workspace.dependencies]
@@ -25,4 +25,4 @@ stitchkit-manifest = { path = "stitchkit-manifest" }
 stitchkit-uscript = { path = "stitchkit-uscript" }
 
 muscript-foundation = { path = "muscript-foundation" }
-muscript-frontend = { path = "muscript-frontend" }
+muscript-parsing = { path = "muscript-parsing" }

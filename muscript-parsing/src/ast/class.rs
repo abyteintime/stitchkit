@@ -1,15 +1,11 @@
 use muscript_foundation::errors::{Diagnostic, Label};
-use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
+    diagnostics::{labels, notes},
     lexis::{
         token::{Ident, LeftParen, RightParen, Semi},
         TokenStream,
     },
-    parsing::diagnostics::{labels, notes},
-};
-
-use crate::parsing::{
     list::{DelimitedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, Parser, PredictiveParse,
 };

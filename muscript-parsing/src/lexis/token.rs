@@ -176,3 +176,8 @@ pub trait SingleToken: Spanned + Into<Token> + Parse + PredictiveParse {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TokenKindMismatch<T>(pub T);
+
+#[macro_use]
+mod keyword;
+
+pub use keyword::*;

@@ -1,8 +1,8 @@
 use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
+    ast::Type,
     lexis::token::{Ident, LeftParen, RightParen, Semi},
-    parsing::ast::Type,
 };
 
 keyword!(KVar = "var");

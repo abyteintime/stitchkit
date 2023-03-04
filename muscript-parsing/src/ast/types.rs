@@ -5,7 +5,8 @@ use crate::{
         token::{Greater, Ident, Less},
         TokenStream,
     },
-    parsing::{list::DelimitedListDiagnostics, Parse, ParseError, Parser},
+    list::DelimitedListDiagnostics,
+    Parse, ParseError, Parser,
 };
 
 #[derive(Debug, Clone, PredictiveParse)]

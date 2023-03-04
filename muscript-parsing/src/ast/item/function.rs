@@ -1,17 +1,14 @@
 use muscript_foundation::errors::{Diagnostic, Label};
-use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
+    ast::{Stmt, Type},
+    diagnostics::{labels, notes},
     lexis::{
         token::{Ident, LeftBrace, LeftParen, RightBrace, RightParen, TokenKind},
         TokenStream,
     },
-    parsing::{
-        ast::{Stmt, Type},
-        diagnostics::{labels, notes},
-        list::{DelimitedListDiagnostics, TerminatedListErrorKind},
-        Parse, ParseError, Parser,
-    },
+    list::{DelimitedListDiagnostics, TerminatedListErrorKind},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 keyword!(KFunction = "function");

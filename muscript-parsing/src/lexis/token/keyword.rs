@@ -44,7 +44,7 @@ macro_rules! keyword {
                         $crate::lexis::token::TokenKindMismatch(Self { span: ident.span })
                     },
                 )?;
-                if <$T as $crate::parsing::Keyword>::matches(input) {
+                if <$T as $crate::lexis::token::Keyword>::matches(input) {
                     Ok(Self { span: ident.span })
                 } else {
                     Err($crate::lexis::token::TokenKindMismatch(Self {
@@ -54,11 +54,11 @@ macro_rules! keyword {
             }
 
             fn matches(_: &$crate::lexis::token::Token, input: &str) -> bool {
-                <$T as $crate::parsing::Keyword>::matches(input)
+                <$T as $crate::lexis::token::Keyword>::matches(input)
             }
         }
 
-        impl $crate::parsing::Keyword for $T {
+        impl $crate::lexis::token::Keyword for $T {
             const KEYWORD: &'static str = $keyword;
         }
 

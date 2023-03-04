@@ -1,6 +1,15 @@
 extern crate self as muscript_parsing;
 
+#[macro_use]
 pub mod lexis;
 
 #[macro_use]
-pub mod parsing;
+mod parsing;
+
+pub mod ast;
+pub mod diagnostics;
+pub mod list;
+
+pub use parsing::*;
+
+pub use muscript_parsing_derive::*;

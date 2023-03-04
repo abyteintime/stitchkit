@@ -1,8 +1,10 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
+    diagnostics::notes,
     lexis::{token::EndOfFile, TokenStream},
-    parsing::{diagnostics::notes, list::TerminatedListErrorKind, Parse, ParseError, Parser},
+    list::TerminatedListErrorKind,
+    Parse, ParseError, Parser,
 };
 
 use super::{Class, Item};

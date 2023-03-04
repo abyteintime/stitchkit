@@ -7,8 +7,8 @@ use muscript_foundation::{
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
 use muscript_parsing::{
+    self, ast,
     lexis::{token::TokenKind, Lexer, TokenStream},
-    parsing::{self, ast},
 };
 use tracing::{debug, error, info};
 use walkdir::WalkDir;
@@ -146,7 +146,7 @@ fn perform_action_on_source_file(
         Action::Parse => {
             // No preprocessor for now unfortunately. Our parser will scream when it sees `.
             let lexer = Lexer::new(id, &file.source);
-            let mut parser = parsing::Parser::new(id, &file.source, lexer);
+            let mut parser = muscript_parsing::Parser::new(id, &file.source, lexer);
             let file = parser.parse::<ast::File>().map_err(|_| parser.errors)?;
             println!("{file:#?}");
         }

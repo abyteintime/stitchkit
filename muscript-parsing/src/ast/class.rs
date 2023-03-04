@@ -135,9 +135,9 @@ impl Parse for SpecifierArgs {
                     missing_right: "missing `)` to close specifier argument list",
                     missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected after specifier argument",
+                    missing_comma_open: "the specifier argument list starts here",
                     missing_comma_token:
                         "this was expected to continue or close the specifier argument list",
-                    missing_comma_open: "the specifier argument list starts here",
                     missing_comma_note: "note: specifier arguments must be separated by commas `,`",
                 },
             )

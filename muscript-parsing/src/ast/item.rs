@@ -1,4 +1,5 @@
 mod function;
+mod structs;
 mod var;
 
 use muscript_foundation::errors::{Diagnostic, Label};
@@ -9,12 +10,14 @@ use crate::{
 };
 
 pub use function::*;
+pub use structs::*;
 pub use var::*;
 
 #[derive(Debug, Clone)]
 pub enum Item {
     Var(ItemVar),
     Function(ItemFunction),
+    Struct(ItemStruct),
 }
 
 impl Parse for Item {
@@ -23,6 +26,7 @@ impl Parse for Item {
         Ok(match token {
             _ if ItemVar::started_by(&token, parser.input) => Item::Var(parser.parse()?),
             _ if ItemFunction::started_by(&token, parser.input) => Item::Function(parser.parse()?),
+            _ if ItemStruct::started_by(&token, parser.input) => Item::Struct(parser.parse()?),
             _ => parser.bail(
                 token.span,
                 Diagnostic::error(parser.file, "item expected").with_label(Label::primary(

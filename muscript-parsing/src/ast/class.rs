@@ -126,13 +126,14 @@ impl Parse for Specifier {
 
 impl Parse for SpecifierArgs {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        let (open, args, close) = parser.parse_delimited_list().map_err(|error| {
+        let open: LeftParen = parser.parse()?;
+        let (args, close) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(
+                &open,
                 error,
                 DelimitedListDiagnostics {
-                    missing_left: "specifier arguments `(Args, ..)` expected",
-                    missing_left_label: "specifier arguments expected here",
                     missing_right: "missing `)` to close specifier argument list",
+                    missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected after specifier argument",
                     missing_comma_token:
                         "this was expected to continue or close the specifier argument list",

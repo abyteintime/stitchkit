@@ -33,13 +33,14 @@ impl Parse for Type {
 
 impl Parse for Generic {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        let (less, args, greater) = parser.parse_delimited_list().map_err(|error| {
+        let less: Less = parser.parse()?;
+        let (args, greater) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(
+                &less,
                 error,
                 DelimitedListDiagnostics {
-                    missing_left: "generics `<T, U, ..>` expected",
-                    missing_left_label: "generic arguments expected here",
                     missing_right: "missing `>` to close generics",
+                    missing_right_label: "this `<` does not have a matching `>`",
                     missing_comma: "`,` or `>` expected after generic argument",
                     missing_comma_token:
                         "this was expected to continue or close the generic argument list",

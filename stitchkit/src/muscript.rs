@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, path::PathBuf};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use muscript_foundation::{
     errors::Diagnostic,
@@ -57,6 +57,14 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
     );
 
     debug!("Building source file set");
+    let dir_prefix = if args.package.is_file() {
+        args.package
+            .parent()
+            .ok_or_else(|| anyhow!("source file must be located in a directory"))?
+            .to_owned()
+    } else {
+        args.package
+    };
     let mut source_file_set = SourceFileSet::new();
     for path in source_file_paths {
         let source = std::fs::read_to_string(&path)
@@ -64,7 +72,7 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
         match source {
             Ok(source) => {
                 let pretty_file_name = path
-                    .strip_prefix(&args.package)?
+                    .strip_prefix(&dir_prefix)?
                     .to_string_lossy()
                     .into_owned();
                 source_file_set.add(SourceFile::new(

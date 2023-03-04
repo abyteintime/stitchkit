@@ -2,10 +2,7 @@
 
 use std::marker::PhantomData;
 
-use muscript_foundation::{
-    errors::{Diagnostic, Label},
-    source::Span,
-};
+use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::{
@@ -19,17 +16,14 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
-    pub fn parse_delimited_list<L, E, R>(
-        &mut self,
-    ) -> Result<(L, Vec<E>, R), DelimitedListError<L, R>>
+    pub fn parse_delimited_list<E, R>(&mut self) -> Result<(Vec<E>, R), DelimitedListError<R>>
     where
-        L: SingleToken,
         R: SingleToken,
         E: Parse,
     {
-        fn error<L, R>(
+        fn error<R>(
             kind: DelimitedListErrorKind,
-        ) -> impl FnOnce(ParseError) -> DelimitedListError<L, R> {
+        ) -> impl FnOnce(ParseError) -> DelimitedListError<R> {
             move |parse| DelimitedListError {
                 kind,
                 parse,
@@ -37,9 +31,6 @@ where
             }
         }
 
-        let open: L = self
-            .expect_token()
-            .map_err(error(DelimitedListErrorKind::MissingLeft))?;
         let mut elements = vec![];
         let close = loop {
             let token = self
@@ -48,7 +39,7 @@ where
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(DelimitedListError {
-                        kind: DelimitedListErrorKind::MissingRight { open: open.span() },
+                        kind: DelimitedListErrorKind::MissingRight,
                         parse: ParseError::new(token.span),
                         _phantom: PhantomData,
                     });
@@ -82,14 +73,14 @@ where
                 }
                 unexpected => {
                     return Err(DelimitedListError {
-                        kind: DelimitedListErrorKind::MissingComma { open: open.span() },
+                        kind: DelimitedListErrorKind::MissingComma,
                         parse: ParseError::new(unexpected.span),
                         _phantom: PhantomData,
                     });
                 }
             }
         };
-        Ok((open, elements, close))
+        Ok((elements, close))
     }
 
     pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
@@ -135,16 +126,15 @@ where
 #[derive(Debug, Clone, Copy)]
 pub enum DelimitedListErrorKind {
     Parse,
-    MissingLeft,
-    MissingRight { open: Span },
-    MissingComma { open: Span },
+    MissingRight,
+    MissingComma,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DelimitedListError<L, R> {
+pub struct DelimitedListError<R> {
     pub kind: DelimitedListErrorKind,
     pub parse: ParseError,
-    _phantom: PhantomData<(L, R)>,
+    _phantom: PhantomData<R>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -162,18 +152,13 @@ pub struct TerminatedListError {
 #[derive(Debug, Clone, Copy)]
 pub struct DelimitedListDiagnostics<'a> {
     /// ```text
-    /// [thing] `example` expected
-    /// ```
-    pub missing_left: &'a str,
-    /// ```text
-    /// [thing] expected here
-    /// ```
-    pub missing_left_label: &'a str,
-
-    /// ```text
     /// missing `right` to close [thing]
     /// ```
     pub missing_right: &'a str,
+    /// ```text
+    /// this `left` does not have a matching `right`
+    /// ```
+    pub missing_right_label: &'a str,
 
     /// ```text
     /// `,` or `right` expected after [thing]
@@ -196,7 +181,8 @@ pub struct DelimitedListDiagnostics<'a> {
 impl<'a, T> Parser<'a, T> {
     pub fn emit_delimited_list_diagnostic<L, R>(
         &mut self,
-        error: DelimitedListError<L, R>,
+        open: &L,
+        error: DelimitedListError<R>,
         diagnostics: DelimitedListDiagnostics<'_>,
     ) -> ParseError
     where
@@ -205,28 +191,21 @@ impl<'a, T> Parser<'a, T> {
     {
         match error.kind {
             DelimitedListErrorKind::Parse => (),
-            DelimitedListErrorKind::MissingLeft => {
-                self.emit_diagnostic(
-                    Diagnostic::error(self.file, diagnostics.missing_left).with_label(
-                        Label::primary(error.parse.span, diagnostics.missing_left_label),
-                    ),
-                );
-            }
-            DelimitedListErrorKind::MissingRight { open } => self.emit_diagnostic(
+            DelimitedListErrorKind::MissingRight => self.emit_diagnostic(
                 Diagnostic::error(self.file, diagnostics.missing_right).with_label(
-                    Label::secondary(
-                        open,
-                        format!("this {} does not have a matching {}", L::NAME, R::NAME),
-                    ),
+                    Label::secondary(open.span(), diagnostics.missing_right_label),
                 ),
             ),
-            DelimitedListErrorKind::MissingComma { open } => self.emit_diagnostic(
+            DelimitedListErrorKind::MissingComma => self.emit_diagnostic(
                 Diagnostic::error(self.file, diagnostics.missing_comma)
                     .with_label(Label::primary(
                         error.parse.span,
                         diagnostics.missing_comma_token,
                     ))
-                    .with_label(Label::secondary(open, diagnostics.missing_comma_open))
+                    .with_label(Label::secondary(
+                        open.span(),
+                        diagnostics.missing_comma_open,
+                    ))
                     .with_note(diagnostics.missing_comma_note),
             ),
         }

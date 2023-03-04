@@ -87,13 +87,14 @@ impl Parse for ItemFunction {
 
 impl Parse for Params {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        let (open, params, close) = parser.parse_delimited_list().map_err(|error| {
+        let open: LeftParen = parser.parse()?;
+        let (params, close) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(
+                &open,
                 error,
                 DelimitedListDiagnostics {
-                    missing_left: "function parameters `(int x, int y, ..)` expected",
-                    missing_left_label: "function parameters expected here",
                     missing_right: "missing `)` to close function parameter list",
+                    missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected after parameter",
                     missing_comma_token:
                         "this was expected to continue or close the parameter list",

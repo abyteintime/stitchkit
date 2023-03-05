@@ -1,5 +1,5 @@
 use muscript_foundation::{
-    errors::{Diagnostic, Label},
+    errors::{Diagnostic, Label, Note, NoteKind},
     source::{SourceFileId, Span},
 };
 
@@ -8,14 +8,14 @@ use crate::lexis::{
     LexError, TokenStream,
 };
 
-/// The UnrealScript abstract syntax tree (or AST.)
-pub mod ast {}
-
 pub struct Parser<'a, T> {
     pub file: SourceFileId,
     pub input: &'a str,
     pub tokens: T,
-    pub errors: Vec<Diagnostic>,
+    errors: Vec<Diagnostic>,
+    // TODO: This should probably be a &mut because with how it's done currently creating a sub
+    // parser involves cloning the vector.
+    rule_traceback: Vec<&'static str>,
 }
 
 impl<'a, T> Parser<'a, T> {
@@ -25,6 +25,7 @@ impl<'a, T> Parser<'a, T> {
             input,
             tokens,
             errors: vec![],
+            rule_traceback: Vec::with_capacity(32),
         }
     }
 
@@ -34,16 +35,36 @@ impl<'a, T> Parser<'a, T> {
             input: self.input,
             tokens: &mut self.tokens,
             errors: vec![],
+            rule_traceback: self.rule_traceback.clone(),
         }
     }
 
     pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
-        self.errors.push(error);
+        self.emit_diagnostic(error);
         Err(ParseError::new(error_span))
     }
 
+    pub fn errors(&self) -> &[Diagnostic] {
+        &self.errors
+    }
+
+    pub fn into_errors(self) -> Vec<Diagnostic> {
+        self.errors
+    }
+
     pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
-        self.errors.push(diagnostic);
+        self.errors.push(diagnostic.with_note(Note {
+            kind: NoteKind::Debug,
+            text: {
+                let mut s = String::from("parser traceback (innermost rule last):");
+                for rule in &self.rule_traceback {
+                    s.push_str("\n  - ");
+                    s.push_str(rule);
+                }
+                s
+            },
+            suggestion: None,
+        }));
     }
 }
 
@@ -53,7 +74,7 @@ where
 {
     pub fn next_token(&mut self) -> Result<Token, ParseError> {
         self.tokens.next().map_err(|LexError { span, diagnostic }| {
-            self.errors.push(*diagnostic);
+            self.emit_diagnostic(*diagnostic);
             ParseError { span }
         })
     }
@@ -72,7 +93,7 @@ where
             Ok(token) => {
                 let input = token.span.get_input(self.input);
                 Tok::try_from_token(token, input).map_err(|TokenKindMismatch(token)| {
-                    self.errors.push(
+                    self.emit_diagnostic(
                         Diagnostic::error(self.file, format!("{} expected", Tok::NAME)).with_label(
                             Label::primary(token.span(), format!("{} expected here", Tok::NAME)),
                         ),
@@ -92,7 +113,11 @@ where
     where
         N: Parse,
     {
-        N::parse(self)
+        self.rule_traceback.push(std::any::type_name::<N>());
+        #[allow(deprecated)]
+        let result = N::parse(self);
+        self.rule_traceback.pop();
+        result
     }
 
     pub fn parse_with_error<N>(
@@ -103,7 +128,7 @@ where
         N: Parse,
     {
         self.sub().parse().map_err(|error| {
-            self.errors.push(diagnostic(self, error.span));
+            self.emit_diagnostic(diagnostic(self, error.span));
             error
         })
     }
@@ -122,6 +147,10 @@ impl ParseError {
 }
 
 pub trait Parse: Sized {
+    /// NOTE: This is deprecated because it should not be used directly, as it doesn't do any extra
+    /// processing or error recovery.
+    /// You generally want to use [`Parser::parse`] instead of this.
+    #[deprecated(note = "use [`Parser::parse`] instead of this")]
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError>;
 }
 
@@ -137,7 +166,8 @@ where
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         if let Ok(next_token) = parser.peek_token() {
             if N::started_by(&next_token, parser.input) {
-                Ok(Some(N::parse(parser)?))
+                #[allow(deprecated)]
+                Ok(Some(parser.parse()?))
             } else {
                 Ok(None)
             }

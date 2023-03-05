@@ -1,3 +1,5 @@
+use muscript_foundation::source::Span;
+
 use super::{
     token::{Token, TokenKind},
     LexError,
@@ -19,6 +21,8 @@ pub trait TokenStream {
             }
         }
     }
+
+    fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError>;
 
     fn peek_include_comments(&mut self) -> Result<Token, LexError> {
         let position = self.position();
@@ -51,5 +55,9 @@ where
 
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         <T as TokenStream>::next_include_comments(self)
+    }
+
+    fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
+        <T as TokenStream>::braced_string(self, left_brace_span)
     }
 }

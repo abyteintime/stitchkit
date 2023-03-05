@@ -3,15 +3,13 @@
 //! The error reporting in MuScript is largely inspired by the Rust compiler, though arguably it's a
 //! lot simpler.
 
-pub use codespan_reporting::diagnostic::LabelStyle;
-pub use codespan_reporting::diagnostic::Severity;
-use codespan_reporting::term;
-use codespan_reporting::term::termcolor::ColorChoice;
-use codespan_reporting::term::termcolor::StandardStream;
+pub use codespan_reporting::diagnostic::{LabelStyle, Severity};
+use codespan_reporting::{
+    term,
+    term::termcolor::{ColorChoice, StandardStream},
+};
 
-use crate::source::SourceFileId;
-use crate::source::SourceFileSet;
-use crate::source::Span;
+use crate::source::{SourceFileId, SourceFileSet, Span};
 
 /// Labels allow you to attach information about where in the code an error occurred.
 pub struct Label {
@@ -81,9 +79,18 @@ pub struct ReplacementSuggestion {
     pub replacement: String,
 }
 
+/// The type of a note.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoteKind {
+    Normal,
+    Debug,
+}
+
 /// A note attached to the bottom of the diagnostic, providing additional help or context about the
 /// error.
 pub struct Note {
+    /// This note's kind.
+    pub kind: NoteKind,
     /// The error text.
     pub text: String,
     /// An optional replacement suggestion, which will be displayed alongside the note.
@@ -93,6 +100,7 @@ pub struct Note {
 impl From<String> for Note {
     fn from(text: String) -> Self {
         Self {
+            kind: NoteKind::Normal,
             text,
             suggestion: None,
         }
@@ -102,6 +110,7 @@ impl From<String> for Note {
 impl From<(String, ReplacementSuggestion)> for Note {
     fn from((text, suggestion): (String, ReplacementSuggestion)) -> Self {
         Self {
+            kind: NoteKind::Normal,
             text,
             suggestion: Some(suggestion),
         }
@@ -206,43 +215,51 @@ impl Diagnostic {
     pub fn emit_to_stderr(
         self,
         files: &SourceFileSet,
+        config: &DiagnosticConfig,
     ) -> Result<(), codespan_reporting::files::Error> {
         term::emit(
             &mut StandardStream::stderr(ColorChoice::Auto),
             &term::Config::default(),
             files,
-            &self.into(),
+            &self.into_codespan(config),
         )
     }
-}
 
-impl From<Diagnostic> for codespan_reporting::diagnostic::Diagnostic<SourceFileId> {
-    fn from(diag: Diagnostic) -> Self {
-        Self {
-            severity: diag.severity,
-            code: diag.code,
-            message: diag.message,
-            labels: diag
+    pub fn into_codespan(
+        self,
+        config: &DiagnosticConfig,
+    ) -> codespan_reporting::diagnostic::Diagnostic<SourceFileId> {
+        codespan_reporting::diagnostic::Diagnostic {
+            severity: self.severity,
+            code: self.code,
+            message: self.message,
+            labels: self
                 .labels
                 .into_iter()
                 .map(|label| codespan_reporting::diagnostic::Label {
                     style: label.style,
-                    file_id: label.file.unwrap_or(diag.source_file),
+                    file_id: label.file.unwrap_or(self.source_file),
                     range: label.span.into(),
                     message: label.message,
                 })
                 .collect(),
-            notes: diag
+            notes: self
                 .notes
                 .into_iter()
-                .map(|note| {
-                    if let Some(sug) = note.suggestion {
-                        format!("{}: `{}`", note.text, sug.replacement)
-                    } else {
-                        note.text
-                    }
+                .filter_map(|note| {
+                    (note.kind != NoteKind::Debug || config.show_debug_info).then(|| {
+                        if let Some(sug) = note.suggestion {
+                            format!("{}: `{}`", note.text, sug.replacement)
+                        } else {
+                            note.text
+                        }
+                    })
                 })
                 .collect(),
         }
     }
+}
+
+pub struct DiagnosticConfig {
+    pub show_debug_info: bool,
 }

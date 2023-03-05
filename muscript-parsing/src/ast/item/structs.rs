@@ -5,6 +5,7 @@ use muscript_foundation::{
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
+    ast::CppBlob,
     diagnostics::{labels, notes},
     lexis::{
         token::{Ident, LeftBrace, RightBrace, Semi},
@@ -21,6 +22,7 @@ keyword!(KStruct = "struct");
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct ItemStruct {
     pub kstruct: KStruct,
+    pub cpp_name: Option<CppBlob>,
     pub name: Ident,
     pub open: LeftBrace,
     pub items: Vec<Item>,
@@ -32,6 +34,7 @@ pub struct ItemStruct {
 impl Parse for ItemStruct {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let kstruct = parser.parse()?;
+        let cpp_name = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
             Diagnostic::error(parser.file, "struct name expected")
                 .with_label(labels::invalid_identifier(span, parser.input))
@@ -52,6 +55,7 @@ impl Parse for ItemStruct {
         Ok(Self {
             kstruct,
             name,
+            cpp_name,
             open,
             items,
             close,

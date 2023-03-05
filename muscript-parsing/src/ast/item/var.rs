@@ -1,9 +1,9 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{KConst, KNative, Type},
+    ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, Type},
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi, Token},
+        token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
         TokenStream,
     },
     list::DelimitedListDiagnostics,
@@ -18,7 +18,7 @@ pub struct ItemVar {
     pub editor: Option<VarEditor>,
     pub specifiers: Vec<VarSpecifier>,
     pub ty: Type,
-    pub names: Vec<Ident>,
+    pub variables: Vec<VarDef>,
     pub semi: Semi,
 }
 
@@ -49,7 +49,7 @@ impl Parse for ItemVar {
             editor,
             specifiers,
             ty,
-            names,
+            variables: names,
             semi,
         })
     }
@@ -66,7 +66,10 @@ pub struct VarEditor {
 #[parse(error = "specifier_error")]
 pub enum VarSpecifier {
     Const(KConst),
+    EditConst(KEditConst),
     Native(KNative),
+    NoExport(KNoExport),
+    Private(KPrivate),
 }
 
 fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
@@ -83,4 +86,17 @@ fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diag
     ))
     // TODO: After we have most specifiers, list notable ones here.
     // .with_note("note: notable variable specifiers include [what?]")
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct VarDef {
+    pub name: Ident,
+    pub array: Option<VarArray>,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct VarArray {
+    pub open: LeftBracket,
+    pub size: Expr,
+    pub close: RightBracket,
 }

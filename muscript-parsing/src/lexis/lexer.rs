@@ -397,4 +397,44 @@ impl<'a> TokenStream for Lexer<'a> {
             span: Span::from(start..end),
         })
     }
+
+    fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
+        let start = self.position;
+
+        let mut nesting = 1;
+        while nesting > 0 {
+            match self.current_char() {
+                Some('{') => {
+                    nesting += 1;
+                    self.advance_char();
+                }
+                Some('}') => {
+                    nesting -= 1;
+                    if nesting != 0 {
+                        // If nesting is zero, we don't wanna consume the right brace
+                        // because the parser turns it into a token.
+                        self.advance_char();
+                    }
+                }
+                None => {
+                    return Err(LexError::new(
+                        Span::from(start..self.position),
+                        Diagnostic::error(
+                            self.file,
+                            "braced string is missing its right brace `}`",
+                        )
+                        .with_label(Label::primary(
+                            left_brace_span,
+                            "the braced string starts here",
+                        ))
+                        .with_note("note: braced strings may nest `{hello {world}}`"),
+                    ))
+                }
+                _ => self.advance_char(),
+            }
+        }
+
+        let end = self.position;
+        Ok(Span::from(start..end))
+    }
 }

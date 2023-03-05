@@ -3,7 +3,7 @@ use std::{ffi::OsStr, path::PathBuf};
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use muscript_foundation::{
-    errors::Diagnostic,
+    errors::{Diagnostic, DiagnosticConfig},
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
 use muscript_parsing::{
@@ -38,6 +38,10 @@ pub struct Args {
     /// of them failed.
     #[clap(short, long)]
     stats: bool,
+
+    /// Print debug notes for diagnostics that have them.
+    #[clap(long)]
+    diagnostics_debug_info: bool,
 }
 
 pub fn muscript(args: Args) -> anyhow::Result<()> {
@@ -92,7 +96,12 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
         info!("Finished with the following diagnostics:");
         eprintln!();
         for diagnostic in stats.diagnostics {
-            diagnostic.emit_to_stderr(&source_file_set)?;
+            diagnostic.emit_to_stderr(
+                &source_file_set,
+                &DiagnosticConfig {
+                    show_debug_info: args.diagnostics_debug_info,
+                },
+            )?;
         }
     }
     if args.stats {
@@ -155,7 +164,9 @@ fn perform_action_on_source_file(
             // No preprocessor for now unfortunately. Our parser will scream when it sees `.
             let lexer = Lexer::new(id, &file.source);
             let mut parser = muscript_parsing::Parser::new(id, &file.source, lexer);
-            let file = parser.parse::<ast::File>().map_err(|_| parser.errors)?;
+            let file = parser
+                .parse::<ast::File>()
+                .map_err(|_| parser.into_errors())?;
             println!("{file:#?}");
         }
     }

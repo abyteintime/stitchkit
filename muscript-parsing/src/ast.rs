@@ -1,5 +1,6 @@
 mod class;
 mod cppblob;
+pub mod default_properties;
 mod expr;
 mod file;
 mod item;

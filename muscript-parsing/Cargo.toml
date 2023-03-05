@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+indoc = "2.0.0"
 thiserror = { workspace = true }
 unicase = "2.6.0"
 

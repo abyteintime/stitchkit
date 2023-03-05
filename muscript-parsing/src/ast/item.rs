@@ -1,3 +1,4 @@
+mod default_properties;
 mod function;
 mod structs;
 mod var;
@@ -10,6 +11,7 @@ use crate::{
     Parser,
 };
 
+pub use default_properties::*;
 pub use function::*;
 pub use structs::*;
 pub use var::*;
@@ -20,6 +22,8 @@ pub enum Item {
     Var(ItemVar),
     Function(ItemFunction),
     Struct(ItemStruct),
+    DefaultProperties(ItemDefaultProperties),
+    StructDefaultProperties(ItemStructDefaultProperties),
 }
 
 fn item_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {

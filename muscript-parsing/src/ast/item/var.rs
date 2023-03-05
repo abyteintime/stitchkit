@@ -1,7 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, Type},
+    ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, KTransient, Type},
     lexis::{
         token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
         TokenStream,
@@ -70,6 +70,7 @@ pub enum VarSpecifier {
     Native(KNative),
     NoExport(KNoExport),
     Private(KPrivate),
+    Transient(KTransient),
 }
 
 fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {

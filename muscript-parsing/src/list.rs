@@ -10,12 +10,72 @@ use crate::{
         TokenStream,
     },
     parsing::{Parse, ParseError, Parser},
+    PredictiveParse,
 };
 
 impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
+    pub fn parse_greedy_list<E>(&mut self) -> Result<Vec<E>, ParseError>
+    where
+        E: PredictiveParse,
+    {
+        let mut elements = vec![];
+        loop {
+            let token = self.peek_token()?;
+            if E::started_by(&token, self.input) {
+                // NOTE: None of these errors are fatal; if any element happens to not match,
+                // we want to continue to report further errors.
+                if let Ok(element) = self.parse() {
+                    elements.push(element);
+                }
+            } else {
+                break;
+            }
+        }
+        Ok(elements)
+    }
+
+    pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
+    where
+        E: Parse,
+        R: SingleToken,
+    {
+        fn error(kind: TerminatedListErrorKind) -> impl FnOnce(ParseError) -> TerminatedListError {
+            move |parse| TerminatedListError { kind, parse }
+        }
+
+        let mut elements = vec![];
+        let terminator = loop {
+            let token = self
+                .peek_token()
+                .map_err(error(TerminatedListErrorKind::Parse))?;
+            match token.kind {
+                _ if R::matches(&token, self.input) => {
+                    self.next_token().expect("the token was already parsed");
+                    break R::default_from_span(token.span);
+                }
+                TokenKind::EndOfFile => {
+                    return Err(TerminatedListError {
+                        kind: TerminatedListErrorKind::MissingTerminator,
+                        parse: ParseError::new(token.span),
+                    })
+                }
+                _ => (),
+            }
+            // NOTE: Error recovery here is not really possible since we don't have an anchor point
+            // to eat tokens until. As such it is up to the individual elements to recover from
+            // parse errors.
+            elements.push(
+                self.parse()
+                    .map_err(error(TerminatedListErrorKind::Parse))?,
+            );
+        };
+
+        Ok((elements, terminator))
+    }
+
     pub fn parse_delimited_list<E, R>(&mut self) -> Result<(Vec<E>, R), DelimitedListError<R>>
     where
         R: SingleToken,
@@ -81,45 +141,6 @@ where
             }
         };
         Ok((elements, close))
-    }
-
-    pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
-    where
-        E: Parse,
-        R: SingleToken,
-    {
-        fn error(kind: TerminatedListErrorKind) -> impl FnOnce(ParseError) -> TerminatedListError {
-            move |parse| TerminatedListError { kind, parse }
-        }
-
-        let mut elements = vec![];
-        let terminator = loop {
-            let token = self
-                .peek_token()
-                .map_err(error(TerminatedListErrorKind::Parse))?;
-            match token.kind {
-                _ if R::matches(&token, self.input) => {
-                    self.next_token().expect("the token was already parsed");
-                    break R::default_from_span(token.span);
-                }
-                TokenKind::EndOfFile => {
-                    return Err(TerminatedListError {
-                        kind: TerminatedListErrorKind::MissingTerminator,
-                        parse: ParseError::new(token.span),
-                    })
-                }
-                _ => (),
-            }
-            // NOTE: Error recovery here is not really possible since we don't have an anchor point
-            // to eat tokens until. As such it is up to the individual elements to recover from
-            // parse errors.
-            elements.push(
-                self.parse()
-                    .map_err(error(TerminatedListErrorKind::Parse))?,
-            );
-        };
-
-        Ok((elements, terminator))
     }
 }
 

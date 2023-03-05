@@ -1,7 +1,9 @@
+use muscript_foundation::errors::{Diagnostic, Label};
+
 use crate::{
-    ast::Type,
+    ast::{KConst, KNative, Type},
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi},
+        token::{Ident, LeftParen, RightParen, Semi, Token},
         TokenStream,
     },
     list::DelimitedListDiagnostics,
@@ -14,6 +16,7 @@ keyword!(KVar = "var");
 pub struct ItemVar {
     pub var: KVar,
     pub editor: Option<VarEditor>,
+    pub specifiers: Vec<VarSpecifier>,
     pub ty: Type,
     pub names: Vec<Ident>,
     pub semi: Semi,
@@ -23,6 +26,7 @@ impl Parse for ItemVar {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let var = parser.parse()?;
         let editor = parser.parse()?;
+        let specifiers = parser.parse_greedy_list()?;
         let ty = parser.parse()?;
         let (names, semi) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(
@@ -43,6 +47,7 @@ impl Parse for ItemVar {
         Ok(Self {
             var,
             editor,
+            specifiers,
             ty,
             names,
             semi,
@@ -55,4 +60,27 @@ pub struct VarEditor {
     pub open: LeftParen,
     pub category: Option<Ident>,
     pub close: RightParen,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "specifier_error")]
+pub enum VarSpecifier {
+    Const(KConst),
+    Native(KNative),
+}
+
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown variable specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
+    // TODO: After we have most specifiers, list notable ones here.
+    // .with_note("note: notable variable specifiers include [what?]")
 }

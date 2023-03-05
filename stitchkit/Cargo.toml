@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 
 anyhow = "1.0.69"
-clap = { version = "4.1.4", features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 walkdir = "2.3.2"

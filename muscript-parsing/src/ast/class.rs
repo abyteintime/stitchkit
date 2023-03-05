@@ -3,12 +3,14 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use crate::{
     diagnostics::{labels, notes},
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi},
+        token::{Ident, LeftParen, RightParen, Semi, Token},
         TokenStream,
     },
     list::{DelimitedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, Parser, PredictiveParse,
 };
+
+use super::{KAbstract, KImplements, KInherits, KNative, KNoExport, KTransient};
 
 keyword!(KClass = "class");
 keyword!(KExtends = "extends");
@@ -18,7 +20,7 @@ pub struct Class {
     pub class: KClass,
     pub name: Ident,
     pub extends: Option<Extends>,
-    pub specifiers: Vec<Specifier>,
+    pub specifiers: Vec<ClassSpecifier>,
     pub semi: Semi,
 }
 
@@ -28,25 +30,34 @@ pub struct Extends {
     pub parent_class: Ident,
 }
 
-keyword!(KAbstract = "abstract");
-keyword!(KImplements = "implements");
-keyword!(KInherits = "inherits");
-keyword!(KNative = "native");
-keyword!(KNoExport = "noexport");
-keyword!(KTransient = "transient");
-
-#[derive(Debug, Clone)]
-pub enum Specifier {
+#[derive(Debug, Clone, Parse)]
+#[parse(error = "specifier_error")]
+pub enum ClassSpecifier {
     Abstract(KAbstract),
-    Implements(KImplements, SpecifierArgs),
-    Inherits(KInherits, SpecifierArgs),
-    Native(KNative, Option<SpecifierArgs>),
+    Implements(KImplements, ClassSpecifierArgs),
+    Inherits(KInherits, ClassSpecifierArgs),
+    Native(KNative, Option<ClassSpecifierArgs>),
     NoExport(KNoExport),
     Transient(KTransient),
 }
 
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown class specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
+    .with_note("note: notable class specifiers include `placeable` and `abstract`")
+}
+
 #[derive(Debug, Clone, PredictiveParse)]
-pub struct SpecifierArgs {
+pub struct ClassSpecifierArgs {
     pub open: LeftParen,
     pub args: Vec<Ident>,
     pub close: RightParen,
@@ -84,47 +95,7 @@ impl Parse for Class {
     }
 }
 
-impl Parse for Specifier {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        let token = parser.peek_token()?;
-        Ok(match () {
-            _ if KAbstract::started_by(&token, parser.input) => {
-                Specifier::Abstract(parser.parse()?)
-            }
-            _ if KImplements::started_by(&token, parser.input) => {
-                Specifier::Implements(parser.parse()?, parser.parse()?)
-            }
-            _ if KInherits::started_by(&token, parser.input) => {
-                Specifier::Inherits(parser.parse()?, parser.parse()?)
-            }
-            _ if KNative::started_by(&token, parser.input) => {
-                Specifier::Native(parser.parse()?, parser.parse()?)
-            }
-            _ if KNoExport::started_by(&token, parser.input) => {
-                Specifier::NoExport(parser.parse()?)
-            }
-            _ if KTransient::started_by(&token, parser.input) => {
-                Specifier::Transient(parser.parse()?)
-            }
-            _ => {
-                parser.next_token()?;
-                parser.emit_diagnostic(
-                    Diagnostic::error(
-                        parser.file,
-                        format!(
-                            "unknown class specifier `{}`",
-                            token.span.get_input(parser.input)
-                        ),
-                    )
-                    .with_label(Label::primary(token.span, "unknown class specifier")),
-                );
-                return Err(ParseError::new(token.span));
-            }
-        })
-    }
-}
-
-impl Parse for SpecifierArgs {
+impl Parse for ClassSpecifierArgs {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
         let (args, close) = parser.parse_delimited_list().map_err(|error| {

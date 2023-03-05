@@ -1,6 +1,4 @@
-use muscript_parsing_derive::{Parse, PredictiveParse};
-
-use crate::ast::default_properties::DefaultPropertiesBlock;
+use crate::{ast::default_properties::DefaultPropertiesBlock, Parse, PredictiveParse};
 
 keyword!(KDefaultProperties = "defaultproperties");
 keyword!(KStructDefaultProperties = "structdefaultproperties");

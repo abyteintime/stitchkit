@@ -1,4 +1,6 @@
+mod consts;
 mod default_properties;
+mod enums;
 mod function;
 mod structs;
 mod var;
@@ -11,7 +13,9 @@ use crate::{
     Parser,
 };
 
+pub use consts::*;
 pub use default_properties::*;
+pub use enums::*;
 pub use function::*;
 pub use structs::*;
 pub use var::*;
@@ -20,8 +24,10 @@ pub use var::*;
 #[parse(error = "item_error")]
 pub enum Item {
     Var(ItemVar),
+    Const(ItemConst),
     Function(ItemFunction),
     Struct(ItemStruct),
+    Enum(ItemEnum),
     DefaultProperties(ItemDefaultProperties),
     StructDefaultProperties(ItemStructDefaultProperties),
 }

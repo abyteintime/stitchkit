@@ -3,7 +3,10 @@ mod lit;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::{token::Token, TokenStream},
+    lexis::{
+        token::{Float, Token},
+        TokenStream,
+    },
     Parse, Parser, PredictiveParse,
 };
 
@@ -13,6 +16,7 @@ pub use lit::*;
 #[parse(error = "expr_error")]
 pub enum Expr {
     IntLit(IntLit),
+    FloatLit(Float),
 }
 
 fn expr_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {

@@ -19,7 +19,7 @@ macro_rules! debug_token {
 
 macro_rules! define_tokens {
     ($($name:tt = $pretty_name:tt),* $(,)?) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum TokenKind {
             $($name),*
         }
@@ -88,10 +88,6 @@ define_tokens! {
 
     Ident = "identifier",
 
-    None  = "`none`",
-    True  = "`true`",
-    False = "`false`",
-
     Int    = "int literal",
     IntHex = "hexadecimal int literal",
     Float  = "float literal",
@@ -106,8 +102,6 @@ define_tokens! {
     Pow              = "`**`",
     Dollar           = "`$`",
     At               = "`@`",
-    Colon            = "`:`",
-    Question         = "`?`",
     ShiftLeft        = "`<<`",
     ShiftRight       = "`>>`",
     TripleShiftRight = "`>>>`",
@@ -128,7 +122,10 @@ define_tokens! {
     Xor              = "`^^`",
     Inc              = "`++`",
     Dec              = "`--`",
+
     Assign           = "`=`",
+    Colon            = "`:`",
+    Question         = "`?`",
 
     LeftParen    = "`(`",
     RightParen   = "`)`",
@@ -138,12 +135,22 @@ define_tokens! {
     RightBrace   = "`}`",
     Dot          = "`.`",
     Comma        = "``",
-    Semi    = "`;`",
+    Semi         = "`;`",
     Hash         = "`#`",
     Accent       = "```", // kinda hard to decipher?
     Backslash    = "`\\`",
 
     EndOfFile = "end of file",
+}
+
+impl TokenKind {
+    pub fn is_overloadable_operator(&self) -> bool {
+        *self >= TokenKind::Add && *self <= TokenKind::Dec
+    }
+
+    pub fn can_be_compound_assignment(&self) -> bool {
+        *self >= TokenKind::Add && *self <= TokenKind::BitXor
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -161,6 +168,18 @@ impl fmt::Debug for Token {
 impl Spanned for Token {
     fn span(&self) -> Span {
         self.span
+    }
+}
+
+impl Parse for Token {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+        parser.next_token()
+    }
+}
+
+impl PredictiveParse for Token {
+    fn started_by(_: &Token, _: &str) -> bool {
+        true
     }
 }
 

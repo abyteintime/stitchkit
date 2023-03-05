@@ -3,14 +3,14 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use crate::{
     diagnostics::{labels, notes},
     lexis::{
-        token::{Ident, LeftParen, RightParen, Semi, Token},
+        token::{Ident, Semi, Token},
         TokenStream,
     },
-    list::{DelimitedListDiagnostics, TerminatedListErrorKind},
+    list::TerminatedListErrorKind,
     Parse, ParseError, Parser, PredictiveParse,
 };
 
-use super::{KAbstract, KImplements, KInherits, KNative, KNoExport, KTransient};
+use super::{KAbstract, KImplements, KInherits, KNative, KNoExport, KTransient, SpecifierArgs};
 
 keyword!(KClass = "class");
 keyword!(KExtends = "extends");
@@ -34,33 +34,11 @@ pub struct Extends {
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
     Abstract(KAbstract),
-    Implements(KImplements, ClassSpecifierArgs),
-    Inherits(KInherits, ClassSpecifierArgs),
-    Native(KNative, Option<ClassSpecifierArgs>),
+    Implements(KImplements, SpecifierArgs),
+    Inherits(KInherits, SpecifierArgs),
+    Native(KNative, Option<SpecifierArgs>),
     NoExport(KNoExport),
     Transient(KTransient),
-}
-
-fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown class specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
-    ))
-    .with_note("note: notable class specifiers include `placeable` and `abstract`")
-}
-
-#[derive(Debug, Clone, PredictiveParse)]
-pub struct ClassSpecifierArgs {
-    pub open: LeftParen,
-    pub args: Vec<Ident>,
-    pub close: RightParen,
 }
 
 impl Parse for Class {
@@ -95,24 +73,17 @@ impl Parse for Class {
     }
 }
 
-impl Parse for ClassSpecifierArgs {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
-        let open: LeftParen = parser.parse()?;
-        let (args, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
-                &open,
-                error,
-                DelimitedListDiagnostics {
-                    missing_right: "missing `)` to close specifier argument list",
-                    missing_right_label: "this `(` does not have a matching `)`",
-                    missing_comma: "`,` or `)` expected after specifier argument",
-                    missing_comma_open: "the specifier argument list starts here",
-                    missing_comma_token:
-                        "this was expected to continue or close the specifier argument list",
-                    missing_comma_note: "note: specifier arguments must be separated by commas `,`",
-                },
-            )
-        })?;
-        Ok(Self { open, args, close })
-    }
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown class specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
+    .with_note("note: notable class specifiers include `placeable` and `abstract`")
 }

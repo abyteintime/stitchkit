@@ -1,10 +1,13 @@
+use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{Stmt, Type},
+    ast::{IntLit, KFinal, KNative, KStatic, Stmt, Type},
     diagnostics::{labels, notes},
     lexis::{
-        token::{Ident, LeftBrace, LeftParen, RightBrace, RightParen, TokenKind},
+        token::{
+            Assign, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token, TokenKind,
+        },
         TokenStream,
     },
     list::{DelimitedListDiagnostics, TerminatedListErrorKind},
@@ -12,14 +15,42 @@ use crate::{
 };
 
 keyword!(KFunction = "function");
+keyword!(KEvent = "event");
+keyword!(KOperator = "operator");
+keyword!(KPreOperator = "preoperator");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone)]
 pub struct ItemFunction {
-    pub function: KFunction,
+    pub specifiers: Vec<FunctionSpecifier>,
+    pub function: FunctionKind,
     pub return_ty: Option<Type>,
     pub name: Ident,
     pub params: Params,
     pub body: Body,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "specifier_error")]
+pub enum FunctionSpecifier {
+    Final(KFinal),
+    Native(KNative, Option<ParenInt>),
+    Static(KStatic),
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct ParenInt {
+    pub left: LeftParen,
+    pub number: IntLit,
+    pub right: RightParen,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "kind_error")]
+pub enum FunctionKind {
+    Function(KFunction),
+    Event(KEvent),
+    Operator(KOperator, ParenInt),
+    PreOperator(KPreOperator),
 }
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -35,8 +66,15 @@ pub struct Param {
     pub name: Ident,
 }
 
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "body_error")]
+pub enum Body {
+    Stub(Semi),
+    Impl(Impl),
+}
+
 #[derive(Debug, Clone, PredictiveParse)]
-pub struct Body {
+pub struct Impl {
     pub open: LeftBrace,
     pub stmts: Vec<Stmt>,
     pub close: RightBrace,
@@ -54,34 +92,87 @@ impl ItemFunction {
 
 impl Parse for ItemFunction {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+        let specifiers = parser.parse_greedy_list()?;
         let function = parser.parse()?;
 
-        // NOTE: We need to do a little dance to parse return types (though it's still 100% possible
-        // to do predictively, which is very nice.) This would've been easier if return types
-        // weren't optional, but alas.
-        let name_or_type = Self::parse_name(parser)?;
-        let (return_ty, name) = if parser.peek_token()?.kind == TokenKind::LeftParen {
-            (None, name_or_type)
-        } else {
-            let generic = parser.parse()?;
-            (
-                Some(Type {
-                    name: name_or_type,
-                    generic,
-                }),
-                Self::parse_name(parser)?,
-            )
+        let (return_ty, name) = match &function {
+            FunctionKind::Function(_) | FunctionKind::Event(_) => {
+                // NOTE: We need to do a little dance to parse return types (though it's still 100%
+                // possible to do predictively, which is very nice.) This would've been easier if
+                // return types weren't optional, but alas.
+                let name_or_type = Self::parse_name(parser)?;
+                if parser.peek_token()?.kind == TokenKind::LeftParen {
+                    (None, name_or_type)
+                } else {
+                    let generic = parser.parse()?;
+                    (
+                        Some(Type {
+                            name: name_or_type,
+                            generic,
+                        }),
+                        Self::parse_name(parser)?,
+                    )
+                }
+            }
+            FunctionKind::Operator(_, _) | FunctionKind::PreOperator(_) => {
+                // Operators need special care because they always have a return type and, more
+                // importantly, the name is not an identifier but an operator.
+                // For practical reasons we still make it pose as an identifier, but the lexer
+                // doesn't see it exactly that way.
+                let return_ty = parser.parse()?;
+                let operator = parser.next_token()?;
+                if !operator.kind.is_overloadable_operator() {
+                    parser.emit_diagnostic(
+                        Diagnostic::error(
+                            parser.file,
+                            format!(
+                                "`{}` is not an overloadable operator",
+                                operator.span.get_input(parser.input)
+                            ),
+                        )
+                        .with_label(Label::primary(operator.span, "operator expected here"))
+                        .with_note(indoc!(
+                            r#"note: overloadable operators include:
+                                     `+` `-` `*` `/` `%` `**`
+                                     `$` `@`
+                                     `<<` `>>` `>>>` `~` `&` `|` `^`
+                                     `!` `==` `!=` `~=` `<` `>` `<=` `>=`
+                                     `&&` `||` `^^`
+                                     `++` `--`
+                                     and identifiers
+                            "#
+                        )),
+                    )
+                    // NOTE: Don't return a parse error here, just continue on parsing to maybe
+                    // find another error.
+                }
+                let assign = parser.parse::<Option<Assign>>();
+                let span = if let Ok(Some(assign)) = assign {
+                    operator.span.join(&assign.span)
+                } else {
+                    operator.span
+                };
+                (Some(return_ty), Ident { span })
+            }
         };
 
         let params = parser.parse()?;
         let body = parser.parse()?;
         Ok(Self {
+            specifiers,
             function,
             return_ty,
             name,
             params,
             body,
         })
+    }
+}
+
+impl PredictiveParse for ItemFunction {
+    fn started_by(token: &Token, input: &str) -> bool {
+        // Kind of sub-optimal that we have to check here each and every single identifier.
+        KFunction::started_by(token, input) || FunctionSpecifier::started_by(token, input)
     }
 }
 
@@ -111,7 +202,7 @@ impl Parse for Params {
     }
 }
 
-impl Parse for Body {
+impl Parse for Impl {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse_with_error(|parser, span| {
             Diagnostic::error(parser.file, "function body `{ .. }` expected")
@@ -130,4 +221,38 @@ impl Parse for Body {
         })?;
         Ok(Self { open, stmts, close })
     }
+}
+
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown function specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
+    .with_note("note: notable function specifiers include `static` and `final`")
+}
+
+fn kind_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        "`function`, `event`, `preoperator`, or `operator` expected",
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this token does not start a function",
+    ))
+}
+
+fn body_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "function body `{ .. }` expected")
+    .with_label(Label::primary(token.span, "`{` expected here"))
+    .with_note(
+        "note: functions can also be stubbed out using `;`, but it's probably not what you want"
+    )
 }

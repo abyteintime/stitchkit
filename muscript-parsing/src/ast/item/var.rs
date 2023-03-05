@@ -38,7 +38,7 @@ impl Parse for ItemVar {
                     missing_comma: "`,` or `;` expected after variable name",
                     missing_comma_open:
                         "this is the variable declaration",
-                    missing_comma_token: "this was expected to continue or close the variable declaration",
+                    missing_comma_token: "this was expected to continue or end the variable declaration",
                     missing_comma_note:
                         "note: multiple variable names in one `var` must be separated by commas `,`",
                 },

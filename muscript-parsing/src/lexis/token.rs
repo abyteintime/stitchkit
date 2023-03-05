@@ -145,7 +145,7 @@ define_tokens! {
 
 impl TokenKind {
     pub fn is_overloadable_operator(&self) -> bool {
-        *self >= TokenKind::Add && *self <= TokenKind::Dec
+        (*self >= TokenKind::Add && *self <= TokenKind::Dec) || *self == TokenKind::Ident
     }
 
     pub fn can_be_compound_assignment(&self) -> bool {

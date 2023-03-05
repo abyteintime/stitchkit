@@ -2,7 +2,7 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{IntLit, KFinal, KNative, KStatic, Stmt, Type},
+    ast::{Expr, IntLit, KFinal, KNative, KOptional, KOut, KSkip, KStatic, Stmt, Type},
     diagnostics::{labels, notes},
     lexis::{
         token::{
@@ -18,6 +18,7 @@ keyword!(KFunction = "function");
 keyword!(KEvent = "event");
 keyword!(KOperator = "operator");
 keyword!(KPreOperator = "preoperator");
+keyword!(KPostOperator = "postoperator");
 
 #[derive(Debug, Clone)]
 pub struct ItemFunction {
@@ -30,7 +31,7 @@ pub struct ItemFunction {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-#[parse(error = "specifier_error")]
+#[parse(error = "function_specifier_error")]
 pub enum FunctionSpecifier {
     Final(KFinal),
     Native(KNative, Option<ParenInt>),
@@ -51,6 +52,7 @@ pub enum FunctionKind {
     Event(KEvent),
     Operator(KOperator, ParenInt),
     PreOperator(KPreOperator),
+    PostOperator(KPostOperator),
 }
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -60,10 +62,26 @@ pub struct Params {
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone)]
 pub struct Param {
+    pub specifiers: Vec<ParamSpecifier>,
     pub ty: Type,
     pub name: Ident,
+    pub default: Option<ParamDefault>,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "param_specifier_error")]
+pub enum ParamSpecifier {
+    Optional(KOptional),
+    Out(KOut),
+    Skip(KSkip),
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct ParamDefault {
+    pub equals: Assign,
+    pub value: Expr,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -114,7 +132,9 @@ impl Parse for ItemFunction {
                     )
                 }
             }
-            FunctionKind::Operator(_, _) | FunctionKind::PreOperator(_) => {
+            FunctionKind::Operator(_, _)
+            | FunctionKind::PreOperator(_)
+            | FunctionKind::PostOperator(_) => {
                 // Operators need special care because they always have a return type and, more
                 // importantly, the name is not an identifier but an operator.
                 // For practical reasons we still make it pose as an identifier, but the lexer
@@ -152,7 +172,15 @@ impl Parse for ItemFunction {
                 } else {
                     operator.span
                 };
-                (Some(return_ty), Ident { span })
+                (
+                    Some(Type {
+                        // Ugly hack to work around the fact that `int <` is a valid operator
+                        // overload. FML.
+                        name: return_ty,
+                        generic: None,
+                    }),
+                    Ident { span },
+                )
             }
         };
 
@@ -202,6 +230,27 @@ impl Parse for Params {
     }
 }
 
+impl Parse for Param {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+        let specifiers = parser.parse_greedy_list()?;
+        let ty = parser.parse()?;
+        let name = parser.parse()?;
+        let default = parser.parse()?;
+        Ok(Self {
+            specifiers,
+            ty,
+            name,
+            default,
+        })
+    }
+}
+
+impl PredictiveParse for Param {
+    fn started_by(token: &Token, input: &str) -> bool {
+        Ident::started_by(token, input)
+    }
+}
+
 impl Parse for Impl {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse_with_error(|parser, span| {
@@ -223,7 +272,7 @@ impl Parse for Impl {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn function_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(
@@ -236,6 +285,21 @@ fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diag
         "this specifier is not recognized",
     ))
     .with_note("note: notable function specifiers include `static` and `final`")
+}
+
+fn param_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown parameter specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
+    .with_note("note: parameter specifiers include `optional` and `skip`")
 }
 
 fn kind_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {

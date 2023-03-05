@@ -20,7 +20,10 @@ keyword!(KImplements = "implements");
 keyword!(KInherits = "inherits");
 keyword!(KNative = "native");
 keyword!(KNoExport = "noexport");
+keyword!(KOptional = "optional");
+keyword!(KOut = "out");
 keyword!(KPrivate = "private");
+keyword!(KSkip = "skip");
 keyword!(KStatic = "static");
 keyword!(KTransient = "transient");
 

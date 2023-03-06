@@ -1,3 +1,5 @@
+mod recovery;
+
 use muscript_foundation::{
     errors::{Diagnostic, Label, Note, NoteKind},
     source::{SourceFileId, Span},
@@ -7,6 +9,8 @@ use crate::lexis::{
     token::{SingleToken, Token, TokenKindMismatch},
     LexError, TokenStream,
 };
+
+pub use recovery::*;
 
 pub struct Parser<'a, T> {
     pub file: SourceFileId,
@@ -70,7 +74,7 @@ impl<'a, T> Parser<'a, T> {
 
 impl<'a, T> Parser<'a, T>
 where
-    T: TokenStream,
+    T: ParseStream,
 {
     pub fn next_token(&mut self) -> Result<Token, ParseError> {
         self.tokens.next().map_err(|LexError { span, diagnostic }| {
@@ -146,12 +150,26 @@ impl ParseError {
     }
 }
 
+/// Token stream which can provide data for error recovery.
+pub trait ParseStream: TokenStream {
+    fn nesting_level(&self) -> usize;
+}
+
+impl<T> ParseStream for &mut T
+where
+    T: ParseStream,
+{
+    fn nesting_level(&self) -> usize {
+        <T as ParseStream>::nesting_level(self)
+    }
+}
+
 pub trait Parse: Sized {
     /// NOTE: This is deprecated because it should not be used directly, as it doesn't do any extra
     /// processing or error recovery.
     /// You generally want to use [`Parser::parse`] instead of this.
     #[deprecated(note = "use [`Parser::parse`] instead of this")]
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError>;
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError>;
 }
 
 pub trait PredictiveParse: Parse {
@@ -163,7 +181,7 @@ impl<N> Parse for Option<N>
 where
     N: PredictiveParse,
 {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         if let Ok(next_token) = parser.peek_token() {
             if N::started_by(&next_token, parser.input) {
                 #[allow(deprecated)]

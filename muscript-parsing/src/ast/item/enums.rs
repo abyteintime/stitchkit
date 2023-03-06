@@ -2,12 +2,9 @@ use muscript_foundation::errors::Diagnostic;
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::{
-        token::{Ident, LeftBrace, RightBrace, Semi},
-        TokenStream,
-    },
+    lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::DelimitedListDiagnostics,
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 keyword!(KEnum = "enum");
@@ -23,7 +20,7 @@ pub struct ItemEnum {
 }
 
 impl Parse for ItemEnum {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kenum = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
             Diagnostic::error(parser.file, "enum name expected")

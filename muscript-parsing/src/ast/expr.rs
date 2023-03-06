@@ -3,11 +3,8 @@ mod lit;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::{
-        token::{self, Float, Ident, Int, IntHex, Keyword, Name, Token, TokenKind},
-        TokenStream,
-    },
-    Parse, ParseError, Parser,
+    lexis::token::{self, Float, Ident, Int, IntHex, Keyword, Name, Token, TokenKind},
+    Parse, ParseError, ParseStream, Parser,
 };
 
 pub use lit::*;
@@ -33,7 +30,7 @@ pub struct Unary {
 // for each precedence level.
 impl Expr {
     fn parse_prefix(
-        parser: &mut Parser<'_, impl TokenStream>,
+        parser: &mut Parser<'_, impl ParseStream>,
         token: Token,
     ) -> Result<Expr, ParseError> {
         Ok(match token.kind {
@@ -63,7 +60,7 @@ impl Expr {
     }
 
     fn unary(
-        parser: &mut Parser<'_, impl TokenStream>,
+        parser: &mut Parser<'_, impl ParseStream>,
         operator: Token,
     ) -> Result<Expr, ParseError> {
         Ok(Expr::Unary(Unary {
@@ -75,7 +72,7 @@ impl Expr {
         }))
     }
 
-    fn ident(parser: &mut Parser<'_, impl TokenStream>, ident: Token) -> Result<Expr, ParseError> {
+    fn ident(parser: &mut Parser<'_, impl ParseStream>, ident: Token) -> Result<Expr, ParseError> {
         let s = ident.span.get_input(parser.input);
         Ok(match () {
             _ if KNone::matches(s) => Expr::Lit(Lit::None(KNone { span: ident.span })),
@@ -90,7 +87,7 @@ impl Expr {
     }
 
     fn parse_infix(
-        parser: &mut Parser<'_, impl TokenStream>,
+        parser: &mut Parser<'_, impl ParseStream>,
         left: Expr,
         token: Token,
     ) -> Result<Expr, ParseError> {
@@ -98,7 +95,7 @@ impl Expr {
     }
 
     fn precedence_parse(
-        parser: &mut Parser<'_, impl TokenStream>,
+        parser: &mut Parser<'_, impl ParseStream>,
         precedence: u8,
     ) -> Result<Expr, ParseError> {
         let first = parser.next_token()?;
@@ -107,7 +104,7 @@ impl Expr {
 }
 
 impl Parse for Expr {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         Expr::precedence_parse(parser, 0)
     }
 }

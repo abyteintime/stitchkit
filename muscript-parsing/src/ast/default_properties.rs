@@ -2,14 +2,11 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::{
-        token::{
-            self, Assign, Float, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token,
-        },
-        TokenStream,
+    lexis::token::{
+        self, Assign, Float, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token,
     },
     list::TerminatedListErrorKind,
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::IntLit;
@@ -58,7 +55,7 @@ pub enum Lit {
 }
 
 impl Parse for DefaultPropertiesBlock {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse()?;
         let (properties, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
@@ -77,7 +74,7 @@ impl Parse for DefaultPropertiesBlock {
     }
 }
 
-fn default_property_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn default_property_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "default property expected")
         .with_label(Label::primary(
             token.span,
@@ -92,7 +89,7 @@ fn default_property_error(parser: &Parser<'_, impl TokenStream>, token: &Token) 
         ))
 }
 
-fn lit_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "default property literal expected")
         .with_label(Label::primary(
             token.span,

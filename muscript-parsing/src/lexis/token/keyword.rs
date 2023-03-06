@@ -70,7 +70,7 @@ macro_rules! keyword {
 
         impl $crate::parsing::Parse for $T {
             fn parse(
-                parser: &mut $crate::parsing::Parser<'_, impl $crate::lexis::TokenStream>,
+                parser: &mut $crate::parsing::Parser<'_, impl $crate::ParseStream>,
             ) -> Result<Self, $crate::parsing::ParseError> {
                 parser.expect_token()
             }

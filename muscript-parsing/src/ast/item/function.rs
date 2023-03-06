@@ -4,14 +4,11 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use crate::{
     ast::{Expr, IntLit, KFinal, KNative, KOptional, KOut, KSkip, KStatic, Stmt, Type},
     diagnostics::{labels, notes},
-    lexis::{
-        token::{
-            Assign, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token, TokenKind,
-        },
-        TokenStream,
+    lexis::token::{
+        Assign, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token, TokenKind,
     },
     list::{DelimitedListDiagnostics, TerminatedListErrorKind},
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 keyword!(KFunction = "function");
@@ -99,7 +96,7 @@ pub struct Impl {
 }
 
 impl ItemFunction {
-    fn parse_name(parser: &mut Parser<'_, impl TokenStream>) -> Result<Ident, ParseError> {
+    fn parse_name(parser: &mut Parser<'_, impl ParseStream>) -> Result<Ident, ParseError> {
         parser.parse_with_error::<Ident>(|parser, span| {
             Diagnostic::error(parser.file, "function name expected")
                 .with_label(labels::invalid_identifier(span, parser.input))
@@ -109,7 +106,7 @@ impl ItemFunction {
 }
 
 impl Parse for ItemFunction {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let specifiers = parser.parse_greedy_list()?;
         let function = parser.parse()?;
 
@@ -205,7 +202,7 @@ impl PredictiveParse for ItemFunction {
 }
 
 impl Parse for Params {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
         let (params, close) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(
@@ -231,7 +228,7 @@ impl Parse for Params {
 }
 
 impl Parse for Param {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let specifiers = parser.parse_greedy_list()?;
         let ty = parser.parse()?;
         let name = parser.parse()?;
@@ -252,7 +249,7 @@ impl PredictiveParse for Param {
 }
 
 impl Parse for Impl {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse_with_error(|parser, span| {
             Diagnostic::error(parser.file, "function body `{ .. }` expected")
                 .with_label(Label::primary(span, "`{` expected here"))
@@ -272,7 +269,7 @@ impl Parse for Impl {
     }
 }
 
-fn function_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn function_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(
@@ -287,7 +284,7 @@ fn function_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token
     .with_note("note: notable function specifiers include `static` and `final`")
 }
 
-fn param_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn param_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(
@@ -302,7 +299,7 @@ fn param_specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -
     .with_note("note: parameter specifiers include `optional` and `skip`")
 }
 
-fn kind_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         "`function`, `event`, `preoperator`, or `operator` expected",
@@ -311,9 +308,10 @@ fn kind_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnosti
         token.span,
         "this token does not start a function",
     ))
+    .with_note("help: maybe you typo'd a specifier?")
 }
 
-fn body_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn body_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "function body `{ .. }` expected")
     .with_label(Label::primary(token.span, "`{` expected here"))
     .with_note(

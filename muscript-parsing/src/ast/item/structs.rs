@@ -7,12 +7,9 @@ use muscript_parsing_derive::PredictiveParse;
 use crate::{
     ast::{CppBlob, Extends, KImmutable},
     diagnostics::{labels, notes},
-    lexis::{
-        token::{Ident, LeftBrace, RightBrace, Semi, Token},
-        TokenStream,
-    },
+    lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, Parser,
+    Parse, ParseError, ParseStream, Parser,
 };
 
 use super::Item;
@@ -34,7 +31,7 @@ pub struct ItemStruct {
 }
 
 impl Parse for ItemStruct {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kstruct = parser.parse()?;
         let specifiers = parser.parse_greedy_list()?;
         let cpp_name = parser.parse()?;
@@ -76,7 +73,7 @@ pub enum StructSpecifier {
     Immutable(KImmutable),
 }
 
-fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(

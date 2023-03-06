@@ -33,7 +33,7 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics ::muscript_parsing::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::lexis::TokenStream>
+                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::ParseStream>
             ) -> ::std::result::Result<Self, ::muscript_parsing::ParseError>
             {
                 Ok(Self {
@@ -85,7 +85,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics ::muscript_parsing::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::lexis::TokenStream>
+                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::ParseStream>
             ) -> ::std::result::Result<Self, ::muscript_parsing::ParseError>
             {
                 let token = parser.peek_token()?;

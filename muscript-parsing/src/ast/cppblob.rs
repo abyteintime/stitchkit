@@ -1,11 +1,8 @@
 use muscript_foundation::source::Span;
 
 use crate::{
-    lexis::{
-        token::{LeftBrace, RightBrace},
-        TokenStream,
-    },
-    Parse, ParseError, Parser, PredictiveParse,
+    lexis::token::{LeftBrace, RightBrace},
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -16,7 +13,7 @@ pub struct CppBlob {
 }
 
 impl Parse for CppBlob {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse()?;
         let blob = parser.tokens.braced_string(open.span).map_err(|error| {
             parser.emit_diagnostic(*error.diagnostic);

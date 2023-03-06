@@ -2,11 +2,8 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::{
-        token::{self, Float, Int, IntHex, Name, Token},
-        TokenStream,
-    },
-    Parse, Parser, PredictiveParse,
+    lexis::token::{self, Float, Int, IntHex, Name, Token},
+    Parse, ParseStream, Parser, PredictiveParse,
 };
 
 keyword!(KNone = "none");
@@ -41,12 +38,12 @@ pub enum Lit {
     Name(Name),
 }
 
-fn bool_lit_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn bool_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "boolean `true` or `false` expected")
         .with_label(Label::primary(token.span, "this token is not a boolean"))
 }
 
-fn int_lit_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn int_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "integer literal expected")
         .with_label(Label::primary(
             token.span,
@@ -57,7 +54,7 @@ fn int_lit_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagno
         )
 }
 
-fn lit_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "literal expected")
         .with_label(Label::primary(token.span, "this token is not a literal"))
         .with_note(indoc!(

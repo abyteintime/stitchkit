@@ -2,12 +2,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, KTransient, Type},
-    lexis::{
-        token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
-        TokenStream,
-    },
+    lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
     list::DelimitedListDiagnostics,
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 keyword!(KVar = "var");
@@ -23,7 +20,7 @@ pub struct ItemVar {
 }
 
 impl Parse for ItemVar {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let var = parser.parse()?;
         let editor = parser.parse()?;
         let specifiers = parser.parse_greedy_list()?;
@@ -73,7 +70,7 @@ pub enum VarSpecifier {
     Transient(KTransient),
 }
 
-fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(

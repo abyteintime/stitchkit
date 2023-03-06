@@ -8,10 +8,7 @@ mod var;
 use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_parsing_derive::Parse;
 
-use crate::{
-    lexis::{token::Token, TokenStream},
-    Parser,
-};
+use crate::{lexis::token::Token, ParseStream, Parser};
 
 pub use consts::*;
 pub use default_properties::*;
@@ -32,7 +29,7 @@ pub enum Item {
     StructDefaultProperties(ItemStructDefaultProperties),
 }
 
-fn item_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn item_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "item expected")
         .with_label(Label::primary(
             token.span,

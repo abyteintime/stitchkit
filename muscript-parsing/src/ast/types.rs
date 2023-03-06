@@ -1,12 +1,9 @@
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
-    lexis::{
-        token::{Greater, Ident, Less},
-        TokenStream,
-    },
+    lexis::token::{Greater, Ident, Less},
     list::DelimitedListDiagnostics,
-    Parse, ParseError, Parser,
+    Parse, ParseError, ParseStream, Parser,
 };
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -23,7 +20,7 @@ pub struct Generic {
 }
 
 impl Parse for Type {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         Ok(Self {
             name: parser.parse()?,
             generic: parser.parse()?,
@@ -32,7 +29,7 @@ impl Parse for Type {
 }
 
 impl Parse for Generic {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let less: Less = parser.parse()?;
         let (args, greater) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(

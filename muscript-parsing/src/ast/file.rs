@@ -1,10 +1,8 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    diagnostics::notes,
-    lexis::{token::EndOfFile, TokenStream},
-    list::TerminatedListErrorKind,
-    Parse, ParseError, Parser,
+    diagnostics::notes, lexis::token::EndOfFile, list::TerminatedListErrorKind, Parse, ParseError,
+    ParseStream, Parser,
 };
 
 use super::{Class, Item};
@@ -22,13 +20,13 @@ pub struct File {
 }
 
 impl Parse for FileKind {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         Ok(Self::Class(parser.parse()?))
     }
 }
 
 impl Parse for File {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kind = parser.parse()?;
         let (items, eof) = parser.parse_terminated_list().map_err(|error| {
             match error.kind {

@@ -2,9 +2,7 @@ use std::fmt;
 
 use muscript_foundation::source::{Span, Spanned};
 
-use crate::parsing::{Parse, ParseError, Parser, PredictiveParse};
-
-use super::TokenStream;
+use crate::{Parse, ParseError, Parser, PredictiveParse, ParseStream};
 
 #[macro_export]
 macro_rules! debug_token {
@@ -69,7 +67,7 @@ macro_rules! define_tokens {
             }
 
             impl Parse for $name {
-                fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+                fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
                     parser.expect_token()
                 }
             }
@@ -151,6 +149,24 @@ impl TokenKind {
     pub fn can_be_compound_assignment(&self) -> bool {
         *self >= TokenKind::Add && *self <= TokenKind::BitXor
     }
+
+    pub fn closed_by(&self) -> Option<TokenKind> {
+        match self {
+            TokenKind::LeftParen => Some(TokenKind::RightParen),
+            TokenKind::LeftBracket => Some(TokenKind::RightBracket),
+            TokenKind::LeftBrace => Some(TokenKind::RightBrace),
+            _ => None,
+        }
+    }
+
+    pub fn closes(&self) -> Option<TokenKind> {
+        match self {
+            TokenKind::RightParen => Some(TokenKind::LeftParen),
+            TokenKind::RightBracket => Some(TokenKind::LeftBracket),
+            TokenKind::RightBrace => Some(TokenKind::LeftBrace),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -172,7 +188,7 @@ impl Spanned for Token {
 }
 
 impl Parse for Token {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         parser.next_token()
     }
 }
@@ -198,5 +214,7 @@ pub struct TokenKindMismatch<T>(pub T);
 
 #[macro_use]
 mod keyword;
+mod delimiter;
 
+pub use delimiter::*;
 pub use keyword::*;

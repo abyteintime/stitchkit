@@ -2,11 +2,8 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_parsing_derive::Parse;
 
 use crate::{
-    lexis::{
-        token::{Semi, Token},
-        TokenStream,
-    },
-    Parser,
+    lexis::token::{Semi, Token},
+    ParseStream, Parser,
 };
 
 #[derive(Debug, Clone, Parse)]
@@ -15,7 +12,7 @@ pub enum Stmt {
     Empty(Semi),
 }
 
-fn stmt_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn stmt_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "statement expected")
         .with_label(Label::primary(
             token.span,

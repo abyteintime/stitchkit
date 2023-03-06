@@ -5,17 +5,14 @@ use std::marker::PhantomData;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::{
-        token::{SingleToken, Token, TokenKind},
-        TokenStream,
-    },
-    parsing::{Parse, ParseError, Parser},
-    PredictiveParse,
+    lexis::token::{SingleToken, Token, TokenKind},
+    Parse, ParseError, Parser,
+    ParseStream, PredictiveParse,
 };
 
 impl<'a, T> Parser<'a, T>
 where
-    T: TokenStream,
+    T: ParseStream,
 {
     pub fn parse_greedy_list<E>(&mut self) -> Result<Vec<E>, ParseError>
     where

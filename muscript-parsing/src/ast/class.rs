@@ -2,12 +2,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::{
-        token::{Ident, Semi, Token},
-        TokenStream,
-    },
+    lexis::token::{Ident, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::{KAbstract, KImplements, KInherits, KNative, KNoExport, KTransient, SpecifierArgs};
@@ -42,7 +39,7 @@ pub enum ClassSpecifier {
 }
 
 impl Parse for Class {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let class = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
             Diagnostic::error(parser.file, "class name expected")
@@ -73,7 +70,7 @@ impl Parse for Class {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &Token) -> Diagnostic {
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(

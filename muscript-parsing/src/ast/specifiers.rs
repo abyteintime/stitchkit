@@ -1,12 +1,9 @@
 //! Specifier keywords.
 
 use crate::{
-    lexis::{
-        token::{LeftParen, RightParen},
-        TokenStream,
-    },
+    lexis::token::{LeftParen, RightParen},
     list::DelimitedListDiagnostics,
-    Parse, ParseError, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::Expr;
@@ -35,7 +32,7 @@ pub struct SpecifierArgs {
 }
 
 impl Parse for SpecifierArgs {
-    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
         let (args, close) = parser.parse_delimited_list().map_err(|error| {
             parser.emit_delimited_list_diagnostic(

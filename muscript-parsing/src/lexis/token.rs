@@ -2,7 +2,7 @@ use std::fmt;
 
 use muscript_foundation::source::{Span, Spanned};
 
-use crate::{Parse, ParseError, Parser, PredictiveParse, ParseStream};
+use crate::{Parse, ParseError, ParseStream, Parser, PredictiveParse};
 
 #[macro_export]
 macro_rules! debug_token {
@@ -48,6 +48,7 @@ macro_rules! define_tokens {
 
             impl SingleToken for $name {
                 const NAME: &'static str = $pretty_name;
+                const KIND: TokenKind = TokenKind::$name;
 
                 fn default_from_span(span: Span) -> Self {
                     Self { span }
@@ -201,6 +202,7 @@ impl PredictiveParse for Token {
 
 pub trait SingleToken: Spanned + Into<Token> + Parse + PredictiveParse {
     const NAME: &'static str;
+    const KIND: TokenKind;
 
     fn default_from_span(span: Span) -> Self;
 
@@ -214,7 +216,5 @@ pub struct TokenKindMismatch<T>(pub T);
 
 #[macro_use]
 mod keyword;
-mod delimiter;
 
-pub use delimiter::*;
 pub use keyword::*;

@@ -6,8 +6,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::token::{SingleToken, Token, TokenKind},
-    Parse, ParseError, Parser,
-    ParseStream, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 impl<'a, T> Parser<'a, T>
@@ -61,13 +60,11 @@ where
                 }
                 _ => (),
             }
-            // NOTE: Error recovery here is not really possible since we don't have an anchor point
-            // to eat tokens until. As such it is up to the individual elements to recover from
-            // parse errors.
-            elements.push(
-                self.parse()
-                    .map_err(error(TerminatedListErrorKind::Parse))?,
-            );
+            let result = self.try_with_delimiter_recovery(|parser| parser.parse());
+            match result {
+                Ok(node) => elements.push(node),
+                Err(closing) => break closing,
+            }
         };
 
         Ok((elements, terminator))

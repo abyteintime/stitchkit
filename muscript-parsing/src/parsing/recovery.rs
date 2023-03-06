@@ -2,10 +2,10 @@ use muscript_foundation::source::Span;
 
 use crate::{
     lexis::{
-        token::{Token, TokenKind},
+        token::{SingleToken, Token, TokenKind},
         LexError, TokenStream,
     },
-    ParseStream,
+    ParseError, ParseStream, Parser,
 };
 
 /// Wrapper for any token stream that adds error recovery state to it.
@@ -40,10 +40,10 @@ where
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         let token = self.inner.next_include_comments()?;
 
-        if let Some(kind) = token.kind.closed_by() {
-            self.delimiter_stack.push(kind);
+        if let Some(closing_kind) = token.kind.closed_by() {
+            self.delimiter_stack.push(closing_kind);
         }
-        if let Some(kind) = token.kind.closes() {
+        if token.kind.closes().is_some() {
             // We want to consume delimiters until we hit a matching one, unless we never actually
             // hit a matching one.
             // - In `{{}}`, at the first `}` the stack will be `{{` and so everything will
@@ -55,7 +55,7 @@ where
             // This mechanism can be tweaked in the future to include eg. a "weakness" mechanism,
             // where certain delimiters can be considered stronger than others, so that eg. `}`
             // can pop `(`, but `)` cannot pop `{`.
-            if let Some(i) = self.delimiter_stack.iter().rposition(|&k| k == kind) {
+            if let Some(i) = self.delimiter_stack.iter().rposition(|&k| k == token.kind) {
                 self.delimiter_stack.resize_with(i, || unreachable!());
             }
         }
@@ -85,5 +85,44 @@ where
 {
     fn nesting_level(&self) -> usize {
         self.delimiter_stack.len()
+    }
+}
+
+impl<'a, T> Parser<'a, T>
+where
+    T: ParseStream,
+{
+    pub fn try_with_delimiter_recovery<N, C>(
+        &mut self,
+        inner: impl FnOnce(&mut Self) -> Result<N, ParseError>,
+    ) -> Result<N, C>
+    where
+        C: SingleToken,
+    {
+        // This is called already after the opening delimiter is consumed, so it's one more than
+        // we want to descend to.
+        let open_nesting_level = self.tokens.nesting_level();
+
+        match inner(self) {
+            Ok(ok) => Ok(ok),
+            Err(error) => {
+                eprintln!("trigger error: {error:?}");
+                let mut last_token_span = None;
+                // Note the use of >= here; as mentioned, we want to descend one level further
+                // because at the time this function is called the opening delimiter has already
+                // been consumed.
+                // Also in case of closers like EndOfFile we need to check against
+                // open_nesting_level being zero, so that we don't loop indefinitely.
+                while self.tokens.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
+                    last_token_span = Some(match self.next_token() {
+                        Ok(token) => token.span,
+                        Err(error) => error.span,
+                    });
+                }
+                Err(C::default_from_span(
+                    last_token_span.expect("while should have looped at least once"),
+                ))
+            }
+        }
     }
 }

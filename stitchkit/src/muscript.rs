@@ -166,9 +166,10 @@ fn perform_action_on_source_file(
             let lexer = Lexer::new(id, &file.source);
             let mut parser =
                 muscript_parsing::Parser::new(id, &file.source, Structured::new(lexer));
-            let file = parser
-                .parse::<ast::File>()
-                .map_err(|_| parser.into_errors())?;
+            let file = parser.parse::<ast::File>();
+            if !parser.errors().is_empty() {
+                return Err(parser.into_errors());
+            }
             println!("{file:#?}");
         }
     }

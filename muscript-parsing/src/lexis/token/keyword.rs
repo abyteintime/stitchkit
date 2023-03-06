@@ -30,6 +30,7 @@ macro_rules! keyword {
 
         impl $crate::lexis::token::SingleToken for $T {
             const NAME: &'static str = concat!("`", $keyword, "`");
+            const KIND: $crate::lexis::token::TokenKind = $crate::lexis::token::TokenKind::Ident;
 
             fn default_from_span(span: ::muscript_foundation::source::Span) -> Self {
                 Self { span }

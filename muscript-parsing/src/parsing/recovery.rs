@@ -106,7 +106,6 @@ where
         match inner(self) {
             Ok(ok) => Ok(ok),
             Err(error) => {
-                eprintln!("trigger error: {error:?}");
                 let mut last_token_span = None;
                 // Note the use of >= here; as mentioned, we want to descend one level further
                 // because at the time this function is called the opening delimiter has already
@@ -115,7 +114,13 @@ where
                 // open_nesting_level being zero, so that we don't loop indefinitely.
                 while self.tokens.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
                     last_token_span = Some(match self.next_token() {
-                        Ok(token) => token.span,
+                        Ok(token) => {
+                            if token.kind == TokenKind::EndOfFile {
+                                // To prevent an infinite loop from occurring, bail early.
+                                return Err(C::default_from_span(token.span));
+                            }
+                            token.span
+                        }
                         Err(error) => error.span,
                     });
                 }

@@ -2,7 +2,10 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{Expr, IntLit, KFinal, KNative, KOptional, KOut, KSkip, KStatic, Stmt, Type},
+    ast::{
+        Expr, IntLit, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip,
+        KStatic, Stmt, Type,
+    },
     diagnostics::{labels, notes},
     lexis::token::{
         Assign, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token, TokenKind,
@@ -11,11 +14,13 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-keyword!(KFunction = "function");
-keyword!(KEvent = "event");
-keyword!(KOperator = "operator");
-keyword!(KPreOperator = "preoperator");
-keyword!(KPostOperator = "postoperator");
+keyword! {
+    KFunction = "function",
+    KEvent = "event",
+    KOperator = "operator",
+    KPreOperator = "preoperator",
+    KPostOperator = "postoperator",
+}
 
 #[derive(Debug, Clone)]
 pub struct ItemFunction {
@@ -32,6 +37,7 @@ pub struct ItemFunction {
 pub enum FunctionSpecifier {
     Final(KFinal),
     Native(KNative, Option<ParenInt>),
+    Simulated(KSimulated),
     Static(KStatic),
 }
 
@@ -70,6 +76,8 @@ pub struct Param {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "param_specifier_error")]
 pub enum ParamSpecifier {
+    Coerce(KCoerce),
+    Const(KConst),
     Optional(KOptional),
     Out(KOut),
     Skip(KSkip),
@@ -296,7 +304,7 @@ fn param_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -
         token.span,
         "this specifier is not recognized",
     ))
-    .with_note("note: parameter specifiers include `optional` and `skip`")
+    .with_note("note: notable parameter specifiers include `optional` and `out`")
 }
 
 fn kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

@@ -8,21 +8,25 @@ use crate::{
 
 use super::Expr;
 
-keyword!(KAbstract = "abstract");
-keyword!(KConst = "const");
-keyword!(KEditConst = "editconst");
-keyword!(KFinal = "final");
-keyword!(KImmutable = "immutable");
-keyword!(KImplements = "implements");
-keyword!(KInherits = "inherits");
-keyword!(KNative = "native");
-keyword!(KNoExport = "noexport");
-keyword!(KOptional = "optional");
-keyword!(KOut = "out");
-keyword!(KPrivate = "private");
-keyword!(KSkip = "skip");
-keyword!(KStatic = "static");
-keyword!(KTransient = "transient");
+keyword! {
+    KAbstract = "abstract",
+    KCoerce = "coerce",
+    KConst = "const",
+    KEditConst = "editconst",
+    KFinal = "final",
+    KImmutable = "immutable",
+    KImplements = "implements",
+    KInherits = "inherits",
+    KNative = "native",
+    KNoExport = "noexport",
+    KOptional = "optional",
+    KOut = "out",
+    KPrivate = "private",
+    KSimulated = "simulated",
+    KSkip = "skip",
+    KStatic = "static",
+    KTransient = "transient",
+}
 
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct SpecifierArgs {

@@ -8,7 +8,10 @@ mod var;
 use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_parsing_derive::Parse;
 
-use crate::{lexis::token::Token, ParseStream, Parser};
+use crate::{
+    lexis::token::{Semi, Token},
+    ParseStream, Parser,
+};
 
 pub use consts::*;
 pub use default_properties::*;
@@ -20,6 +23,7 @@ pub use var::*;
 #[derive(Debug, Clone, Parse)]
 #[parse(error = "item_error")]
 pub enum Item {
+    Empty(Semi),
     Var(ItemVar),
     Const(ItemConst),
     Function(ItemFunction),

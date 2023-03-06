@@ -10,7 +10,9 @@ pub trait Keyword: SingleToken {
     }
 }
 
-macro_rules! keyword {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __keyword_impl {
     ($T:tt = $keyword:tt) => {
         #[derive(Clone, Copy, PartialEq, Eq)]
         pub struct $T {
@@ -84,4 +86,12 @@ macro_rules! keyword {
             }
         }
     };
+}
+
+macro_rules! keyword {
+    ($($T:tt = $keyword:tt),* $(,)?) => {
+        $(
+            $crate::__keyword_impl!($T = $keyword);
+        )*
+    }
 }

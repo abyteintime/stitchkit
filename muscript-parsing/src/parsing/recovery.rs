@@ -105,7 +105,7 @@ where
 
         match inner(self) {
             Ok(ok) => Ok(ok),
-            Err(error) => {
+            Err(_) => {
                 let mut last_token_span = None;
                 // Note the use of >= here; as mentioned, we want to descend one level further
                 // because at the time this function is called the opening delimiter has already

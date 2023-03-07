@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use muscript_foundation::{
     errors::{Diagnostic, Label, ReplacementSuggestion},
     source::{SourceFileId, Span},
@@ -9,14 +11,14 @@ use super::{
 };
 
 #[derive(Debug)]
-pub struct Lexer<'a> {
+pub struct Lexer {
     pub file: SourceFileId,
-    pub input: &'a str,
+    pub input: Rc<str>,
     pub position: usize,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(file: SourceFileId, input: &'a str) -> Self {
+impl Lexer {
+    pub fn new(file: SourceFileId, input: Rc<str>) -> Self {
         Self {
             file,
             input,
@@ -302,17 +304,17 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> TokenStream for Lexer<'a> {
-    type Position = usize;
-
-    fn position(&self) -> Self::Position {
-        self.position
+/// Functions used by the preprocessor.
+impl Lexer {
+    pub(super) fn eat_until_line_feed(&mut self) {
+        while !matches!(self.current_char(), Some('\n') | None) {
+            self.advance_char();
+        }
+        self.advance_char(); // Advance past the line feed too.
     }
+}
 
-    fn seek(&mut self, to: Self::Position) {
-        self.position = to;
-    }
-
+impl TokenStream for Lexer {
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         self.skip_whitespace();
 
@@ -436,5 +438,19 @@ impl<'a> TokenStream for Lexer<'a> {
 
         let end = self.position;
         Ok(Span::from(start..end))
+    }
+
+    fn peek_include_comments(&mut self) -> Result<Token, LexError> {
+        let position = self.position;
+        let result = self.next_include_comments();
+        self.position = position;
+        result
+    }
+
+    fn peek(&mut self) -> Result<Token, LexError> {
+        let position = self.position;
+        let result = self.next();
+        self.position = position;
+        result
     }
 }

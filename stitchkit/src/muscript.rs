@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{collections::HashMap, ffi::OsStr, path::PathBuf, rc::Rc};
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
@@ -8,7 +8,11 @@ use muscript_foundation::{
 };
 use muscript_parsing::{
     self, ast,
-    lexis::{token::TokenKind, Lexer, TokenStream},
+    lexis::{
+        preprocessor::{Definitions, Preprocessor},
+        token::TokenKind,
+        Lexer, TokenStream,
+    },
     Structured,
 };
 use tracing::{debug, error, info};
@@ -83,7 +87,7 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
                 source_file_set.add(SourceFile::new(
                     args.package_name.clone(),
                     pretty_file_name,
-                    source,
+                    Rc::from(source),
                 ));
             }
             Err(error) => error!("{error:?}"),
@@ -91,7 +95,13 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
     }
 
     debug!("Performing action");
-    let stats = perform_action(args.action, &source_file_set)?;
+    let stats = perform_action(
+        args.action,
+        &source_file_set,
+        &Definitions {
+            map: HashMap::from_iter([]),
+        },
+    )?;
     if !stats.diagnostics.is_empty() {
         eprintln!();
         info!("Finished with the following diagnostics:");
@@ -125,12 +135,16 @@ struct Stats {
     diagnostics: Vec<Diagnostic>,
 }
 
-fn perform_action(action: Action, source_file_set: &SourceFileSet) -> anyhow::Result<Stats> {
+fn perform_action(
+    action: Action,
+    source_file_set: &SourceFileSet,
+    definitions: &Definitions,
+) -> anyhow::Result<Stats> {
     let mut num_failed = 0;
     let mut diagnostics = vec![];
     for (id, file) in source_file_set.iter() {
         debug!("Processing: {}", file.filename);
-        match perform_action_on_source_file(&action, id, file) {
+        match perform_action_on_source_file(&action, id, file, definitions) {
             Ok(()) => (),
             Err(mut diagnosis) => {
                 diagnostics.append(&mut diagnosis);
@@ -149,10 +163,12 @@ fn perform_action_on_source_file(
     action: &Action,
     id: SourceFileId,
     file: &SourceFile,
+    definitions: &Definitions,
 ) -> Result<(), Vec<Diagnostic>> {
     match action {
         Action::Lex => {
-            let mut lexer = Lexer::new(id, &file.source);
+            let mut definitions = definitions.clone();
+            let mut lexer = Preprocessor::new(id, Rc::clone(&file.source), &mut definitions);
             loop {
                 let token = lexer.next()?;
                 println!("{token:?} {:?}", &file.source[token.span.to_range()]);
@@ -162,8 +178,8 @@ fn perform_action_on_source_file(
             }
         }
         Action::Parse => {
-            // No preprocessor for now unfortunately. Our parser will scream when it sees `.
-            let lexer = Lexer::new(id, &file.source);
+            let mut definitions = definitions.clone();
+            let lexer = Preprocessor::new(id, Rc::clone(&file.source), &mut definitions);
             let mut parser =
                 muscript_parsing::Parser::new(id, &file.source, Structured::new(lexer));
             let file = parser.parse::<ast::File>();

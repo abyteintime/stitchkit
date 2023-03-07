@@ -1,6 +1,6 @@
 //! Types for representing source code.
 
-use std::{fmt, ops::Range};
+use std::{fmt, ops::Range, rc::Rc};
 
 use codespan_reporting::files::Files;
 
@@ -68,13 +68,13 @@ pub struct SourceFile {
     /// The source file's name.
     pub filename: String,
     /// The source code.
-    pub source: String,
+    pub source: Rc<str>,
     line_starts: Vec<usize>,
 }
 
 impl SourceFile {
     /// Creates a new [`SourceFile`].
-    pub fn new(package: String, filename: String, source: String) -> Self {
+    pub fn new(package: String, filename: String, source: Rc<str>) -> Self {
         Self {
             package,
             filename,

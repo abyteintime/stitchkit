@@ -27,16 +27,6 @@ impl<T> TokenStream for Structured<T>
 where
     T: TokenStream,
 {
-    type Position = T::Position;
-
-    fn position(&self) -> Self::Position {
-        self.inner.position()
-    }
-
-    fn seek(&mut self, to: Self::Position) {
-        self.inner.seek(to)
-    }
-
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         let token = self.inner.next_include_comments()?;
 
@@ -66,9 +56,6 @@ where
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
         self.inner.braced_string(left_brace_span)
     }
-
-    // We need to override these two so as not to make them affect the delimiter stack.
-    // Since the token is not consumed, we want the stack to remain untouched.
 
     fn peek_include_comments(&mut self) -> Result<Token, LexError> {
         self.inner.peek_include_comments()

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 indoc = "2.0.0"
 thiserror = { workspace = true }
+tracing = { workspace = true }
 unicase = "2.6.0"
 
 muscript-foundation = { workspace = true }

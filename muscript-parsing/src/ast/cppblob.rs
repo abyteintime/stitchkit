@@ -16,7 +16,9 @@ impl Parse for CppBlob {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse()?;
         let blob = parser.tokens.braced_string(open.span).map_err(|error| {
-            parser.emit_diagnostic(*error.diagnostic);
+            for diagnostic in error.diagnostics {
+                parser.emit_diagnostic(diagnostic);
+            }
             ParseError::new(error.span)
         })?;
         let close = parser.parse()?;

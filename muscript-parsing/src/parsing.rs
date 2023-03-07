@@ -77,10 +77,14 @@ where
     T: ParseStream,
 {
     pub fn next_token(&mut self) -> Result<Token, ParseError> {
-        self.tokens.next().map_err(|LexError { span, diagnostic }| {
-            self.emit_diagnostic(*diagnostic);
-            ParseError { span }
-        })
+        self.tokens
+            .next()
+            .map_err(|LexError { span, diagnostics }| {
+                for diagnostic in diagnostics {
+                    self.emit_diagnostic(diagnostic);
+                }
+                ParseError { span }
+            })
     }
 
     pub fn peek_token(&mut self) -> Result<Token, ParseError> {

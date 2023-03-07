@@ -44,7 +44,7 @@ pub struct Preprocessor<'a> {
 }
 
 struct Expansion {
-    macro_name: Option<String>,
+    invocation_span: Option<Span>,
     lexer: Lexer,
 }
 
@@ -53,7 +53,7 @@ impl<'a> Preprocessor<'a> {
         Self {
             definitions,
             stack: vec![Expansion {
-                macro_name: None,
+                invocation_span: None,
                 lexer: Lexer::new(file, input),
             }],
         }
@@ -204,15 +204,12 @@ impl<'a> Preprocessor<'a> {
         todo!("preprocessor `isdefined")
     }
 
-    fn parse_user_macro(&mut self, macro_name: &str) -> Result<(), LexError> {
-        if let Some(definition) = self
-            .definitions
-            .map
-            // Kind of a shame we have to allocate a whole String here, but eh. Whatever.
-            .get(&UniCase::new(String::from(macro_name)))
-        {
+    fn parse_user_macro(&mut self, invocation_span: Span) -> Result<(), LexError> {
+        // Kind of a shame we have to allocate a whole String here, but eh. Whatever.
+        let macro_name = UniCase::new(String::from(invocation_span.get_input(&self.lexer().input)));
+        if let Some(definition) = self.definitions.map.get(&macro_name) {
             self.stack.push(Expansion {
-                macro_name: Some(String::from(macro_name)),
+                invocation_span: Some(invocation_span),
                 lexer: Lexer {
                     position: definition.span.start,
                     ..Lexer::new(definition.source_file, Rc::clone(&definition.text))
@@ -226,8 +223,7 @@ impl<'a> Preprocessor<'a> {
 
     fn parse_invocation(&mut self) -> Result<(), LexError> {
         let macro_name_span = self.parse_macro_name()?;
-        let input = Rc::clone(&self.lexer().input);
-        let macro_name = macro_name_span.get_input(&input);
+        let macro_name = macro_name_span.get_input(&self.lexer().input);
 
         match macro_name {
             "define" => self.parse_define()?,
@@ -235,7 +231,7 @@ impl<'a> Preprocessor<'a> {
             "if" => self.parse_if()?,
             "include" => self.parse_include()?,
             "isdefined" => self.parse_isdefined()?,
-            _ => self.parse_user_macro(macro_name)?,
+            _ => self.parse_user_macro(macro_name_span)?,
         }
 
         Ok(())

@@ -11,7 +11,7 @@ use muscript_parsing::{
     lexis::{
         preprocessor::{Definitions, Preprocessor},
         token::TokenKind,
-        Lexer, TokenStream,
+        TokenStream,
     },
     Structured,
 };

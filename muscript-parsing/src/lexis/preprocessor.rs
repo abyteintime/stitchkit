@@ -1,10 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
+use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::{SourceFileId, Span},
 };
-use tracing::trace;
+use tracing::{trace, trace_span};
 use unicase::UniCase;
 
 use super::{
@@ -46,6 +47,12 @@ pub struct Preprocessor<'a> {
 struct Expansion {
     invocation_site: Option<(SourceFileId, Span)>,
     lexer: Lexer,
+    if_stack: Vec<If>,
+}
+
+struct If {
+    condition: bool,
+    open: Span,
 }
 
 impl<'a> Preprocessor<'a> {
@@ -55,6 +62,7 @@ impl<'a> Preprocessor<'a> {
             stack: vec![Expansion {
                 invocation_site: None,
                 lexer: Lexer::new(file, input),
+                if_stack: vec![],
             }],
         }
     }
@@ -188,19 +196,180 @@ impl<'a> Preprocessor<'a> {
     }
 
     fn parse_undefine(&mut self) -> Result<(), LexError> {
-        todo!("preprocessor `undefine")
+        const NOTE: &str = indoc!(
+            "note: `undefine expects a parameter containing the macro name, like:
+                       `undefine(EXAMPLE_MACRO)"
+        );
+        let _left_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "`(` expected")
+                .with_label(Label::primary(token.span, "`(` expected here"))
+                .with_note(NOTE)
+        })?;
+        let macro_name = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "missing name of macro to undefine")
+                .with_label(Label::primary(token.span, "identifier expected here"))
+                .with_note(NOTE)
+        })?;
+        let _right_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "`)` expected to close `undefine invocation")
+                .with_label(Label::primary(token.span, "`)` expected here"))
+                .with_note(NOTE)
+        })?;
+
+        let macro_name = macro_name.span.get_input(&self.lexer().input);
+        let macro_name = UniCase::new(String::from(macro_name));
+        if self.definitions.map.remove(&macro_name).is_none() {
+            // TODO: Warning when a macro that is never defined is undefined?
+        }
+
+        Ok(())
     }
 
-    fn parse_if(&mut self) -> Result<(), LexError> {
-        todo!("preprocessor `if")
+    fn parse_if(&mut self, if_span: Span) -> Result<(), LexError> {
+        let left_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "`(` expected")
+                .with_label(Label::primary(token.span, "`(` expected here"))
+        })?;
+        let start = self.lexer().position;
+        let mut nesting = 1;
+        let end = loop {
+            let before_token = self.lexer().position;
+            let token = self.lexer_mut().next_include_comments()?;
+            match token.kind {
+                TokenKind::EndOfFile => {
+                    return Err(LexError::new(
+                        left_paren.span,
+                        Diagnostic::error(self.lexer().file, "missing `)` to close `if condition")
+                            .with_label(Label::primary(
+                                left_paren.span,
+                                "the condition starts here",
+                            )),
+                    ))
+                }
+                TokenKind::LeftParen => nesting += 1,
+                TokenKind::RightParen => {
+                    nesting -= 1;
+                    if nesting == 0 {
+                        break before_token;
+                    }
+                }
+                _ => (),
+            }
+        };
+
+        // We wanna check if the thing we expanded to is non-empty, so start should be
+        // non-equal to end.
+        let condition = start != end;
+        // Keep track of this `if/`else, so that we can report an error on EOF if there is no
+        // matching `endif.
+        self.current_expansion_mut().if_stack.push(If {
+            condition,
+            open: if_span,
+        });
+
+        trace!(condition, "`if");
+
+        if !condition {
+            self.skip_until_macro(
+                |name| name == UniCase::ascii("else") || name == UniCase::ascii("endif"),
+                |file| {
+                    LexError::new(
+                        if_span,
+                        Diagnostic::error(file, "missing `else or `endif to close `if")
+                            .with_label(Label::primary(if_span, "this `if is never closed")),
+                    )
+                },
+            )?;
+        }
+
+        Ok(())
     }
 
-    fn parse_include(&mut self) -> Result<(), LexError> {
-        // NOTE: How would `include even work?
-        todo!("preprocessor `include")
+    fn parse_else(&mut self, else_span: Span) -> Result<(), LexError> {
+        trace!("`else");
+        if let Some(last_if) = self.current_expansion().if_stack.last() {
+            let if_span = last_if.open;
+            if last_if.condition {
+                self.skip_until_macro(
+                    |name| name == UniCase::ascii("endif"),
+                    |file| {
+                        LexError::new(
+                            else_span,
+                            Diagnostic::error(file, "missing `endif to close `else")
+                                .with_label(Label::primary(else_span, "this `else is never closed"))
+                                .with_label(Label::secondary(if_span, "this is the `else's `if")),
+                        )
+                    },
+                )?;
+            }
+        } else {
+            return Err(LexError::new(
+                else_span,
+                Diagnostic::error(self.lexer().file, "`else without a matching `if")
+                    .with_label(Label::primary(else_span, "stray `else here")),
+            ));
+        }
+
+        Ok(())
     }
 
-    fn parse_isdefined(&mut self) -> Result<(), LexError> {
+    fn parse_endif(&mut self, endif_span: Span) -> Result<(), LexError> {
+        trace!("`endif");
+        if self.current_expansion_mut().if_stack.pop().is_none() {
+            return Err(LexError::new(
+                endif_span,
+                Diagnostic::error(self.lexer().file, "`endif without a matching `if")
+                    .with_label(Label::primary(endif_span, "stray `endif here")),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn skip_until_macro(
+        &mut self,
+        cond: impl Fn(UniCase<&str>) -> bool,
+        error: impl FnOnce(SourceFileId) -> LexError,
+    ) -> Result<(), LexError> {
+        let _span = trace_span!("skip_until_macro").entered();
+
+        let mut nesting = 0;
+        loop {
+            let before_token = self.lexer().position;
+            let token = self.lexer_mut().next_include_comments()?;
+            match token.kind {
+                TokenKind::Accent => {
+                    let macro_name_span = self.parse_macro_name()?;
+                    let macro_name = macro_name_span.get_input(&self.lexer().input);
+                    let macro_name = UniCase::new(macro_name);
+                    // We need to keep track of nesting levels to skip over nested `ifs.
+                    if macro_name == UniCase::ascii("if") {
+                        trace!("if");
+                        nesting += 1;
+                    } else if nesting > 0 && macro_name == UniCase::ascii("endif") {
+                        trace!("endif");
+                        nesting -= 1;
+                    } else if nesting == 0 && cond(macro_name) {
+                        trace!("Exitting");
+                        self.lexer_mut().position = before_token;
+                        break;
+                    }
+                }
+                TokenKind::EndOfFile => {
+                    trace!("End of file");
+                    return Err(error(self.lexer().file));
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_include(&mut self) {
+        // TODO: Emit warning that MuScript does not process `includes.
+    }
+
+    fn parse_isdefined(&mut self, not: bool) -> Result<Token, LexError> {
         todo!("preprocessor `isdefined")
     }
 
@@ -209,12 +378,14 @@ impl<'a> Preprocessor<'a> {
         let macro_name = UniCase::new(String::from(invocation_span.get_input(&self.lexer().input)));
         let file = self.lexer().file;
         if let Some(definition) = self.definitions.map.get(&macro_name) {
+            trace!(?macro_name, "entering expansion");
             self.stack.push(Expansion {
                 invocation_site: Some((file, invocation_span)),
                 lexer: Lexer {
                     position: definition.span.start,
                     ..Lexer::new(definition.source_file, Rc::clone(&definition.text))
                 },
+                if_stack: vec![],
             })
         } else {
             // TODO: Emit a warning or error? Needs verification of what UPP does
@@ -222,27 +393,39 @@ impl<'a> Preprocessor<'a> {
         Ok(())
     }
 
-    fn parse_invocation(&mut self) -> Result<(), LexError> {
+    fn parse_invocation(&mut self) -> Result<Option<Token>, LexError> {
         let macro_name_span = self.parse_macro_name()?;
-        let macro_name = macro_name_span.get_input(&self.lexer().input);
+        let macro_name = UniCase::new(macro_name_span.get_input(&self.lexer().input));
+        trace!("Invoking macro `{macro_name}");
 
-        match macro_name {
-            "define" => self.parse_define()?,
-            "undefine" => self.parse_undefine()?,
-            "if" => self.parse_if()?,
-            "include" => self.parse_include()?,
-            "isdefined" => self.parse_isdefined()?,
+        match () {
+            _ if macro_name == UniCase::ascii("define") => self.parse_define()?,
+            _ if macro_name == UniCase::ascii("undefine") => self.parse_undefine()?,
+            _ if macro_name == UniCase::ascii("if") => self.parse_if(macro_name_span)?,
+            _ if macro_name == UniCase::ascii("else") => self.parse_else(macro_name_span)?,
+            _ if macro_name == UniCase::ascii("endif") => self.parse_endif(macro_name_span)?,
+            _ if macro_name == UniCase::ascii("include") => self.parse_include(),
+            _ if macro_name == UniCase::ascii("isdefined") => {
+                return Ok(Some(self.parse_isdefined(false)?))
+            }
+            _ if macro_name == UniCase::ascii("notdefined") => {
+                return Ok(Some(self.parse_isdefined(true)?))
+            }
             _ => self.parse_user_macro(macro_name_span)?,
         }
 
-        Ok(())
+        Ok(None)
     }
 
+    /// Returns whether the token is significant for the preprocessor.
     fn is_preprocessor_token(kind: TokenKind) -> bool {
-        matches!(kind, TokenKind::Accent | TokenKind::Backslash)
+        matches!(
+            kind,
+            TokenKind::Accent | TokenKind::Backslash | TokenKind::EndOfFile
+        )
     }
 
-    fn do_preprocess(&mut self, token: Token) -> Result<Option<Token>, LexError> {
+    fn do_preprocess(&mut self, token: Token) -> Result<PreprocessResult, LexError> {
         match token.kind {
             TokenKind::Accent => {
                 // Parse an invocation and continue executing to either parse more invocations
@@ -251,39 +434,59 @@ impl<'a> Preprocessor<'a> {
             }
             TokenKind::Backslash => todo!("\\ and \\n handling in preprocessor"),
             TokenKind::EndOfFile if self.is_in_expansion() => {
+                trace!("exiting expansion");
                 self.stack.pop();
             }
-            _ => return Ok(Some(token)),
+            _ => return Ok(PreprocessResult::Ignored(token)),
         }
-        Ok(None)
+        Ok(PreprocessResult::Consumed)
     }
+}
+
+enum PreprocessResult {
+    Ignored(Token),
+    Consumed,
+    Produced(Token),
 }
 
 impl<'a> TokenStream for Preprocessor<'a> {
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         loop {
             let token = self.lexer_mut().next_include_comments()?;
-            if let Some(token) = self.do_preprocess(token)? {
-                return Ok(token);
+            // eprintln!("exp:{} {:?}", self.stack.len(), token);
+            match self.do_preprocess(token)? {
+                PreprocessResult::Ignored(token) => return Ok(token),
+                PreprocessResult::Consumed => continue,
+                PreprocessResult::Produced(byproduct) => return Ok(byproduct),
             }
         }
     }
 
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
         // NOTE: Preprocessor inside braced strings? Is it going to be necessary?
-        // Braced strings are exclusively used for cpptext, and there the C++ preprocessor is
-        // available and used instead. So is there any incentive for us to support it there?
-        // (Note that unlike UnrealScript, MuScript parses default properties as part of its
-        //  own syntax; they are not braced strings.)
+        // We don't support exporting C++ anyways (since Hat has no way of loading our DLLs,
+        // nor do we have access to the Unreal 3 C++ API) so what would be the purpose?
         self.lexer_mut().braced_string(left_brace_span)
     }
 
     fn peek_include_comments(&mut self) -> Result<Token, LexError> {
+        let before = self.lexer().position;
         loop {
             let token = self.lexer_mut().peek_include_comments()?;
             if Self::is_preprocessor_token(token.kind) {
                 let token = self.lexer_mut().next_include_comments()?;
-                self.do_preprocess(token)?;
+                match self.do_preprocess(token)? {
+                    PreprocessResult::Ignored(token) => {
+                        // This can happen on EOF that is not significant to the preprocessor.
+                        // In that case we don't need to backtrack.
+                        return Ok(token);
+                    }
+                    PreprocessResult::Consumed => (),
+                    PreprocessResult::Produced(byproduct) => {
+                        self.lexer_mut().position = before;
+                        return Ok(byproduct);
+                    }
+                };
             } else {
                 return Ok(token);
             }
@@ -291,11 +494,23 @@ impl<'a> TokenStream for Preprocessor<'a> {
     }
 
     fn peek(&mut self) -> Result<Token, LexError> {
+        let before = self.lexer().position;
         loop {
             let token = self.lexer_mut().peek()?;
             if Self::is_preprocessor_token(token.kind) {
                 let token = self.lexer_mut().next()?;
-                self.do_preprocess(token)?;
+                match self.do_preprocess(token)? {
+                    PreprocessResult::Ignored(token) => {
+                        // This can happen on EOF that is not significant to the preprocessor.
+                        // In that case we don't need to backtrack.
+                        return Ok(token);
+                    }
+                    PreprocessResult::Consumed => (),
+                    PreprocessResult::Produced(byproduct) => {
+                        self.lexer_mut().position = before;
+                        return Ok(byproduct);
+                    }
+                };
             } else {
                 return Ok(token);
             }
@@ -306,8 +521,8 @@ impl<'a> TokenStream for Preprocessor<'a> {
         for expansion in self.stack[1..].iter().rev() {
             if let Some((file, span)) = expansion.invocation_site {
                 diagnostic = diagnostic.with_child(
-                    Diagnostic::note(file, "error originates in this macro expansion")
-                        .with_label(Label::primary(span, "")),
+                    Diagnostic::note(file, "this error occurred while expanding a macro")
+                        .with_label(Label::primary(span, "the error occurred inside this macro")),
                 );
             }
         }

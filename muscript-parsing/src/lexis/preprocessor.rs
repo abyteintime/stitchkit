@@ -44,7 +44,7 @@ pub struct Preprocessor<'a> {
 }
 
 struct Expansion {
-    invocation_span: Option<Span>,
+    invocation_site: Option<(SourceFileId, Span)>,
     lexer: Lexer,
 }
 
@@ -53,7 +53,7 @@ impl<'a> Preprocessor<'a> {
         Self {
             definitions,
             stack: vec![Expansion {
-                invocation_span: None,
+                invocation_site: None,
                 lexer: Lexer::new(file, input),
             }],
         }
@@ -207,9 +207,10 @@ impl<'a> Preprocessor<'a> {
     fn parse_user_macro(&mut self, invocation_span: Span) -> Result<(), LexError> {
         // Kind of a shame we have to allocate a whole String here, but eh. Whatever.
         let macro_name = UniCase::new(String::from(invocation_span.get_input(&self.lexer().input)));
+        let file = self.lexer().file;
         if let Some(definition) = self.definitions.map.get(&macro_name) {
             self.stack.push(Expansion {
-                invocation_span: Some(invocation_span),
+                invocation_site: Some((file, invocation_span)),
                 lexer: Lexer {
                     position: definition.span.start,
                     ..Lexer::new(definition.source_file, Rc::clone(&definition.text))
@@ -299,5 +300,17 @@ impl<'a> TokenStream for Preprocessor<'a> {
                 return Ok(token);
             }
         }
+    }
+
+    fn contextualize_diagnostic(&self, mut diagnostic: Diagnostic) -> Diagnostic {
+        for expansion in self.stack[1..].iter().rev() {
+            if let Some((file, span)) = expansion.invocation_site {
+                diagnostic = diagnostic.with_child(
+                    Diagnostic::note(file, "error originates in this macro expansion")
+                        .with_label(Label::primary(span, "")),
+                );
+            }
+        }
+        diagnostic
     }
 }

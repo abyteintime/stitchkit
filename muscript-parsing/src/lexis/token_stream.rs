@@ -1,4 +1,4 @@
-use muscript_foundation::source::Span;
+use muscript_foundation::{errors::Diagnostic, source::Span};
 
 use super::{
     token::{Token, TokenKind},
@@ -22,6 +22,11 @@ pub trait TokenStream {
     fn peek_include_comments(&mut self) -> Result<Token, LexError>;
 
     fn peek(&mut self) -> Result<Token, LexError>;
+
+    /// Can be used to add token stream-known context to parser diagnostics.
+    fn contextualize_diagnostic(&self, diagnostic: Diagnostic) -> Diagnostic {
+        diagnostic
+    }
 }
 
 impl<T> TokenStream for &mut T
@@ -42,5 +47,9 @@ where
 
     fn peek(&mut self) -> Result<Token, LexError> {
         <T as TokenStream>::peek(self)
+    }
+
+    fn contextualize_diagnostic(&self, diagnostic: Diagnostic) -> Diagnostic {
+        <T as TokenStream>::contextualize_diagnostic(self, diagnostic)
     }
 }

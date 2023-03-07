@@ -1,6 +1,6 @@
 // Test that the preprocessor is transparent to its TokenStream's user.
 
-`define EXAMPLE class Example extends Object fucl;
+`define EXAMPLE class Example extends Object pecl;
 
 `EXAMPLE
 

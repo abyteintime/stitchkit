@@ -43,11 +43,6 @@ impl<'a, T> Parser<'a, T> {
         }
     }
 
-    pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
-        self.emit_diagnostic(error);
-        Err(ParseError::new(error_span))
-    }
-
     pub fn errors(&self) -> &[Diagnostic] {
         &self.errors
     }
@@ -55,9 +50,19 @@ impl<'a, T> Parser<'a, T> {
     pub fn into_errors(self) -> Vec<Diagnostic> {
         self.errors
     }
+}
+
+impl<'a, T> Parser<'a, T>
+where
+    T: TokenStream,
+{
+    pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
+        self.emit_diagnostic(error);
+        Err(ParseError::new(error_span))
+    }
 
     pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
-        self.errors.push(diagnostic.with_note(Note {
+        let diagnostic = diagnostic.with_note(Note {
             kind: NoteKind::Debug,
             text: {
                 let mut s = String::from("parser traceback (innermost rule last):");
@@ -68,7 +73,9 @@ impl<'a, T> Parser<'a, T> {
                 s
             },
             suggestion: None,
-        }));
+        });
+        let diagnostic = self.tokens.contextualize_diagnostic(diagnostic);
+        self.errors.push(diagnostic);
     }
 }
 

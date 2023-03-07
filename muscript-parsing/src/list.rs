@@ -5,7 +5,10 @@ use std::marker::PhantomData;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::token::{SingleToken, Token, TokenKind},
+    lexis::{
+        token::{SingleToken, Token, TokenKind},
+        TokenStream,
+    },
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -193,7 +196,10 @@ pub struct DelimitedListDiagnostics<'a> {
     pub missing_comma_note: &'a str,
 }
 
-impl<'a, T> Parser<'a, T> {
+impl<'a, T> Parser<'a, T>
+where
+    T: TokenStream,
+{
     pub fn emit_delimited_list_diagnostic<L, R>(
         &mut self,
         open: &L,

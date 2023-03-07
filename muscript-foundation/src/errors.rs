@@ -12,6 +12,7 @@ use codespan_reporting::{
 use crate::source::{SourceFileId, SourceFileSet, Span};
 
 /// Labels allow you to attach information about where in the code an error occurred.
+#[derive(Debug, Clone)]
 pub struct Label {
     /// The style of the label; `Primary` should be used for the crux of the problem, and
     /// `Secondary` may be used for extra annotations shown alongside primary labels.
@@ -72,6 +73,7 @@ impl Label {
 }
 
 /// Suggestion for what to replace a span with that might make the diagnostic go away.
+#[derive(Debug, Clone)]
 pub struct ReplacementSuggestion {
     /// The span of bytes to replace.
     pub span: Span,
@@ -88,6 +90,7 @@ pub enum NoteKind {
 
 /// A note attached to the bottom of the diagnostic, providing additional help or context about the
 /// error.
+#[derive(Debug, Clone)]
 pub struct Note {
     /// This note's kind.
     pub kind: NoteKind,
@@ -130,6 +133,7 @@ impl From<(&str, ReplacementSuggestion)> for Note {
 }
 
 /// Diagnostic describing a problem encountered within the code.
+#[derive(Debug, Clone)]
 pub struct Diagnostic {
     /// The diagnostic's severity.
     pub severity: Severity,
@@ -143,6 +147,8 @@ pub struct Diagnostic {
     pub labels: Vec<Label>,
     /// Additional notes providing context.
     pub notes: Vec<Note>,
+    /// Diagnostics providing additional context on this diagnostic.
+    pub children: Vec<Diagnostic>,
 }
 
 impl Diagnostic {
@@ -161,6 +167,7 @@ impl Diagnostic {
             source_file,
             labels: vec![],
             notes: vec![],
+            children: vec![],
         }
     }
 
@@ -211,9 +218,15 @@ impl Diagnostic {
         self
     }
 
+    /// Adds a child to the diagnostic.
+    pub fn with_child(mut self, child: Diagnostic) -> Self {
+        self.children.push(child);
+        self
+    }
+
     /// Emits the diagnostic to standard error.
     pub fn emit_to_stderr(
-        self,
+        &self,
         files: &SourceFileSet,
         config: &DiagnosticConfig,
     ) -> Result<(), codespan_reporting::files::Error> {
@@ -221,37 +234,41 @@ impl Diagnostic {
             &mut StandardStream::stderr(ColorChoice::Auto),
             &term::Config::default(),
             files,
-            &self.into_codespan(config),
-        )
+            &self.to_codespan(config),
+        )?;
+        for child in &self.children {
+            child.emit_to_stderr(files, config)?;
+        }
+        Ok(())
     }
 
-    pub fn into_codespan(
-        self,
+    pub fn to_codespan(
+        &self,
         config: &DiagnosticConfig,
     ) -> codespan_reporting::diagnostic::Diagnostic<SourceFileId> {
         codespan_reporting::diagnostic::Diagnostic {
             severity: self.severity,
-            code: self.code,
-            message: self.message,
+            code: self.code.clone(),
+            message: self.message.clone(),
             labels: self
                 .labels
-                .into_iter()
+                .iter()
                 .map(|label| codespan_reporting::diagnostic::Label {
                     style: label.style,
                     file_id: label.file.unwrap_or(self.source_file),
                     range: label.span.into(),
-                    message: label.message,
+                    message: label.message.clone(),
                 })
                 .collect(),
             notes: self
                 .notes
-                .into_iter()
+                .iter()
                 .filter_map(|note| {
                     (note.kind != NoteKind::Debug || config.show_debug_info).then(|| {
-                        if let Some(sug) = note.suggestion {
+                        if let Some(sug) = note.suggestion.clone() {
                             format!("{}: `{}`", note.text, sug.replacement)
                         } else {
-                            note.text
+                            note.text.clone()
                         }
                     })
                 })

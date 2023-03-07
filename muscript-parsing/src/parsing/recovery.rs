@@ -1,4 +1,4 @@
-use muscript_foundation::source::Span;
+use muscript_foundation::{errors::Diagnostic, source::Span};
 
 use crate::{
     lexis::{
@@ -63,6 +63,10 @@ where
 
     fn peek(&mut self) -> Result<Token, LexError> {
         self.inner.peek()
+    }
+
+    fn contextualize_diagnostic(&self, diagnostic: Diagnostic) -> Diagnostic {
+        self.inner.contextualize_diagnostic(diagnostic)
     }
 }
 

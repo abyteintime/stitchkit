@@ -1,4 +1,4 @@
-use darling::{FromAttributes, FromMeta, FromMetaItem, FromVariant};
+use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{spanned::Spanned, Index, Item, ItemEnum, ItemStruct, Path};

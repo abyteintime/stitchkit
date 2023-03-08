@@ -2,8 +2,8 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, KTransient, Type},
+    diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
-    list::DelimitedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -26,20 +26,7 @@ impl Parse for ItemVar {
         let specifiers = parser.parse_greedy_list()?;
         let ty = parser.parse()?;
         let (names, semi) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
-                &var,
-                error,
-                DelimitedListDiagnostics {
-                    missing_right: "missing `;` to end variable declaration",
-                    missing_right_label: "this variable declaration does not have a `;`",
-                    missing_comma: "`,` or `;` expected after variable name",
-                    missing_comma_open:
-                        "this is the variable declaration",
-                    missing_comma_token: "this was expected to continue or end the variable declaration",
-                    missing_comma_note:
-                        "note: multiple variable names in one `var` must be separated by commas `,`",
-                },
-            )
+            parser.emit_delimited_list_diagnostic(&var, error, diagnostics::sets::VARIABLES)
         })?;
         Ok(Self {
             var,

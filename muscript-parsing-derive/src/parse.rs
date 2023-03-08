@@ -1,4 +1,4 @@
-use darling::FromAttributes;
+use darling::{FromAttributes, FromMeta, FromMetaItem, FromVariant};
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{spanned::Spanned, Index, Item, ItemEnum, ItemStruct, Path};
@@ -49,7 +49,9 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     let type_name = item.ident;
 
     let mut match_arms = vec![];
+    let mut fallback = None;
     for variant in &item.variants {
+        let attrs = ParseFieldAttrs::from_attributes(&variant.attrs)?;
         let variant_name = &variant.ident;
         let first_field = variant.fields.iter().next().ok_or_else(|| {
             syn::Error::new_spanned(
@@ -72,15 +74,37 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                 }
             })
             .collect();
-        match_arms.push(quote! {
-            _ if <#first_field_type as ::muscript_parsing::PredictiveParse>::started_by(&token, parser.input) => {
-                #type_name::#variant_name { #constructor_fields }
+        let construct = quote! { #type_name::#variant_name { #constructor_fields } };
+        if !attrs.fallback {
+            match_arms.push(quote! {
+                _ if <#first_field_type as ::muscript_parsing::PredictiveParse>::started_by(&token, parser.input) => {
+                    #construct
+                }
+            });
+        } else {
+            if fallback.is_some() {
+                return Err(syn::Error::new_spanned(
+                    variant,
+                    "only one fallback variant is allowed",
+                ));
             }
-        });
+            fallback = Some(quote! {
+                _ => #construct
+            });
+        }
     }
 
     let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
     let match_arms = TokenStream::from_iter(match_arms);
+    let catchall_arm = fallback.unwrap_or_else(|| {
+        quote! {
+            _ => {
+                let ref_parser: &::muscript_parsing::Parser<'_, _> = parser;
+                let the_error = #error(ref_parser, &token);
+                parser.bail(token.span, the_error)?
+            },
+        }
+    });
 
     Ok(quote! {
         impl #impl_generics ::muscript_parsing::Parse for #type_name #type_generics #where_clause {
@@ -91,11 +115,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                 let token = parser.peek_token()?;
                 Ok(match token {
                     #match_arms
-                    _ => {
-                        let ref_parser: &::muscript_parsing::Parser<'_, _> = parser;
-                        let the_error = #error(ref_parser, &token);
-                        parser.bail(token.span, the_error)?
-                    },
+                    #catchall_arm
                 })
             }
         }
@@ -106,4 +126,11 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
 #[darling(attributes(parse))]
 struct ParseAttrs {
     error: Path,
+}
+
+#[derive(Debug, FromAttributes)]
+#[darling(attributes(parse))]
+struct ParseFieldAttrs {
+    #[darling(default)]
+    fallback: bool,
 }

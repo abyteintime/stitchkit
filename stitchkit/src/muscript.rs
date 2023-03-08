@@ -180,11 +180,12 @@ fn perform_action_on_source_file(
         Action::Parse => {
             let mut definitions = definitions.clone();
             let lexer = Preprocessor::new(id, Rc::clone(&file.source), &mut definitions);
+            let mut sink = vec![];
             let mut parser =
-                muscript_parsing::Parser::new(id, &file.source, Structured::new(lexer));
+                muscript_parsing::Parser::new(id, &file.source, Structured::new(lexer), &mut sink);
             let file = parser.parse::<ast::File>();
-            if !parser.errors().is_empty() {
-                return Err(parser.into_errors());
+            if !sink.is_empty() {
+                return Err(sink);
             }
             println!("{file:#?}");
         }

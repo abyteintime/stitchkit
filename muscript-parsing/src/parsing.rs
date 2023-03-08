@@ -5,9 +5,12 @@ use muscript_foundation::{
     source::{SourceFileId, Span},
 };
 
-use crate::lexis::{
-    token::{SingleToken, Token, TokenKindMismatch},
-    LexError, TokenStream,
+use crate::{
+    diagnostics::DiagnosticSink,
+    lexis::{
+        token::{SingleToken, Token, TokenKindMismatch},
+        LexError, TokenStream,
+    },
 };
 
 pub use recovery::*;
@@ -16,39 +19,44 @@ pub struct Parser<'a, T> {
     pub file: SourceFileId,
     pub input: &'a str,
     pub tokens: T,
-    errors: Vec<Diagnostic>,
+    diagnostics: &'a mut dyn DiagnosticSink,
     // TODO: This should probably be a &mut because with how it's done currently creating a sub
     // parser involves cloning the vector.
     rule_traceback: Vec<&'static str>,
 }
 
 impl<'a, T> Parser<'a, T> {
-    pub fn new(file: SourceFileId, input: &'a str, tokens: T) -> Self {
+    pub fn new(
+        file: SourceFileId,
+        input: &'a str,
+        tokens: T,
+        diagnostics: &'a mut dyn DiagnosticSink,
+    ) -> Self {
         Self {
             file,
             input,
             tokens,
-            errors: vec![],
+            diagnostics,
             rule_traceback: Vec::with_capacity(32),
         }
     }
 
-    pub fn sub(&mut self) -> Parser<'a, &mut T> {
+    pub fn sub<'b>(
+        &'b mut self,
+        diagnostics: Option<&'b mut dyn DiagnosticSink>,
+    ) -> Parser<'b, &mut T> {
         Parser {
             file: self.file,
             input: self.input,
             tokens: &mut self.tokens,
-            errors: vec![],
+            diagnostics: diagnostics
+                .map(|r| {
+                    let d: &mut dyn DiagnosticSink = r;
+                    d
+                })
+                .unwrap_or(self.diagnostics),
             rule_traceback: self.rule_traceback.clone(),
         }
-    }
-
-    pub fn errors(&self) -> &[Diagnostic] {
-        &self.errors
-    }
-
-    pub fn into_errors(self) -> Vec<Diagnostic> {
-        self.errors
     }
 }
 
@@ -79,7 +87,7 @@ where
             suggestion: None,
         });
         let diagnostic = self.tokens.contextualize_diagnostic(diagnostic);
-        self.errors.push(diagnostic);
+        self.diagnostics.emit(diagnostic);
     }
 }
 
@@ -149,7 +157,7 @@ where
     where
         N: Parse,
     {
-        self.sub().parse().map_err(|error| {
+        self.sub(Some(&mut ())).parse().map_err(|error| {
             self.emit_diagnostic(diagnostic(self, error.span));
             error
         })
@@ -192,6 +200,15 @@ pub trait Parse: Sized {
     /// You generally want to use [`Parser::parse`] instead of this.
     #[deprecated(note = "use [`Parser::parse`] instead of this")]
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError>;
+}
+
+impl<T> Parse for Box<T>
+where
+    T: Parse,
+{
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        Ok(Box::new(parser.parse()?))
+    }
 }
 
 pub trait PredictiveParse: Parse {

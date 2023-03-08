@@ -3,14 +3,12 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Expr, IntLit, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip,
-        KStatic, Stmt, Type,
+        Block, Expr, IntLit, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip,
+        KStatic, Type,
     },
     diagnostics::{labels, notes},
-    lexis::token::{
-        Assign, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token, TokenKind,
-    },
-    list::{DelimitedListDiagnostics, TerminatedListErrorKind},
+    lexis::token::{Assign, Ident, LeftParen, RightParen, Semi, Token, TokenKind},
+    list::DelimitedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -93,14 +91,7 @@ pub struct ParamDefault {
 #[parse(error = "body_error")]
 pub enum Body {
     Stub(Semi),
-    Impl(Impl),
-}
-
-#[derive(Debug, Clone, PredictiveParse)]
-pub struct Impl {
-    pub open: LeftBrace,
-    pub stmts: Vec<Stmt>,
-    pub close: RightBrace,
+    Impl(Block),
 }
 
 impl ItemFunction {
@@ -253,27 +244,6 @@ impl Parse for Param {
 impl PredictiveParse for Param {
     fn started_by(token: &Token, input: &str) -> bool {
         Ident::started_by(token, input)
-    }
-}
-
-impl Parse for Impl {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let open: LeftBrace = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "function body `{ .. }` expected")
-                .with_label(Label::primary(span, "`{` expected here"))
-        })?;
-        let (stmts, close) = parser.parse_terminated_list().map_err(|error| {
-            match error.kind {
-                TerminatedListErrorKind::Parse => (),
-                TerminatedListErrorKind::MissingTerminator => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `}` to close function body")
-                        .with_label(Label::primary(open.span, "this is where the body begins"))
-                        .with_note(notes::PARSER_BUG),
-                ),
-            }
-            error.parse
-        })?;
-        Ok(Self { open, stmts, close })
     }
 }
 

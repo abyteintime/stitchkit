@@ -123,8 +123,9 @@ define_tokens! {
     Dec              = "`--`",
 
     Assign           = "`=`",
-    Colon            = "`:`",
     Question         = "`?`",
+    Colon            = "`:`",
+    Dot              = "`.`",
 
     LeftParen    = "`(`",
     RightParen   = "`)`",
@@ -132,8 +133,7 @@ define_tokens! {
     RightBracket = "`]`",
     LeftBrace    = "`{`",
     RightBrace   = "`}`",
-    Dot          = "`.`",
-    Comma        = "``",
+    Comma        = "`,`",
     Semi         = "`;`",
     Hash         = "`#`",
     Accent       = "```", // kinda hard to decipher?

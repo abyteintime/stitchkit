@@ -329,7 +329,20 @@ impl TokenStream for Lexer {
                 '-' => self.single_or_double_char_token(TokenKind::Sub, '-', TokenKind::Dec),
                 '*' => self.single_or_double_char_token(TokenKind::Mul, '*', TokenKind::Pow),
                 '%' => self.single_char_token(TokenKind::Rem),
-                '<' => self.single_or_double_char_token(TokenKind::Less, '<', TokenKind::ShiftLeft),
+                '<' => {
+                    self.advance_char();
+                    match self.current_char() {
+                        Some('<') => {
+                            self.advance_char();
+                            TokenKind::ShiftLeft
+                        }
+                        Some('=') => {
+                            self.advance_char();
+                            TokenKind::LessEqual
+                        }
+                        _ => TokenKind::Less,
+                    }
+                }
                 '>' => {
                     self.advance_char();
                     match self.current_char() {

@@ -139,6 +139,9 @@ define_tokens! {
     Accent       = "```", // kinda hard to decipher?
     Backslash    = "`\\`",
 
+    // This kind is used for `isdefined and `notdefined, which should produce a valid token so that
+    // they can be seen by `if, but should not be usable otherwise.
+    Generated = "macro output",
     EndOfFile = "end of file",
 }
 

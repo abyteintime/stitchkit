@@ -19,7 +19,7 @@ impl Parse for CppBlob {
             for diagnostic in error.diagnostics {
                 parser.emit_diagnostic(diagnostic);
             }
-            ParseError::new(error.span)
+            parser.make_error(error.span)
         })?;
         let close = parser.parse()?;
         Ok(Self { open, blob, close })

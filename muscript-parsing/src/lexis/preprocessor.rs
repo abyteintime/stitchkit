@@ -205,12 +205,12 @@ impl<'a> Preprocessor<'a> {
                 .with_label(Label::primary(token.span, "`(` expected here"))
                 .with_note(NOTE)
         })?;
-        let macro_name = self.expect_token(TokenKind::LeftParen, |file, token| {
+        let macro_name = self.expect_token(TokenKind::Ident, |file, token| {
             Diagnostic::error(file, "missing name of macro to undefine")
                 .with_label(Label::primary(token.span, "identifier expected here"))
                 .with_note(NOTE)
         })?;
-        let _right_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+        let _right_paren = self.expect_token(TokenKind::RightParen, |file, token| {
             Diagnostic::error(file, "`)` expected to close `undefine invocation")
                 .with_label(Label::primary(token.span, "`)` expected here"))
                 .with_note(NOTE)
@@ -230,11 +230,14 @@ impl<'a> Preprocessor<'a> {
             Diagnostic::error(file, "`(` expected")
                 .with_label(Label::primary(token.span, "`(` expected here"))
         })?;
-        let start = self.lexer().position;
-        let mut nesting = 1;
-        let end = loop {
-            let before_token = self.lexer().position;
-            let token = self.lexer_mut().next_include_comments()?;
+        // NOTE: The condition mechanism is different from vanilla UnrealScript since our
+        // preprocessor operates on a higher level than plain text.
+        // The most important part is that pasting arbitrary user-defined macros, as well as
+        // `isdefined/`notdefined, works.
+        let mut consumed_tokens: usize = 0;
+        let mut nesting: usize = 1;
+        loop {
+            let token = self.next_include_comments()?;
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(LexError::new(
@@ -250,16 +253,16 @@ impl<'a> Preprocessor<'a> {
                 TokenKind::RightParen => {
                     nesting -= 1;
                     if nesting == 0 {
-                        break before_token;
+                        break;
                     }
                 }
-                _ => (),
+                _ => consumed_tokens += 1,
             }
-        };
+        }
 
         // We wanna check if the thing we expanded to is non-empty, so start should be
         // non-equal to end.
-        let condition = start != end;
+        let condition = consumed_tokens > 0;
         // Keep track of this `if/`else, so that we can report an error on EOF if there is no
         // matching `endif.
         self.current_expansion_mut().if_stack.push(If {
@@ -369,8 +372,52 @@ impl<'a> Preprocessor<'a> {
         // TODO: Emit warning that MuScript does not process `includes.
     }
 
-    fn parse_isdefined(&mut self, not: bool) -> Result<Token, LexError> {
-        todo!("preprocessor `isdefined")
+    fn parse_isdefined(&mut self, span: Span, not: bool) -> Result<Option<Token>, LexError> {
+        const NOTE: [&str; 2] = [
+            indoc!(
+                "note: `isdefined expects a parameter containing the macro name, like:
+                       `isdefined(EXAMPLE_MACRO)"
+            ),
+            indoc!(
+                "note: `notdefined expects a parameter containing the macro name, like:
+                       `notdefined(EXAMPLE_MACRO)"
+            ),
+        ];
+        let _left_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "`(` expected")
+                .with_label(Label::primary(token.span, "`(` expected here"))
+                .with_note(NOTE[not as usize])
+        })?;
+        let macro_name = self.expect_token(TokenKind::Ident, |file, token| {
+            Diagnostic::error(file, "missing name of macro to check")
+                .with_label(Label::primary(token.span, "identifier expected here"))
+                .with_note(NOTE[not as usize])
+        })?;
+        let _right_paren = self.expect_token(TokenKind::RightParen, |file, token| {
+            Diagnostic::error(
+                file,
+                [
+                    "`)` expected to close `isdefined invocation",
+                    "`)` expected to close `notdefined invocation",
+                ][not as usize],
+            )
+            .with_label(Label::primary(token.span, "`)` expected here"))
+            .with_note(NOTE[not as usize])
+        })?;
+
+        let macro_name = macro_name.span.get_input(&self.lexer().input);
+        let macro_name = UniCase::new(String::from(macro_name));
+        let is_defined = self.definitions.map.contains_key(&macro_name);
+        let result = if not { !is_defined } else { is_defined };
+
+        // NOTE: This behavior is _very_ different from what UPP does, however game code does not
+        // seem to use `isdefined/`notdefined outside the preprocessor, thus I think it's fine to
+        // omit the invocation and not produce a token, so that `if can recognize it has no tokens
+        // inside its condition and bail.
+        Ok(result.then_some(Token {
+            kind: TokenKind::Generated,
+            span,
+        }))
     }
 
     fn parse_user_macro(&mut self, invocation_span: Span) -> Result<(), LexError> {
@@ -393,7 +440,7 @@ impl<'a> Preprocessor<'a> {
         Ok(())
     }
 
-    fn parse_invocation(&mut self) -> Result<Option<Token>, LexError> {
+    fn parse_invocation(&mut self) -> Result<PreprocessResult, LexError> {
         let macro_name_span = self.parse_macro_name()?;
         let macro_name = UniCase::new(macro_name_span.get_input(&self.lexer().input));
         trace!("Invoking macro `{macro_name}");
@@ -406,15 +453,21 @@ impl<'a> Preprocessor<'a> {
             _ if macro_name == UniCase::ascii("endif") => self.parse_endif(macro_name_span)?,
             _ if macro_name == UniCase::ascii("include") => self.parse_include(),
             _ if macro_name == UniCase::ascii("isdefined") => {
-                return Ok(Some(self.parse_isdefined(false)?))
+                return Ok(self
+                    .parse_isdefined(macro_name_span, false)?
+                    .map(PreprocessResult::Produced)
+                    .unwrap_or(PreprocessResult::Consumed))
             }
             _ if macro_name == UniCase::ascii("notdefined") => {
-                return Ok(Some(self.parse_isdefined(true)?))
+                return Ok(self
+                    .parse_isdefined(macro_name_span, true)?
+                    .map(PreprocessResult::Produced)
+                    .unwrap_or(PreprocessResult::Consumed))
             }
             _ => self.parse_user_macro(macro_name_span)?,
         }
 
-        Ok(None)
+        Ok(PreprocessResult::Consumed)
     }
 
     /// Returns whether the token is significant for the preprocessor.
@@ -427,22 +480,19 @@ impl<'a> Preprocessor<'a> {
 
     fn do_preprocess(&mut self, token: Token) -> Result<PreprocessResult, LexError> {
         match token.kind {
-            TokenKind::Accent => {
-                // Parse an invocation and continue executing to either parse more invocations
-                // inside this one, or actually return a token to the caller.
-                self.parse_invocation()?;
-            }
+            TokenKind::Accent => self.parse_invocation(),
             TokenKind::Backslash => todo!("\\ and \\n handling in preprocessor"),
             TokenKind::EndOfFile if self.is_in_expansion() => {
                 trace!("exiting expansion");
                 self.stack.pop();
+                Ok(PreprocessResult::Consumed)
             }
-            _ => return Ok(PreprocessResult::Ignored(token)),
+            _ => Ok(PreprocessResult::Ignored(token)),
         }
-        Ok(PreprocessResult::Consumed)
     }
 }
 
+#[must_use]
 enum PreprocessResult {
     Ignored(Token),
     Consumed,
@@ -453,7 +503,6 @@ impl<'a> TokenStream for Preprocessor<'a> {
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         loop {
             let token = self.lexer_mut().next_include_comments()?;
-            // eprintln!("exp:{} {:?}", self.stack.len(), token);
             match self.do_preprocess(token)? {
                 PreprocessResult::Ignored(token) => return Ok(token),
                 PreprocessResult::Consumed => continue,

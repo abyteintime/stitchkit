@@ -58,7 +58,7 @@ where
                 TokenKind::EndOfFile => {
                     return Err(TerminatedListError {
                         kind: TerminatedListErrorKind::MissingTerminator,
-                        parse: ParseError::new(token.span),
+                        parse: self.make_error(token.span),
                     })
                 }
                 _ => (),
@@ -97,7 +97,7 @@ where
                 TokenKind::EndOfFile => {
                     return Err(DelimitedListError {
                         kind: DelimitedListErrorKind::MissingRight,
-                        parse: ParseError::new(token.span),
+                        parse: self.make_error(token.span),
                         _phantom: PhantomData,
                     });
                 }
@@ -131,7 +131,7 @@ where
                 unexpected => {
                     return Err(DelimitedListError {
                         kind: DelimitedListErrorKind::MissingComma,
-                        parse: ParseError::new(unexpected.span),
+                        parse: self.make_error(unexpected.span),
                         _phantom: PhantomData,
                     });
                 }
@@ -148,7 +148,7 @@ pub enum DelimitedListErrorKind {
     MissingComma,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct DelimitedListError<R> {
     pub kind: DelimitedListErrorKind,
     pub parse: ParseError,
@@ -161,7 +161,7 @@ pub enum TerminatedListErrorKind {
     MissingTerminator,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct TerminatedListError {
     pub kind: TerminatedListErrorKind,
     pub parse: ParseError,

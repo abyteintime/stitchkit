@@ -308,7 +308,6 @@ fn param_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -
 }
 
 fn kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    dbg!(&token);
     Diagnostic::error(
         parser.file,
         "`function`, `event`, `preoperator`, or `operator` expected",

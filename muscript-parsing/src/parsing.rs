@@ -56,9 +56,13 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
+    pub fn make_error(&self, span: Span) -> ParseError {
+        ParseError::new(span, self.rule_traceback.clone())
+    }
+
     pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
         self.emit_diagnostic(error);
-        Err(ParseError::new(error_span))
+        Err(self.make_error(error_span))
     }
 
     pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
@@ -90,14 +94,14 @@ where
                 for diagnostic in diagnostics {
                     self.emit_diagnostic(diagnostic);
                 }
-                ParseError { span }
+                self.make_error(span)
             })
     }
 
     pub fn peek_token(&mut self) -> Result<Token, ParseError> {
         self.tokens
             .peek()
-            .map_err(|LexError { span, .. }| ParseError { span })
+            .map_err(|LexError { span, .. }| self.make_error(span))
     }
 
     pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
@@ -113,10 +117,13 @@ where
                             Label::primary(token.span(), format!("{} expected here", Tok::NAME)),
                         ),
                     );
-                    ParseError::new(token.span())
+                    ParseError::new(token.span(), self.rule_traceback.clone())
                 })
             }
-            Err(ParseError { span }) => {
+            Err(ParseError {
+                span,
+                rule_traceback: _,
+            }) => {
                 // Try to recover from the lexis error and keep on parsing beyond this point.
                 // We fabricate the token from the reported span.
                 Ok(Tok::default_from_span(span))
@@ -150,14 +157,18 @@ where
 }
 
 /// The AST node could not be parsed.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ParseError {
     pub span: Span,
+    pub rule_traceback: Vec<&'static str>,
 }
 
 impl ParseError {
-    pub fn new(span: Span) -> Self {
-        Self { span }
+    pub fn new(span: Span, rule_traceback: Vec<&'static str>) -> Self {
+        Self {
+            span,
+            rule_traceback,
+        }
     }
 }
 

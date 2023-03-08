@@ -244,7 +244,6 @@ impl Lexer {
         self.advance_char();
         while self.current_char() != Some('"') {
             if self.current_char().is_none() {
-                dbg!(self.span_with_len(start, 1));
                 return Err(LexError::new(
                     self.span(start),
                     Diagnostic::error(
@@ -267,7 +266,6 @@ impl Lexer {
         self.advance_char();
         while self.current_char() != Some('\'') {
             if self.current_char().is_none() {
-                dbg!(self.span_with_len(start, 1));
                 return Err(LexError::new(
                     self.span(start),
                     Diagnostic::error(self.file, "name does not have a closing quote '\"'")

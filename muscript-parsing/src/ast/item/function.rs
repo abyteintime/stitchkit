@@ -3,8 +3,8 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip, KStatic,
-        Type,
+        Block, Expr, KCoerce, KConst, KExec, KFinal, KNative, KOptional, KOut, KReliable, KServer,
+        KSimulated, KSkip, KStatic, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -33,8 +33,11 @@ pub struct ItemFunction {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "function_specifier_error")]
 pub enum FunctionSpecifier {
+    Exec(KExec),
     Final(KFinal),
     Native(KNative, Option<ParenInt>),
+    Reliable(KReliable),
+    Server(KServer),
     Simulated(KSimulated),
     Static(KStatic),
 }

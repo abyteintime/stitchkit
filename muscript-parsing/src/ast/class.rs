@@ -8,18 +8,23 @@ use crate::{
 };
 
 use super::{
-    KAbstract, KCollapseCategories, KConfig, KDependsOn, KEditInlineNew, KHideCategories,
-    KImplements, KInherits, KNative, KNativeReplication, KNoExport, KTransient, SpecifierArgs,
+    KAbstract, KCollapseCategories, KConfig, KDependsOn, KDeprecated, KEditInlineNew,
+    KHideCategories, KImplements, KInherits, KNative, KNativeReplication, KNoExport, KPlaceable,
+    KTransient, SpecifierArgs,
 };
 
-keyword!(KClass = "class");
-keyword!(KExtends = "extends");
+keyword! {
+    KClass = "class",
+    KExtends = "extends",
+    KWithin = "within",
+}
 
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct Class {
     pub class: KClass,
     pub name: Ident,
     pub extends: Option<Extends>,
+    pub within: Option<Within>,
     pub specifiers: Vec<ClassSpecifier>,
     pub semi: Semi,
 }
@@ -30,6 +35,12 @@ pub struct Extends {
     pub parent_class: Ident,
 }
 
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct Within {
+    pub within: KWithin,
+    pub outer_class: Ident,
+}
+
 #[derive(Debug, Clone, Parse)]
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
@@ -37,6 +48,7 @@ pub enum ClassSpecifier {
     CollapseCategories(KCollapseCategories),
     Config(KConfig, SpecifierArgs),
     DependsOn(KDependsOn, SpecifierArgs),
+    Deprecated(KDeprecated),
     EditInlineNew(KEditInlineNew),
     HideCategories(KHideCategories, SpecifierArgs),
     Implements(KImplements, SpecifierArgs),
@@ -44,6 +56,7 @@ pub enum ClassSpecifier {
     Native(KNative, Option<SpecifierArgs>),
     NativeReplication(KNativeReplication),
     NoExport(KNoExport),
+    Placeable(KPlaceable),
     Transient(KTransient),
 }
 
@@ -56,6 +69,7 @@ impl Parse for Class {
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let extends = parser.parse()?;
+        let within = parser.parse()?;
         let (specifiers, semi) = parser.parse_terminated_list().map_err(|error| {
             match error.kind {
                 TerminatedListErrorKind::Parse => (),
@@ -73,6 +87,7 @@ impl Parse for Class {
             class,
             name,
             extends,
+            within,
             specifiers,
             semi,
         })

@@ -279,7 +279,7 @@ impl Expr {
                     missing_comma: "`,` or `)` expected after function argument",
                     missing_comma_open: "the argument list starts here",
                     missing_comma_token: "this was expected to continue or close the argument list",
-                    missing_comma_note: "note: arguments to functions must be separated by commas",
+                    missing_comma_note: "note: arguments to functions are separated by commas `,`",
                 },
             )
         })?;

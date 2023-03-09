@@ -15,13 +15,21 @@ use super::{
 
 keyword! {
     KClass = "class",
+    KInterface = "interface",
     KExtends = "extends",
     KWithin = "within",
 }
 
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "class_kind_error")]
+pub enum ClassKind {
+    Class(KClass),
+    Interface(KInterface),
+}
+
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct Class {
-    pub class: KClass,
+    pub class: ClassKind,
     pub name: Ident,
     pub extends: Option<Extends>,
     pub within: Option<Within>,
@@ -92,6 +100,12 @@ impl Parse for Class {
             semi,
         })
     }
+}
+
+fn class_kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "`class` or `interface` expected")
+        .with_label(Label::primary(token.span, ""))
+        .with_note("note: the file must start with the kind of type you're declaring")
 }
 
 fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

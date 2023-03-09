@@ -1,4 +1,5 @@
 mod consts;
+mod cpptext;
 mod default_properties;
 mod enums;
 mod function;
@@ -14,6 +15,7 @@ use crate::{
 };
 
 pub use consts::*;
+pub use cpptext::*;
 pub use default_properties::*;
 pub use enums::*;
 pub use function::*;
@@ -31,6 +33,8 @@ pub enum Item {
     Enum(ItemEnum),
     DefaultProperties(ItemDefaultProperties),
     StructDefaultProperties(ItemStructDefaultProperties),
+    CppText(ItemCppText),
+    StructCppText(ItemStructCppText),
 }
 
 fn item_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

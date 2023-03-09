@@ -5,7 +5,7 @@ use muscript_foundation::{
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
-    ast::{CppBlob, Extends, KImmutable},
+    ast::{CppBlob, Extends, KImmutable, KNative},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
@@ -71,6 +71,7 @@ impl Parse for ItemStruct {
 #[parse(error = "specifier_error")]
 pub enum StructSpecifier {
     Immutable(KImmutable),
+    Native(KNative),
 }
 
 fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

@@ -7,7 +7,10 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{KAbstract, KImplements, KInherits, KNative, KNoExport, KTransient, SpecifierArgs};
+use super::{
+    KAbstract, KCollapseCategories, KConfig, KDependsOn, KEditInlineNew, KHideCategories,
+    KImplements, KInherits, KNative, KNativeReplication, KNoExport, KTransient, SpecifierArgs,
+};
 
 keyword!(KClass = "class");
 keyword!(KExtends = "extends");
@@ -31,9 +34,15 @@ pub struct Extends {
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
     Abstract(KAbstract),
+    CollapseCategories(KCollapseCategories),
+    Config(KConfig, SpecifierArgs),
+    DependsOn(KDependsOn, SpecifierArgs),
+    EditInlineNew(KEditInlineNew),
+    HideCategories(KHideCategories, SpecifierArgs),
     Implements(KImplements, SpecifierArgs),
     Inherits(KInherits, SpecifierArgs),
     Native(KNative, Option<SpecifierArgs>),
+    NativeReplication(KNativeReplication),
     NoExport(KNoExport),
     Transient(KTransient),
 }

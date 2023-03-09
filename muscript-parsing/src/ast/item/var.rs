@@ -1,7 +1,10 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{Expr, KConst, KEditConst, KNative, KNoExport, KPrivate, KTransient, Type},
+    ast::{
+        Expr, KConst, KEditConst, KExport, KGlobalConfig, KInterp, KLocalized, KNative, KNoClear,
+        KNoExport, KPrivate, KRepNotify, KTransient, Type,
+    },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -51,9 +54,15 @@ pub struct VarEditor {
 pub enum VarSpecifier {
     Const(KConst),
     EditConst(KEditConst),
+    Export(KExport),
+    GlobalConfig(KGlobalConfig),
+    Interp(KInterp),
+    Localized(KLocalized),
     Native(KNative),
+    NoClear(KNoClear),
     NoExport(KNoExport),
     Private(KPrivate),
+    RepNotify(KRepNotify),
     Transient(KTransient),
 }
 

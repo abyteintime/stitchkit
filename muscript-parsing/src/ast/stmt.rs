@@ -25,6 +25,7 @@ pub enum Stmt {
     While(StmtWhile),
     Do(StmtDo),
     For(StmtFor),
+    ForEach(StmtForEach),
 
     Return(StmtReturn),
     Break(StmtBreak),

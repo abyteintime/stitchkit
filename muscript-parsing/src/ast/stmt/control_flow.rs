@@ -16,6 +16,7 @@ keyword! {
     KDo = "do",
     KUntil = "until",
     KFor = "for",
+    KForEach = "foreach",
     KSwitch = "switch",
     KCase = "case",
     KDefault = "default",
@@ -74,6 +75,13 @@ pub struct StmtFor {
     pub close: RightParen,
 
     pub body: Box<Stmt>,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct StmtForEach {
+    pub foreach: KForEach,
+    pub expr: Expr,
+    pub block: Block,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]

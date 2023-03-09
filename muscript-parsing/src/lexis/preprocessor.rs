@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cmp::Ordering, collections::HashMap, rc::Rc};
 
 use indoc::indoc;
 use muscript_foundation::{
@@ -8,14 +8,16 @@ use muscript_foundation::{
 use tracing::{trace, trace_span};
 use unicase::UniCase;
 
+use crate::diagnostics::DiagnosticSink;
+
 use super::{
     token::{Token, TokenKind},
     LexError, Lexer, TokenStream,
 };
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
-/// symbols such as FINAL_RELEASE.
-#[derive(Debug, Clone)]
+/// symbols such as `FINAL_RELEASE`.
+#[derive(Debug, Clone, Default)]
 pub struct Definitions {
     pub map: HashMap<UniCase<String>, Definition>,
 }
@@ -30,7 +32,7 @@ pub struct Definition {
     /// The definition text.
     pub text: Rc<str>,
     /// The parameters of this definition.
-    pub params: Vec<String>,
+    pub parameters: Option<Vec<String>>,
 }
 
 /// Preprocessor that sits between the lexer and the parser.
@@ -39,8 +41,12 @@ pub struct Definition {
 /// preprocessor, largely because that would require sacrificing a lot of MuScript's error reporting
 /// infrastructure. Therefore this preprocessor only really supports features on a best effort
 /// basis; only enough features are supported to compile the engine successfully.
+///
+/// In general MuScript's improved ergonomics should be preferred over abusing the preprocessor
+/// as is typical in UnrealScript programming.
 pub struct Preprocessor<'a> {
     pub definitions: &'a mut Definitions,
+    errors: &'a mut dyn DiagnosticSink,
     stack: Vec<Expansion>,
 }
 
@@ -48,6 +54,7 @@ struct Expansion {
     invocation_site: Option<(SourceFileId, Span)>,
     lexer: Lexer,
     if_stack: Vec<If>,
+    arguments: Definitions,
 }
 
 struct If {
@@ -56,13 +63,20 @@ struct If {
 }
 
 impl<'a> Preprocessor<'a> {
-    pub fn new(file: SourceFileId, input: Rc<str>, definitions: &'a mut Definitions) -> Self {
+    pub fn new(
+        file: SourceFileId,
+        input: Rc<str>,
+        definitions: &'a mut Definitions,
+        errors: &'a mut dyn DiagnosticSink,
+    ) -> Self {
         Self {
             definitions,
+            errors,
             stack: vec![Expansion {
                 invocation_site: None,
                 lexer: Lexer::new(file, input),
                 if_stack: vec![],
+                arguments: Default::default(),
             }],
         }
     }
@@ -142,15 +156,77 @@ impl<'a> Preprocessor<'a> {
         })
     }
 
+    fn parse_comma_separated<T>(
+        &mut self,
+        left_paren: &Token,
+        mut parse: impl FnMut(&mut Self) -> Result<T, LexError>,
+    ) -> Result<(Vec<T>, Token), LexError> {
+        // This is more or less just duplicating the logic in parse_separated_list.
+        // It ain't nice, but coaxing the parser to do preprocessor work ain't it either.
+
+        // Unfortunately the diagnostics here aren't as great, mainly for simplicity's sake.
+        // You shouldn't be abusing the preprocessor too hard anyways. MuScript has it for
+        // compatibility reasons.
+        let mut elements = vec![];
+        let close = loop {
+            let token = self.lexer_mut().peek()?;
+            match token.kind {
+                TokenKind::EndOfFile => {
+                    return Err(LexError::new(
+                        left_paren.span,
+                        Diagnostic::error(self.lexer().file, "mismatched parenthesis").with_label(
+                            Label::primary(
+                                left_paren.span,
+                                "this `(` does not have a matching `)`",
+                            ),
+                        ),
+                    ));
+                }
+                TokenKind::RightParen => {
+                    break self.lexer_mut().next()?;
+                }
+                _ => (),
+            }
+            elements.push(parse(self)?);
+            let next_token = self.lexer_mut().next()?;
+            match next_token.kind {
+                TokenKind::Comma => (),
+                TokenKind::RightParen => {
+                    break next_token;
+                }
+                _ => {
+                    return Err(LexError::new(
+                        next_token.span,
+                        Diagnostic::error(self.lexer().file, "`,` or `)` expected")
+                            .with_label(Label::primary(next_token.span, "")),
+                    ));
+                }
+            }
+        };
+
+        Ok((elements, close))
+    }
+
     fn parse_define(&mut self) -> Result<(), LexError> {
         let macro_name = self.expect_token(TokenKind::Ident, |file, token| {
             Diagnostic::error(file, "new macro name expected")
                 .with_label(Label::primary(token.span, "identifier expected here"))
         })?;
 
-        if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
-            todo!("macro parameters")
-        }
+        let parameters = if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
+            let open = self.lexer_mut().next()?;
+            let (parameters, _) = self.parse_comma_separated(&open, |preproc| {
+                let parameter = preproc.expect_token(TokenKind::Ident, |file, token| {
+                    Diagnostic::error(file, "macro argument name expected")
+                        .with_label(Label::primary(token.span, "identifier expected here"))
+                })?;
+                let name = parameter.span.get_input(&preproc.lexer().input);
+                Ok(name.to_owned())
+            })?;
+            Some(parameters)
+        } else {
+            None
+        };
 
         let start = self.lexer_mut().position;
         loop {
@@ -186,7 +262,7 @@ impl<'a> Preprocessor<'a> {
                 source_file,
                 span: Span::from(start..end),
                 text,
-                params: vec![],
+                parameters,
             },
         ) {
             // TODO: Warning on redefinition of macro?
@@ -336,7 +412,7 @@ impl<'a> Preprocessor<'a> {
     ) -> Result<(), LexError> {
         let _span = trace_span!("skip_until_macro").entered();
 
-        let mut nesting = 0;
+        let mut nesting: usize = 0;
         loop {
             let before_token = self.lexer().position;
             let token = self.lexer_mut().next_include_comments()?;
@@ -347,10 +423,10 @@ impl<'a> Preprocessor<'a> {
                     let macro_name = UniCase::new(macro_name);
                     // We need to keep track of nesting levels to skip over nested `ifs.
                     if macro_name == UniCase::ascii("if") {
-                        trace!("if");
+                        trace!("Nesting: `if");
                         nesting += 1;
                     } else if nesting > 0 && macro_name == UniCase::ascii("endif") {
-                        trace!("endif");
+                        trace!("Nesting: `endif");
                         nesting -= 1;
                     } else if nesting == 0 && cond(macro_name) {
                         trace!("Exitting");
@@ -368,8 +444,12 @@ impl<'a> Preprocessor<'a> {
         Ok(())
     }
 
-    fn parse_include(&mut self) {
-        // TODO: Emit warning that MuScript does not process `includes.
+    fn parse_include(&mut self, span: Span) {
+        self.errors.emit(
+            Diagnostic::warning(self.lexer().file, "use of `include preprocessor directive")
+                .with_label(Label::primary(span, ""))
+                .with_note("note: MuScript ignores `include directives because it processes files in the correct order automatically"),
+        )
     }
 
     fn parse_isdefined(&mut self, span: Span, not: bool) -> Result<Option<Token>, LexError> {
@@ -420,12 +500,103 @@ impl<'a> Preprocessor<'a> {
         }))
     }
 
+    fn get_definition(&self, name: &str) -> Option<&Definition> {
+        let name = UniCase::new(String::from(name));
+        self.current_expansion()
+            .arguments
+            .map
+            .get(&name)
+            .or_else(|| self.definitions.map.get(&name))
+    }
+
     fn parse_user_macro(&mut self, invocation_span: Span) -> Result<(), LexError> {
-        // Kind of a shame we have to allocate a whole String here, but eh. Whatever.
-        let macro_name = UniCase::new(String::from(invocation_span.get_input(&self.lexer().input)));
-        let file = self.lexer().file;
-        if let Some(definition) = self.definitions.map.get(&macro_name) {
+        let arguments = if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
+            let open = self.lexer_mut().next()?;
+            let (arguments, close) = self.parse_comma_separated(&open, |preproc| {
+                let start = preproc.lexer().position;
+                while !matches!(
+                    preproc.lexer_mut().peek()?.kind,
+                    TokenKind::Comma | TokenKind::RightParen
+                ) {
+                    let _ = preproc.lexer_mut().next()?;
+                }
+                let end = preproc.lexer().position;
+                Ok(Definition {
+                    source_file: preproc.lexer().file,
+                    span: Span::from(start..end),
+                    text: Rc::from(&preproc.lexer().input[0..end]),
+                    parameters: None,
+                })
+            })?;
+            Some((arguments, close))
+        } else {
+            None
+        };
+
+        let macro_name = invocation_span.get_input(&self.lexer().input);
+        if let Some(definition) = self.get_definition(macro_name) {
             trace!(?macro_name, "entering expansion");
+
+            let argument_count = arguments.as_ref().map(|(list, _)| list.len());
+            let parameter_count = definition.parameters.as_ref().map(|list| list.len());
+            'check: {
+                return Err(LexError::new(
+                    invocation_span,
+                    Diagnostic::error(
+                        self.lexer().file,
+                        match (parameter_count, argument_count) {
+                            (None, Some(arg)) => {
+                                format!("macro expected no arguments, but {arg} were provided")
+                            }
+                            (Some(param), None) => {
+                                format!("macro expected {param} arguments, but none were provided")
+                            }
+                            // NOTE: It's okay if a macro has too many or too little arguments.
+                            // You will see why in just a moment.
+                            _ => break 'check,
+                        },
+                    )
+                    .with_label(Label::primary(invocation_span, "")),
+                ));
+            }
+
+            let arguments = if let (Some(argument_count), Some(parameter_count)) =
+                (argument_count, parameter_count)
+            {
+                let (mut arguments, close) = arguments.unwrap();
+                match argument_count.cmp(&parameter_count) {
+                    // The least interesting case; just pass the arguments as they are.
+                    Ordering::Equal => (),
+                    // In case not enough arguments were provided, pad them with emptiness.
+                    Ordering::Less => {
+                        arguments.resize_with(parameter_count, || Definition {
+                            source_file: self.lexer().file,
+                            // Just use the position right before the right parenthesis.
+                            span: Span::from(close.span.start..close.span.start),
+                            text: Rc::from(&self.lexer().input[..close.span.start]),
+                            parameters: None,
+                        });
+                    }
+                    // In case too many arguments were provided, treat the extra args as one big
+                    // argument.
+                    Ordering::Greater => {
+                        let trailing = arguments.split_off(parameter_count - 1);
+                        let first = trailing.first().unwrap();
+                        let last = trailing.last().unwrap();
+                        arguments.push(Definition {
+                            source_file: self.lexer().file,
+                            span: Span::from(first.span.start..last.span.end),
+                            text: Rc::from(&self.lexer().input[..last.span.end]),
+                            parameters: None,
+                        });
+                    }
+                }
+                Some(arguments)
+            } else {
+                None
+            };
+
+            let file = self.lexer().file;
             self.stack.push(Expansion {
                 invocation_site: Some((file, invocation_span)),
                 lexer: Lexer {
@@ -433,6 +604,22 @@ impl<'a> Preprocessor<'a> {
                     ..Lexer::new(definition.source_file, Rc::clone(&definition.text))
                 },
                 if_stack: vec![],
+                arguments: arguments
+                    .map(|values| Definitions {
+                        map: values
+                            .into_iter()
+                            .enumerate()
+                            .map(|(i, parameter_definition)| {
+                                (
+                                    UniCase::new(
+                                        definition.parameters.as_ref().unwrap()[i].clone(),
+                                    ),
+                                    parameter_definition,
+                                )
+                            })
+                            .collect(),
+                    })
+                    .unwrap_or_default(),
             })
         } else {
             // TODO: Emit a warning or error? Needs verification of what UPP does
@@ -441,33 +628,42 @@ impl<'a> Preprocessor<'a> {
     }
 
     fn parse_invocation(&mut self) -> Result<PreprocessResult, LexError> {
-        let macro_name_span = self.parse_macro_name()?;
-        let macro_name = UniCase::new(macro_name_span.get_input(&self.lexer().input));
+        let span = self.parse_macro_name()?;
+        let macro_name = UniCase::new(span.get_input(&self.lexer().input));
         trace!("Invoking macro `{macro_name}");
 
         match () {
             _ if macro_name == UniCase::ascii("define") => self.parse_define()?,
             _ if macro_name == UniCase::ascii("undefine") => self.parse_undefine()?,
-            _ if macro_name == UniCase::ascii("if") => self.parse_if(macro_name_span)?,
-            _ if macro_name == UniCase::ascii("else") => self.parse_else(macro_name_span)?,
-            _ if macro_name == UniCase::ascii("endif") => self.parse_endif(macro_name_span)?,
-            _ if macro_name == UniCase::ascii("include") => self.parse_include(),
+            _ if macro_name == UniCase::ascii("if") => self.parse_if(span)?,
+            _ if macro_name == UniCase::ascii("else") => self.parse_else(span)?,
+            _ if macro_name == UniCase::ascii("endif") => self.parse_endif(span)?,
+            _ if macro_name == UniCase::ascii("include") => self.parse_include(span),
             _ if macro_name == UniCase::ascii("isdefined") => {
                 return Ok(self
-                    .parse_isdefined(macro_name_span, false)?
+                    .parse_isdefined(span, false)?
                     .map(PreprocessResult::Produced)
                     .unwrap_or(PreprocessResult::Consumed))
             }
             _ if macro_name == UniCase::ascii("notdefined") => {
                 return Ok(self
-                    .parse_isdefined(macro_name_span, true)?
+                    .parse_isdefined(span, true)?
                     .map(PreprocessResult::Produced)
                     .unwrap_or(PreprocessResult::Consumed))
             }
-            _ => self.parse_user_macro(macro_name_span)?,
+            _ => self.parse_user_macro(span)?,
         }
 
         Ok(PreprocessResult::Consumed)
+    }
+
+    fn parse_backslash(&mut self) -> Result<(), LexError> {
+        // Skip \n, which MuScript parses as two tokens `\` and `n`.
+        let next_token = self.lexer_mut().peek()?;
+        if next_token.span.get_input(&self.lexer().input) == "n" {
+            let _ = self.lexer_mut().next()?;
+        }
+        Ok(())
     }
 
     /// Returns whether the token is significant for the preprocessor.
@@ -481,7 +677,10 @@ impl<'a> Preprocessor<'a> {
     fn do_preprocess(&mut self, token: Token) -> Result<PreprocessResult, LexError> {
         match token.kind {
             TokenKind::Accent => self.parse_invocation(),
-            TokenKind::Backslash => todo!("\\ and \\n handling in preprocessor"),
+            TokenKind::Backslash => {
+                self.parse_backslash()?;
+                Ok(PreprocessResult::Consumed)
+            }
             TokenKind::EndOfFile if self.is_in_expansion() => {
                 trace!("exiting expansion");
                 self.stack.pop();

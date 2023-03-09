@@ -15,13 +15,17 @@ use muscript_parsing::{
     },
     Structured,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Action {
     Lex,
-    Parse,
+    Parse {
+        /// Parse without printing the AST.
+        #[clap(long)]
+        no_print: bool,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -47,6 +51,10 @@ pub struct Args {
     /// Print debug notes for diagnostics that have them.
     #[clap(long)]
     diagnostics_debug_info: bool,
+
+    /// Only print out the first `N` diagnostics.
+    #[clap(long, name = "n")]
+    diagnostics_limit: Option<usize>,
 }
 
 pub fn muscript(args: Args) -> anyhow::Result<()> {
@@ -106,6 +114,8 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
         eprintln!();
         info!("Finished with the following diagnostics:");
         eprintln!();
+        let limit = args.diagnostics_limit.unwrap_or(10);
+        let mut count: usize = 0;
         for diagnostic in stats.diagnostics {
             diagnostic.emit_to_stderr(
                 &source_file_set,
@@ -113,6 +123,11 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
                     show_debug_info: args.diagnostics_debug_info,
                 },
             )?;
+            count += 1;
+            if count > limit {
+                warn!("Only the first {limit} diagnostics are displayed; the limit can be set with `--diagnostics-limit=N`");
+                break;
+            }
         }
     }
     if args.stats {
@@ -168,26 +183,45 @@ fn perform_action_on_source_file(
     match action {
         Action::Lex => {
             let mut definitions = definitions.clone();
-            let mut lexer = Preprocessor::new(id, Rc::clone(&file.source), &mut definitions);
+            let mut diagnostics = vec![];
+            let mut tokens = Preprocessor::new(
+                id,
+                Rc::clone(&file.source),
+                &mut definitions,
+                &mut diagnostics,
+            );
             loop {
-                let token = lexer.next()?;
+                let token = tokens.next()?;
                 println!("{token:?} {:?}", &file.source[token.span.to_range()]);
                 if token.kind == TokenKind::EndOfFile {
                     break;
                 }
             }
         }
-        Action::Parse => {
+        Action::Parse { no_print } => {
             let mut definitions = definitions.clone();
-            let lexer = Preprocessor::new(id, Rc::clone(&file.source), &mut definitions);
-            let mut sink = vec![];
-            let mut parser =
-                muscript_parsing::Parser::new(id, &file.source, Structured::new(lexer), &mut sink);
+            let mut preproc_diagnostics = vec![];
+            let tokens = Preprocessor::new(
+                id,
+                Rc::clone(&file.source),
+                &mut definitions,
+                &mut preproc_diagnostics,
+            );
+            let mut parser_diagnostics = vec![];
+            let mut parser = muscript_parsing::Parser::new(
+                id,
+                &file.source,
+                Structured::new(tokens),
+                &mut parser_diagnostics,
+            );
             let file = parser.parse::<ast::File>();
-            if !sink.is_empty() {
-                return Err(sink);
+            preproc_diagnostics.append(&mut parser_diagnostics);
+            if !preproc_diagnostics.is_empty() {
+                return Err(preproc_diagnostics);
             }
-            println!("{file:#?}");
+            if !no_print {
+                println!("{file:#?}");
+            }
         }
     }
     Ok(())

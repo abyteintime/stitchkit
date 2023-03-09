@@ -514,11 +514,24 @@ impl<'a> Preprocessor<'a> {
             let open = self.lexer_mut().next()?;
             let (arguments, close) = self.parse_comma_separated(&open, |preproc| {
                 let start = preproc.lexer().position;
-                while !matches!(
-                    preproc.lexer_mut().peek()?.kind,
-                    TokenKind::Comma | TokenKind::RightParen
-                ) {
-                    let _ = preproc.lexer_mut().next()?;
+                let mut nesting = 0;
+                loop {
+                    let token = preproc.lexer_mut().peek()?;
+                    match token.kind {
+                        TokenKind::LeftParen => {
+                            let _ = preproc.lexer_mut().next()?;
+                            nesting += 1;
+                        }
+                        TokenKind::RightParen if nesting > 0 => {
+                            let _ = preproc.lexer_mut().next()?;
+                            nesting -= 1;
+                        }
+                        TokenKind::RightParen if nesting == 0 => break,
+                        TokenKind::Comma if nesting == 0 => break,
+                        _ => {
+                            let _ = preproc.lexer_mut().next()?;
+                        }
+                    }
                 }
                 let end = preproc.lexer().position;
                 Ok(Definition {

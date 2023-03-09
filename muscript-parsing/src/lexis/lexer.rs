@@ -158,7 +158,7 @@ impl Lexer {
             } else {
                 Ok(())
             }
-            .map(|_| TokenKind::Float);
+            .map(|_| TokenKind::FloatLit);
             // NOTE: Even in case of error above, we want to continue reading to skip the possible
             // f suffix so that the parser doesn't have to deal with a stray identifier.
             if self.current_char() == Some('f') {
@@ -167,9 +167,9 @@ impl Lexer {
             result
         } else if self.current_char() == Some('f') {
             self.advance_char();
-            Ok(TokenKind::Float)
+            Ok(TokenKind::FloatLit)
         } else {
-            Ok(TokenKind::Int)
+            Ok(TokenKind::IntLit)
         }
     }
 
@@ -181,7 +181,7 @@ impl Lexer {
                 while let Some('0'..='9' | 'A'..='F' | 'a'..='f') = self.current_char() {
                     self.advance_char();
                 }
-                Ok(TokenKind::IntHex)
+                Ok(TokenKind::IntLit)
             } else {
                 // Again, we don't want to early-out here to not leave the parser with a
                 // stray identifier.
@@ -259,7 +259,7 @@ impl Lexer {
             self.string_char()?;
         }
         self.advance_char();
-        Ok(TokenKind::String)
+        Ok(TokenKind::StringLit)
     }
 
     fn name(&mut self, start: usize) -> Result<TokenKind, LexError> {
@@ -278,7 +278,7 @@ impl Lexer {
             self.string_char()?;
         }
         self.advance_char();
-        Ok(TokenKind::Name)
+        Ok(TokenKind::NameLit)
     }
 
     fn single_char_token(&mut self, kind: TokenKind) -> TokenKind {

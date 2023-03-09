@@ -3,13 +3,12 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::token::{
-        self, Assign, Float, Ident, LeftBrace, LeftParen, Name, RightBrace, RightParen, Semi, Token,
+        Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace, RightParen,
+        Semi, StringLit, Token,
     },
     list::TerminatedListErrorKind,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
-
-use super::IntLit;
 
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct DefaultPropertiesBlock {
@@ -49,9 +48,9 @@ pub struct Index {
 #[parse(error = "lit_error")]
 pub enum Lit {
     Int(IntLit),
-    Float(Float),
-    String(token::String),
-    Ident(Ident, Option<Name>),
+    Float(FloatLit),
+    String(StringLit),
+    Ident(Ident, Option<NameLit>),
 }
 
 impl Parse for DefaultPropertiesBlock {

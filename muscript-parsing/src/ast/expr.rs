@@ -8,8 +8,8 @@ use unicase::UniCase;
 
 use crate::{
     lexis::token::{
-        self, Assign, Colon, Dot, Float, Ident, Int, IntHex, Keyword, LeftBracket, LeftParen, Name,
-        Question, RightBracket, RightParen, Token, TokenKind,
+        Assign, Colon, Dot, FloatLit, Ident, IntLit, Keyword, LeftBracket, LeftParen, NameLit,
+        Question, RightBracket, RightParen, StringLit, Token, TokenKind,
     },
     list::DelimitedListDiagnostics,
     Parse, ParseError, ParseStream, Parser,
@@ -23,7 +23,7 @@ pub enum Expr {
     Ident(Ident),
     Object {
         class: Ident,
-        name: Name,
+        name: NameLit,
     },
 
     Prefix {
@@ -105,11 +105,10 @@ impl Expr {
 
         Ok(match token.kind {
             TokenKind::Ident => Expr::ident(parser, token)?,
-            TokenKind::Int => Expr::Lit(Lit::Int(IntLit::Dec(Int { span: token.span }))),
-            TokenKind::IntHex => Expr::Lit(Lit::Int(IntLit::Hex(IntHex { span: token.span }))),
-            TokenKind::Float => Expr::Lit(Lit::Float(Float { span: token.span })),
-            TokenKind::String => Expr::Lit(Lit::String(token::String { span: token.span })),
-            TokenKind::Name => Expr::Lit(Lit::Name(Name { span: token.span })),
+            TokenKind::IntLit => Expr::Lit(Lit::Int(IntLit { span: token.span })),
+            TokenKind::FloatLit => Expr::Lit(Lit::Float(FloatLit { span: token.span })),
+            TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
+            TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { span: token.span })),
 
             TokenKind::Sub
             | TokenKind::Not

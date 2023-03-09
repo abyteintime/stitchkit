@@ -87,11 +87,10 @@ define_tokens! {
 
     Ident = "identifier",
 
-    Int    = "int literal",
-    IntHex = "hexadecimal int literal",
-    Float  = "float literal",
-    String = "string literal",
-    Name   = "name literal",
+    IntLit    = "int literal",
+    FloatLit  = "float literal",
+    StringLit = "string literal",
+    NameLit   = "name literal",
 
     Add              = "`+`",
     Sub              = "`-`",

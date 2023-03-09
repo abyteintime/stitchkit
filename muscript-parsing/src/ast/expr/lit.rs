@@ -2,7 +2,7 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::token::{self, Float, Int, IntHex, Name, Token},
+    lexis::token::{FloatLit, IntLit, NameLit, StringLit, Token},
     Parse, ParseStream, Parser, PredictiveParse,
 };
 
@@ -17,13 +17,6 @@ pub enum BoolLit {
     False(KFalse),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
-#[parse(error = "int_lit_error")]
-pub enum IntLit {
-    Dec(Int),
-    Hex(IntHex),
-}
-
 // NOTE: If you want to parse a literal, you actually probably want to use `Expr` instead.
 // This lets the user enjoy full expression syntax, as you can const-evaluate the expression
 // during semantic analysis. Also, negation `-` is not part of number literals, so beware!
@@ -33,25 +26,14 @@ pub enum Lit {
     None(KNone),
     Bool(BoolLit),
     Int(IntLit),
-    Float(Float),
-    String(token::String),
-    Name(Name),
+    Float(FloatLit),
+    String(StringLit),
+    Name(NameLit),
 }
 
 fn bool_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "boolean `true` or `false` expected")
         .with_label(Label::primary(token.span, "this token is not a boolean"))
-}
-
-fn int_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "integer literal expected")
-        .with_label(Label::primary(
-            token.span,
-            "this token is not an integer literal",
-        ))
-        .with_note(
-            "note: integer literals can be decimal - like `123` - or hexadecimal - like `0x1ABC`",
-        )
 }
 
 fn lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

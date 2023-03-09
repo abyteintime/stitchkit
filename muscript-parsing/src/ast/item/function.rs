@@ -3,11 +3,11 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, IntLit, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip,
-        KStatic, Type,
+        Block, Expr, KCoerce, KConst, KFinal, KNative, KOptional, KOut, KSimulated, KSkip, KStatic,
+        Type,
     },
     diagnostics::{labels, notes},
-    lexis::token::{Assign, Ident, LeftParen, RightParen, Semi, Token, TokenKind},
+    lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
     list::DelimitedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };

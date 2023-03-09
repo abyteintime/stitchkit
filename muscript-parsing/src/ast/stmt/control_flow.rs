@@ -1,10 +1,9 @@
 use muscript_foundation::errors::{Diagnostic, Label};
-use muscript_parsing_derive::{Parse, PredictiveParse};
 
 use crate::{
-    ast::Expr,
+    ast::{Expr, Precedence},
     lexis::token::{LeftParen, RightParen, Semi, Token},
-    ParseStream, Parser,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::{Block, Stmt};
@@ -77,11 +76,11 @@ pub struct StmtFor {
     pub body: Box<Stmt>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse)]
 pub struct StmtForEach {
     pub foreach: KForEach,
-    pub expr: Expr,
-    pub block: Block,
+    pub iterator: Expr,
+    pub stmt: Box<Stmt>,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -109,6 +108,19 @@ pub struct StmtBreak {
 pub struct StmtContinue {
     pub kreturn: KContinue,
     pub semi: Semi,
+}
+
+impl Parse for StmtForEach {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let foreach = parser.parse()?;
+        let iterator = Expr::precedence_parse(parser, Precedence::BELOW_CALL)?;
+        let stmt = Box::new(parser.parse()?);
+        Ok(Self {
+            foreach,
+            iterator,
+            stmt,
+        })
+    }
 }
 
 fn _return_value_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

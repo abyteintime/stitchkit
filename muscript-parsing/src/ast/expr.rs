@@ -1,5 +1,7 @@
 mod lit;
 
+use std::cmp::Ordering;
+
 use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::{Span, Spanned},
@@ -117,7 +119,7 @@ impl Expr {
             | TokenKind::Dec => Expr::unary(parser, token)?,
 
             TokenKind::LeftParen => {
-                let inner = Expr::precedence_parse(parser, 0)?;
+                let inner = Expr::precedence_parse(parser, Precedence::EXPR)?;
                 let close = parser.parse_with_error(|parser, span| {
                     Diagnostic::error(parser.file, "missing `)` to close grouped expression")
                         .with_label(Label::primary(span, "`)` expected here..."))
@@ -214,7 +216,7 @@ impl Expr {
             TokenKind::LeftBracket => Expr::Index {
                 left: Box::new(left),
                 open: LeftBracket::default_from_span(op.token.span),
-                index: Box::new(Expr::precedence_parse(parser, 0)?),
+                index: Box::new(Expr::precedence_parse(parser, Precedence::EXPR)?),
                 close: parser.parse()?,
             },
             TokenKind::Question => Expr::ternary(parser, left, op.token)?,
@@ -233,8 +235,7 @@ impl Expr {
         operator: InfixOperator,
         build: impl FnOnce(InfixOperator, Expr) -> Expr,
     ) -> Result<Expr, ParseError> {
-        let right =
-            Expr::precedence_parse(parser, operator.token.precedence(parser.input).unwrap())?;
+        let right = Expr::precedence_parse(parser, operator.token.precedence(parser.input))?;
         Ok(build(operator, right))
     }
 
@@ -245,7 +246,7 @@ impl Expr {
     ) -> Result<Expr, ParseError> {
         use crate::lexis::token::SingleToken;
 
-        let precedence = token.precedence(parser.input).unwrap();
+        let precedence = token.precedence(parser.input);
         Ok(Expr::Ternary {
             cond: Box::new(left),
             question: Question::default_from_span(token.span),
@@ -253,7 +254,7 @@ impl Expr {
             colon: parser.parse()?,
             // NOTE: We want to use one less precedence here, since this should be able to match
             // ?: without a problem, so that ternaries can be chained like an if-else if-else.
-            false_result: Box::new(Expr::precedence_parse(parser, precedence - 1)?),
+            false_result: Box::new(Expr::precedence_parse(parser, Precedence::BELOW_TERNARY)?),
         })
     }
 
@@ -313,15 +314,15 @@ impl Expr {
         }
     }
 
-    fn precedence_parse(
+    pub fn precedence_parse(
         parser: &mut Parser<'_, impl ParseStream>,
-        precedence: u8,
+        precedence: Precedence,
     ) -> Result<Expr, ParseError> {
         let token = parser.next_token()?;
         let mut chain = Expr::parse_prefix(parser, token)?;
 
         let mut operator;
-        while Some(precedence) < parser.peek_token()?.precedence(parser.input) {
+        while precedence < parser.peek_token()?.precedence(parser.input) {
             operator = Expr::next_infix_operator(parser)?;
             chain = Expr::parse_infix(parser, chain, operator)?;
         }
@@ -330,66 +331,81 @@ impl Expr {
     }
 }
 
+impl Precedence {
+    pub const PATH: Self = Self::Some(6);
+    pub const CALL: Self = Self::Some(8);
+    // Needed for `foreach` statements. UnrealScript may be a little more... hardcoded in this
+    // case, but I think there's a case to be made for letting your iterators be arbitrary
+    // expressions.
+    pub const BELOW_CALL: Self = Self::Some(9);
+
+    // We don't know the actual precedence of postfix operators so we take a guess that
+    // it's something lower than paths and higher than arithmetic.
+    pub const POSTFIX: Self = Self::Some(10);
+
+    pub const TERNARY: Self = Self::Some(48);
+    pub const BELOW_TERNARY: Self = Self::Some(49);
+
+    pub const ASSIGN: Self = Self::Some(50);
+
+    pub const EXPR: Self = Self::Some(u8::MAX);
+}
+
 impl Token {
-    fn precedence(&self, input: &str) -> Option<u8> {
+    fn precedence(&self, input: &str) -> Precedence {
         // Unlike vanilla UnrealScript, we hardcode our precedence numbers because not doing so
         // would make parsing insanely hard.
         match self.kind {
             _ if self.kind.is_overloadable_operator() && self.is_compound_assignment(input) => {
-                Some(34)
+                Precedence::ASSIGN
             }
 
             // These precedence numbers are for magic operators and are only best guesses.
-            TokenKind::Dot => Some(8),
-            TokenKind::LeftParen => Some(8),
-            TokenKind::LeftBracket => Some(8),
-            TokenKind::Question => Some(48),
-            TokenKind::Assign => Some(50),
+            TokenKind::Dot => Precedence::PATH,
+            TokenKind::LeftBracket => Precedence::PATH,
+            TokenKind::LeftParen => Precedence::CALL,
+            TokenKind::Question => Precedence::TERNARY,
+            TokenKind::Assign => Precedence::ASSIGN,
 
             // These precedence numbers are taken straight from Object.uc.
-            TokenKind::Pow => Some(12),
-            TokenKind::Mul => Some(16),
-            TokenKind::Div => Some(16),
-            TokenKind::Rem => Some(16),
-            TokenKind::Add => Some(20),
-            TokenKind::Sub => Some(20),
-            TokenKind::ShiftLeft => Some(22),
-            TokenKind::ShiftRight => Some(22),
-            TokenKind::TripleShiftRight => Some(22),
-            TokenKind::Equal => Some(24),
-            TokenKind::Less => Some(24),
-            TokenKind::LessEqual => Some(24),
-            TokenKind::Greater => Some(24),
-            TokenKind::GreaterEqual => Some(24),
-            TokenKind::ApproxEqual => Some(24),
+            TokenKind::Pow => Precedence::Some(12),
+            TokenKind::Mul => Precedence::Some(16),
+            TokenKind::Div => Precedence::Some(16),
+            TokenKind::Rem => Precedence::Some(16),
+            TokenKind::Add => Precedence::Some(20),
+            TokenKind::Sub => Precedence::Some(20),
+            TokenKind::ShiftLeft => Precedence::Some(22),
+            TokenKind::ShiftRight => Precedence::Some(22),
+            TokenKind::TripleShiftRight => Precedence::Some(22),
+            TokenKind::Equal => Precedence::Some(24),
+            TokenKind::Less => Precedence::Some(24),
+            TokenKind::LessEqual => Precedence::Some(24),
+            TokenKind::Greater => Precedence::Some(24),
+            TokenKind::GreaterEqual => Precedence::Some(24),
+            TokenKind::ApproxEqual => Precedence::Some(24),
             // Weird thing: != has lower precedence than ==.
-            TokenKind::NotEqual => Some(26),
-            TokenKind::BitAnd => Some(28),
-            TokenKind::BitXor => Some(28),
-            TokenKind::BitOr => Some(28),
-            TokenKind::And => Some(30),
-            TokenKind::Xor => Some(30),
-            TokenKind::Or => Some(32),
+            TokenKind::NotEqual => Precedence::Some(26),
+            TokenKind::BitAnd => Precedence::Some(28),
+            TokenKind::BitXor => Precedence::Some(28),
+            TokenKind::BitOr => Precedence::Some(28),
+            TokenKind::And => Precedence::Some(30),
+            TokenKind::Xor => Precedence::Some(30),
+            TokenKind::Or => Precedence::Some(32),
             // These two are incompatible with vanilla UnrealScript because the precedence
             // declared in Object.uc doesn't make sense. Why would `$` and `@` bind weaker than `=`?
-            TokenKind::Dollar | TokenKind::At => Some(34),
+            TokenKind::Dollar | TokenKind::At => Precedence::Some(34),
 
             TokenKind::Ident => match UniCase::new(self.span.get_input(input)) {
-                s if s == UniCase::ascii("dot") => Some(16),
-                s if s == UniCase::ascii("cross") => Some(16),
-                s if s == UniCase::ascii("clockwisefrom") => Some(24),
-                _ => None,
+                s if s == UniCase::ascii("dot") => Precedence::Some(16),
+                s if s == UniCase::ascii("cross") => Precedence::Some(16),
+                s if s == UniCase::ascii("clockwisefrom") => Precedence::Some(24),
+                _ => Precedence::None,
             },
 
-            // We don't know the actual precedence of postfix operators so we take a guess that
-            // it's something lower than fields and higher than arithmetic.
-            TokenKind::Inc | TokenKind::Dec => Some(10),
+            TokenKind::Inc | TokenKind::Dec => Precedence::POSTFIX,
 
-            _ => None,
+            _ => Precedence::None,
         }
-        // We need to invert the precedence numbers because in Pratt parsing lower numbers
-        // mean lower precedence, while in UnrealScript higher numbers mean lower precedence.
-        .map(|x| u8::MAX - x)
     }
 
     fn is_compound_assignment(&self, input: &str) -> bool {
@@ -399,8 +415,51 @@ impl Token {
     }
 }
 
+/// Specialized version of [`Option<T>`] that's specialized for precedence levels.
+///
+/// Unlike [`Option<u8>`], it compares correctly given UnrealScript's inverted precedence hierarchy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Precedence {
+    None,
+    Some(u8),
+}
+
+impl PartialOrd for Precedence {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let this = Option::<u8>::from(*self).map(|x| u8::MAX - x);
+        let other = Option::<u8>::from(*other).map(|x| u8::MAX - x);
+        this.partial_cmp(&other)
+    }
+}
+
+impl Ord for Precedence {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let this = Option::<u8>::from(*self).map(|x| u8::MAX - x);
+        let other = Option::<u8>::from(*other).map(|x| u8::MAX - x);
+        this.cmp(&other)
+    }
+}
+
+impl From<Option<u8>> for Precedence {
+    fn from(value: Option<u8>) -> Self {
+        match value {
+            Some(x) => Self::Some(x),
+            None => Self::None,
+        }
+    }
+}
+
+impl From<Precedence> for Option<u8> {
+    fn from(value: Precedence) -> Self {
+        match value {
+            Precedence::None => None,
+            Precedence::Some(x) => Some(x),
+        }
+    }
+}
+
 impl Parse for Expr {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        Expr::precedence_parse(parser, 0)
+        Expr::precedence_parse(parser, Precedence::EXPR)
     }
 }

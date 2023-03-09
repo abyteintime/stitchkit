@@ -3,7 +3,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::token::{
-        self, Assign, Float, Ident, LeftBrace, LeftParen, RightBrace, RightParen, Semi, Token,
+        self, Assign, Float, Ident, LeftBrace, LeftParen, Name, RightBrace, RightParen, Semi, Token,
     },
     list::TerminatedListErrorKind,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -51,7 +51,7 @@ pub enum Lit {
     Int(IntLit),
     Float(Float),
     String(token::String),
-    Ident(Ident),
+    Ident(Ident, Option<Name>),
 }
 
 impl Parse for DefaultPropertiesBlock {

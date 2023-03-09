@@ -21,6 +21,10 @@ pub use lit::*;
 pub enum Expr {
     Lit(Lit),
     Ident(Ident),
+    Object {
+        class: Ident,
+        name: Name,
+    },
 
     Prefix {
         operator: Token,
@@ -107,7 +111,11 @@ impl Expr {
             TokenKind::String => Expr::Lit(Lit::String(token::String { span: token.span })),
             TokenKind::Name => Expr::Lit(Lit::Name(Name { span: token.span })),
 
-            TokenKind::Sub | TokenKind::Not | TokenKind::BitNot => Expr::unary(parser, token)?,
+            TokenKind::Sub
+            | TokenKind::Not
+            | TokenKind::BitNot
+            | TokenKind::Inc
+            | TokenKind::Dec => Expr::unary(parser, token)?,
 
             TokenKind::LeftParen => {
                 let inner = Expr::precedence_parse(parser, 0)?;
@@ -162,7 +170,14 @@ impl Expr {
             _ if KFalse::matches(s) => {
                 Expr::Lit(Lit::Bool(BoolLit::False(KFalse { span: ident.span })))
             }
-            _ => Expr::Ident(Ident { span: ident.span }),
+            _ => {
+                let ident = Ident { span: ident.span };
+                if let Some(name) = parser.parse()? {
+                    Expr::Object { class: ident, name }
+                } else {
+                    Expr::Ident(ident)
+                }
+            }
         })
     }
 

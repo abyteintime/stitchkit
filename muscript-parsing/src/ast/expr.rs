@@ -430,7 +430,7 @@ impl Token {
     }
 }
 
-/// Specialized version of [`Option<T>`] that's specialized for precedence levels.
+/// Specialized version of [`Option<T>`] that's built for handling precedence levels.
 ///
 /// Unlike [`Option<u8>`], it compares correctly given UnrealScript's inverted precedence hierarchy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

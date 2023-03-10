@@ -17,6 +17,8 @@ pub trait TokenStream {
         }
     }
 
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()>;
+
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError>;
 
     fn peek_include_comments(&mut self) -> Result<Token, LexError>;
@@ -35,6 +37,12 @@ where
 {
     fn next_include_comments(&mut self) -> Result<Token, LexError> {
         <T as TokenStream>::next_include_comments(self)
+    }
+
+    /// Parses a "blob", that is any sequence of characters terminated by a character for which
+    /// `is_end` returns true. Returns `Err(())` if EOF is reached.
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+        <T as TokenStream>::text_blob(self, is_end)
     }
 
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {

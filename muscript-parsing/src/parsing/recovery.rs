@@ -53,6 +53,10 @@ where
         Ok(token)
     }
 
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+        self.inner.text_blob(is_end)
+    }
+
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
         self.inner.braced_string(left_brace_span)
     }

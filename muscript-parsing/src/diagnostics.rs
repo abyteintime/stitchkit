@@ -20,9 +20,9 @@ pub mod notes {
 }
 
 pub mod sets {
-    use crate::list::DelimitedListDiagnostics;
+    use crate::list::SeparatedListDiagnostics;
 
-    pub static VARIABLES: DelimitedListDiagnostics = DelimitedListDiagnostics {
+    pub static VARIABLES: SeparatedListDiagnostics = SeparatedListDiagnostics {
         missing_right: "missing `;` to end variable declaration",
         missing_right_label: "this variable declaration does not have a `;`",
         missing_comma: "`,` or `;` expected after variable name",

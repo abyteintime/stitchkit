@@ -3,7 +3,7 @@ use muscript_foundation::errors::Diagnostic;
 use crate::{
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
-    list::DelimitedListDiagnostics,
+    list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -28,11 +28,11 @@ impl Parse for ItemEnum {
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let open = parser.parse()?;
-        let (variants, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
+        let (variants, close) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
                 &open,
                 error,
-                DelimitedListDiagnostics {
+                SeparatedListDiagnostics {
                     missing_right: "missing `}` to close enum variant list",
                     missing_right_label: "this `{` does not have a matching `}`",
                     missing_comma: "`,` or `}` expected after enum variant",

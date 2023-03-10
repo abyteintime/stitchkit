@@ -723,6 +723,10 @@ impl<'a> TokenStream for Preprocessor<'a> {
         }
     }
 
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+        self.lexer_mut().text_blob(is_end)
+    }
+
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
         // NOTE: Preprocessor inside braced strings? Is it going to be necessary?
         // We don't support exporting C++ anyways (since Hat has no way of loading our DLLs,

@@ -13,7 +13,7 @@ use crate::{
         Assign, Colon, Dot, FloatLit, Ident, IntLit, Keyword, LeftBracket, LeftParen, NameLit,
         Question, RightBracket, RightParen, StringLit, Token, TokenKind,
     },
-    list::DelimitedListDiagnostics,
+    list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser,
 };
 
@@ -266,11 +266,11 @@ impl Expr {
         use crate::lexis::token::SingleToken;
 
         let open = LeftParen::default_from_span(token.span);
-        let (args, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
+        let (args, close) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
                 &open,
                 error,
-                DelimitedListDiagnostics {
+                SeparatedListDiagnostics {
                     missing_right: "missing `)` to close function argument list",
                     missing_right_label: "this `(` does not have a matching `)`",
                     // TODO: Is there anything to do to make this error more accurate?

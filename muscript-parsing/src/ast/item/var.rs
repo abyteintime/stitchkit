@@ -2,8 +2,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Expr, KConfig, KConst, KDeprecated, KEditConst, KExport, KGlobalConfig, KInterp,
-        KLocalized, KNative, KNoClear, KNoExport, KPrivate, KRepNotify, KTransient, Type,
+        CppBlob, Expr, KConfig, KConst, KDeprecated, KEditConst, KEditorOnly, KExport,
+        KGlobalConfig, KInterp, KLocalized, KNative, KNoClear, KNoExport, KNoImport, KPrivate,
+        KRepNotify, KTransient, Meta, Type,
     },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
@@ -28,8 +29,8 @@ impl Parse for ItemVar {
         let editor = parser.parse()?;
         let specifiers = parser.parse_greedy_list()?;
         let ty = parser.parse()?;
-        let (names, semi) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(&var, error, diagnostics::sets::VARIABLES)
+        let (names, semi) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(&var, error, diagnostics::sets::VARIABLES)
         })?;
         Ok(Self {
             var,
@@ -56,6 +57,7 @@ pub enum VarSpecifier {
     Const(KConst),
     Deprecated(KDeprecated),
     EditConst(KEditConst),
+    EditorOnly(KEditorOnly),
     Export(KExport),
     GlobalConfig(KGlobalConfig),
     Interp(KInterp),
@@ -63,6 +65,7 @@ pub enum VarSpecifier {
     Native(KNative),
     NoClear(KNoClear),
     NoExport(KNoExport),
+    NoImport(KNoImport),
     Private(KPrivate),
     RepNotify(KRepNotify),
     Transient(KTransient),
@@ -88,6 +91,8 @@ fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diag
 pub struct VarDef {
     pub name: Ident,
     pub array: Option<VarArray>,
+    pub meta: Option<Meta>,
+    pub cpptype: Option<CppBlob>,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]

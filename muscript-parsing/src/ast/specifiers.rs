@@ -2,7 +2,7 @@
 
 use crate::{
     lexis::token::{LeftParen, RightParen},
-    list::DelimitedListDiagnostics,
+    list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -18,6 +18,7 @@ keyword! {
     KDeprecated = "deprecated",
     KEditConst = "editconst",
     KEditInlineNew = "editinlinenew",
+    KEditorOnly = "editoronly",
     KExec = "exec",
     KExport = "export",
     KFinal = "final",
@@ -32,6 +33,7 @@ keyword! {
     KNativeReplication = "nativereplication",
     KNoClear = "noclear",
     KNoExport = "noexport",
+    KNoImport = "noimport",
     KOptional = "optional",
     KOut = "out",
     KPrivate = "private",
@@ -55,11 +57,11 @@ pub struct SpecifierArgs {
 impl Parse for SpecifierArgs {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
-        let (args, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
+        let (args, close) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
                 &open,
                 error,
-                DelimitedListDiagnostics {
+                SeparatedListDiagnostics {
                     missing_right: "missing `)` to close specifier argument list",
                     missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected after specifier argument",

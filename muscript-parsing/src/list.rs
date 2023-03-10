@@ -6,7 +6,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::{
-        token::{SingleToken, Token, TokenKind},
+        token::{Comma, SingleToken, Token, TokenKind},
         TokenStream,
     },
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -73,15 +73,16 @@ where
         Ok((elements, terminator))
     }
 
-    pub fn parse_delimited_list<E, R>(&mut self) -> Result<(Vec<E>, R), DelimitedListError<R>>
+    pub fn parse_separated_list<E, R, S>(&mut self) -> Result<(Vec<E>, R), SeparatedListError<R>>
     where
         R: SingleToken,
         E: Parse,
+        S: SingleToken,
     {
         fn error<R>(
-            kind: DelimitedListErrorKind,
-        ) -> impl FnOnce(ParseError) -> DelimitedListError<R> {
-            move |parse| DelimitedListError {
+            kind: SeparatedListErrorKind,
+        ) -> impl FnOnce(ParseError) -> SeparatedListError<R> {
+            move |parse| SeparatedListError {
                 kind,
                 parse,
                 _phantom: PhantomData,
@@ -92,11 +93,11 @@ where
         let close = loop {
             let token = self
                 .peek_token()
-                .map_err(error(DelimitedListErrorKind::Parse))?;
+                .map_err(error(SeparatedListErrorKind::Parse))?;
             match token.kind {
                 TokenKind::EndOfFile => {
-                    return Err(DelimitedListError {
-                        kind: DelimitedListErrorKind::MissingRight,
+                    return Err(SeparatedListError {
+                        kind: SeparatedListErrorKind::MissingRight,
                         parse: self.make_error(token.span),
                         _phantom: PhantomData,
                     });
@@ -106,22 +107,19 @@ where
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
                     self.next_token()
-                        .map_err(error(DelimitedListErrorKind::Parse))?;
+                        .map_err(error(SeparatedListErrorKind::Parse))?;
                     break R::default_from_span(token.span);
                 }
                 _ => (),
             }
             // TODO: Have some better error recovery in case parsing the element or any delimiting
             // tokens fails.
-            elements.push(self.parse().map_err(error(DelimitedListErrorKind::Parse))?);
+            elements.push(self.parse().map_err(error(SeparatedListErrorKind::Parse))?);
             match self
                 .next_token()
-                .map_err(error(DelimitedListErrorKind::Parse))?
+                .map_err(error(SeparatedListErrorKind::Parse))?
             {
-                Token {
-                    span: _, // TODO: Maybe save the span info? How useful would it be?
-                    kind: TokenKind::Comma,
-                } => (),
+                token if S::matches(&token, token.span.get_input(self.input)) => (),
                 token if R::matches(&token, token.span.get_input(self.input)) => {
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
@@ -129,8 +127,8 @@ where
                     break R::default_from_span(token.span);
                 }
                 unexpected => {
-                    return Err(DelimitedListError {
-                        kind: DelimitedListErrorKind::MissingComma,
+                    return Err(SeparatedListError {
+                        kind: SeparatedListErrorKind::MissingSeparator,
                         parse: self.make_error(unexpected.span),
                         _phantom: PhantomData,
                     });
@@ -139,18 +137,26 @@ where
         };
         Ok((elements, close))
     }
+
+    pub fn parse_comma_separated_list<E, R>(&mut self) -> Result<(Vec<E>, R), SeparatedListError<R>>
+    where
+        R: SingleToken,
+        E: Parse,
+    {
+        self.parse_separated_list::<E, R, Comma>()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum DelimitedListErrorKind {
+pub enum SeparatedListErrorKind {
     Parse,
     MissingRight,
-    MissingComma,
+    MissingSeparator,
 }
 
 #[derive(Debug, Clone)]
-pub struct DelimitedListError<R> {
-    pub kind: DelimitedListErrorKind,
+pub struct SeparatedListError<R> {
+    pub kind: SeparatedListErrorKind,
     pub parse: ParseError,
     _phantom: PhantomData<R>,
 }
@@ -168,7 +174,7 @@ pub struct TerminatedListError {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DelimitedListDiagnostics<'a> {
+pub struct SeparatedListDiagnostics<'a> {
     /// ```text
     /// missing `right` to close [thing]
     /// ```
@@ -200,24 +206,24 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
-    pub fn emit_delimited_list_diagnostic<L, R>(
+    pub fn emit_separated_list_diagnostic<L, R>(
         &mut self,
         open: &L,
-        error: DelimitedListError<R>,
-        diagnostics: DelimitedListDiagnostics<'_>,
+        error: SeparatedListError<R>,
+        diagnostics: SeparatedListDiagnostics<'_>,
     ) -> ParseError
     where
         L: SingleToken,
         R: SingleToken,
     {
         match error.kind {
-            DelimitedListErrorKind::Parse => (),
-            DelimitedListErrorKind::MissingRight => self.emit_diagnostic(
+            SeparatedListErrorKind::Parse => (),
+            SeparatedListErrorKind::MissingRight => self.emit_diagnostic(
                 Diagnostic::error(self.file, diagnostics.missing_right).with_label(
                     Label::secondary(open.span(), diagnostics.missing_right_label),
                 ),
             ),
-            DelimitedListErrorKind::MissingComma => self.emit_diagnostic(
+            SeparatedListErrorKind::MissingSeparator => self.emit_diagnostic(
                 Diagnostic::error(self.file, diagnostics.missing_comma)
                     .with_label(Label::primary(
                         error.parse.span,

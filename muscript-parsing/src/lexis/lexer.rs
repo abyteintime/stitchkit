@@ -411,6 +411,22 @@ impl TokenStream for Lexer {
         })
     }
 
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+        let start = self.position;
+        loop {
+            if let Some(char) = self.current_char() {
+                if is_end(char) {
+                    break;
+                }
+                self.advance_char();
+            } else {
+                return Err(());
+            }
+        }
+        let end = self.position;
+        Ok(Span::from(start..end))
+    }
+
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
         let start = self.position;
 

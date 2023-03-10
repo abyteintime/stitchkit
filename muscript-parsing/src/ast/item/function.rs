@@ -8,7 +8,7 @@ use crate::{
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
-    list::DelimitedListDiagnostics,
+    list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -206,11 +206,11 @@ impl PredictiveParse for ItemFunction {
 impl Parse for Params {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
-        let (params, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
+        let (params, close) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
                 &open,
                 error,
-                DelimitedListDiagnostics {
+                SeparatedListDiagnostics {
                     missing_right: "missing `)` to close function parameter list",
                     missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected after parameter",

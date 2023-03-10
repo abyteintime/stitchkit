@@ -7,7 +7,7 @@ use crate::{
         Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace, RightParen,
         Semi, StringLit, Token,
     },
-    list::{DelimitedListDiagnostics, TerminatedListErrorKind},
+    list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -107,11 +107,11 @@ impl Parse for DefaultPropertiesBlock {
 impl Parse for Compound {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let open = parser.parse()?;
-        let (elements, close) = parser.parse_delimited_list().map_err(|error| {
-            parser.emit_delimited_list_diagnostic(
+        let (elements, close) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
                 &open,
                 error,
-                DelimitedListDiagnostics {
+                SeparatedListDiagnostics {
                     missing_right: "missing `)` to close compound literal",
                     missing_right_label: "this `(` does not have a matching `)`",
                     missing_comma: "`,` or `)` expected",

@@ -10,7 +10,9 @@ use super::Expr;
 
 keyword! {
     KAbstract = "abstract",
+    KAutoExpandCategories = "autoexpandcategories",
     KBitWise = "bitwise",
+    KClassGroup = "classgroup",
     KCoerce = "coerce",
     KCollapseCategories = "collapsecategories",
     KConfig = "config",

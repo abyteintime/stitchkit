@@ -8,9 +8,9 @@ use crate::{
 };
 
 use super::{
-    KAbstract, KCollapseCategories, KConfig, KDependsOn, KDeprecated, KEditInlineNew,
-    KHideCategories, KImplements, KInherits, KNative, KNativeReplication, KNoExport, KPlaceable,
-    KTransient, SpecifierArgs,
+    KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig, KDependsOn,
+    KDeprecated, KEditInlineNew, KHideCategories, KImplements, KInherits, KNative,
+    KNativeReplication, KNoExport, KPlaceable, KTransient, SpecifierArgs,
 };
 
 keyword! {
@@ -53,6 +53,8 @@ pub struct Within {
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
     Abstract(KAbstract),
+    AutoExpandCategories(KAutoExpandCategories, SpecifierArgs),
+    ClassGroup(KClassGroup, SpecifierArgs),
     CollapseCategories(KCollapseCategories),
     Config(KConfig, SpecifierArgs),
     DependsOn(KDependsOn, SpecifierArgs),

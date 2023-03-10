@@ -14,7 +14,7 @@ use crate::{
         Question, RightBracket, RightParen, StringLit, Token, TokenKind,
     },
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    Parse, ParseError, ParseStream, Parser,
 };
 
 pub use lit::*;

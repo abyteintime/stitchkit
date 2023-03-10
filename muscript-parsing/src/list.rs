@@ -6,7 +6,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     lexis::{
-        token::{Comma, SingleToken, Token, TokenKind},
+        token::{Comma, SingleToken, TokenKind},
         TokenStream,
     },
     Parse, ParseError, ParseStream, Parser, PredictiveParse,

@@ -30,6 +30,8 @@ keyword! {
     KImplements = "implements",
     KInherits = "inherits",
     KInterp = "interp",
+    KIterator = "iterator",
+    KLatent = "latent",
     KLocalized = "localized",
     KNative = "native",
     KNativeReplication = "nativereplication",
@@ -49,6 +51,7 @@ keyword! {
     KSkip = "skip",
     KStatic = "static",
     KTransient = "transient",
+    KVirtual = "virtual",
 }
 
 #[derive(Debug, Clone, PredictiveParse)]

@@ -1,6 +1,7 @@
 use crate::{
     ast::{Cond, KIf},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
+    list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -19,13 +20,6 @@ pub struct RepCondition {
     pub kif: KIf,
     pub cond: Cond,
     pub vars: Vec<Ident>,
-}
-
-//
-
-#[derive(Debug, Clone, Parse, PredictiveParse)]
-pub struct RepVar {
-    pub name: Ident,
     pub semi: Semi,
 }
 
@@ -42,10 +36,28 @@ impl Parse for ItemReplication {
 
 impl Parse for RepCondition {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let kif = parser.parse()?;
+        let cond = parser.parse()?;
+        let (vars, semi) = parser.parse_comma_separated_list().map_err(|error| {
+            parser.emit_separated_list_diagnostic(
+                &kif,
+                error,
+                SeparatedListDiagnostics {
+                    missing_right: "missing `;` after variable list",
+                    missing_right_label: "this replication condition does not have a `;`",
+                    missing_comma: "`,` or `;` expected after variable",
+                    missing_comma_open: "in this replication condition",
+                    missing_comma_token: "this was expected to continue or end the variable list",
+                    missing_comma_note:
+                        "note: variables in replication conditions are separated by commas `,`",
+                },
+            )
+        })?;
         Ok(Self {
-            kif: parser.parse()?,
-            cond: parser.parse()?,
-            vars: parser.parse_greedy_list()?,
+            kif,
+            cond,
+            vars,
+            semi,
         })
     }
 }

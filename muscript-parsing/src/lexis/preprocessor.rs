@@ -12,7 +12,7 @@ use crate::diagnostics::DiagnosticSink;
 
 use super::{
     token::{Token, TokenKind},
-    LexError, Lexer, TokenStream,
+    EofReached, LexError, Lexer, TokenStream,
 };
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
@@ -723,7 +723,7 @@ impl<'a> TokenStream for Preprocessor<'a> {
         }
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
         self.lexer_mut().text_blob(is_end)
     }
 

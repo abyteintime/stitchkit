@@ -1,10 +1,20 @@
-use muscript_parsing_derive::PredictiveParse;
+use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::token::{Greater, Ident, Less},
+    lexis::token::{Greater, Ident, Less, Token},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
+
+use super::{EnumDef, StructDef};
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "type_or_def_error")]
+pub enum TypeOrDef {
+    StructDef(StructDef),
+    EnumDef(EnumDef),
+    Type(Type),
+}
 
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct Type {
@@ -53,4 +63,12 @@ impl Parse for Generic {
             greater,
         })
     }
+}
+
+fn type_or_def_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        "type, struct definition, or enum definition expected",
+    )
+    .with_label(Label::primary(token.span, "type expected here"))
 }

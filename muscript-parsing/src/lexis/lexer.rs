@@ -7,7 +7,7 @@ use muscript_foundation::{
 
 use super::{
     token::{Token, TokenKind},
-    LexError, TokenStream,
+    EofReached, LexError, TokenStream,
 };
 
 #[derive(Debug)]
@@ -411,7 +411,7 @@ impl TokenStream for Lexer {
         })
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
         let start = self.position;
         loop {
             if let Some(char) = self.current_char() {
@@ -420,7 +420,7 @@ impl TokenStream for Lexer {
                 }
                 self.advance_char();
             } else {
-                return Err(());
+                return Err(EofReached);
             }
         }
         let end = self.position;

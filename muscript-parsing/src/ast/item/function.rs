@@ -3,8 +3,8 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, KCoerce, KConst, KExec, KFinal, KNative, KOptional, KOut, KReliable, KServer,
-        KSimulated, KSkip, KStatic, Type,
+        Block, Expr, KCoerce, KConst, KEditorOnly, KExec, KFinal, KNative, KOptional, KOut,
+        KReliable, KServer, KSimulated, KSkip, KStatic, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -24,6 +24,8 @@ keyword! {
 pub struct ItemFunction {
     pub specifiers: Vec<FunctionSpecifier>,
     pub function: FunctionKind,
+    // This is a weird specifier because it appears after the function kind.
+    pub editor_only: Option<KEditorOnly>,
     pub return_ty: Option<Type>,
     pub name: Ident,
     pub params: Params,
@@ -111,6 +113,7 @@ impl Parse for ItemFunction {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let specifiers = parser.parse_greedy_list()?;
         let function = parser.parse()?;
+        let editor_only = parser.parse()?;
 
         let (return_ty, name) = match &function {
             FunctionKind::Function(_) | FunctionKind::Event(_) => {
@@ -188,6 +191,7 @@ impl Parse for ItemFunction {
         Ok(Self {
             specifiers,
             function,
+            editor_only,
             return_ty,
             name,
             params,

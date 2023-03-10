@@ -3,6 +3,7 @@ mod cpptext;
 mod default_properties;
 mod enums;
 mod function;
+mod replication;
 mod structs;
 mod var;
 
@@ -19,6 +20,7 @@ pub use cpptext::*;
 pub use default_properties::*;
 pub use enums::*;
 pub use function::*;
+pub use replication::*;
 pub use structs::*;
 pub use var::*;
 
@@ -33,6 +35,7 @@ pub enum Item {
     Enum(ItemEnum),
     DefaultProperties(ItemDefaultProperties),
     StructDefaultProperties(ItemStructDefaultProperties),
+    Replication(ItemReplication),
     CppText(ItemCppText),
     StructCppText(ItemStructCppText),
 }

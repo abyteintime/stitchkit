@@ -1,4 +1,5 @@
 use muscript_foundation::{errors::Diagnostic, source::Span};
+use thiserror::Error;
 
 use super::{
     token::{Token, TokenKind},
@@ -17,7 +18,7 @@ pub trait TokenStream {
         }
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()>;
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached>;
 
     fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError>;
 
@@ -41,7 +42,7 @@ where
 
     /// Parses a "blob", that is any sequence of characters terminated by a character for which
     /// `is_end` returns true. Returns `Err(())` if EOF is reached.
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
         <T as TokenStream>::text_blob(self, is_end)
     }
 
@@ -61,3 +62,7 @@ where
         <T as TokenStream>::contextualize_diagnostic(self, diagnostic)
     }
 }
+
+#[derive(Debug, Error)]
+#[error("end of file reached")]
+pub struct EofReached;

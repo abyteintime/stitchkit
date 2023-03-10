@@ -3,7 +3,7 @@ use muscript_foundation::{errors::Diagnostic, source::Span};
 use crate::{
     lexis::{
         token::{SingleToken, Token, TokenKind},
-        LexError, TokenStream,
+        EofReached, LexError, TokenStream,
     },
     ParseError, ParseStream, Parser,
 };
@@ -53,7 +53,7 @@ where
         Ok(token)
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, ()> {
+    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
         self.inner.text_blob(is_end)
     }
 

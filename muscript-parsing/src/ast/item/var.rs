@@ -2,9 +2,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        CppBlob, Expr, KConfig, KConst, KDeprecated, KEditConst, KEditorOnly, KExport,
+        CppBlob, Expr, KBitWise, KConfig, KConst, KDeprecated, KEditConst, KEditorOnly, KExport,
         KGlobalConfig, KInterp, KLocalized, KNative, KNoClear, KNoExport, KNoImport, KPrivate,
-        KRepNotify, KTransient, Meta, Type,
+        KProtected, KPublic, KRepNotify, KTransient, Meta, TypeOrDef,
     },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
@@ -18,7 +18,7 @@ pub struct ItemVar {
     pub var: KVar,
     pub editor: Option<VarEditor>,
     pub specifiers: Vec<VarSpecifier>,
-    pub ty: Type,
+    pub ty: TypeOrDef,
     pub variables: Vec<VarDef>,
     pub semi: Semi,
 }
@@ -53,6 +53,7 @@ pub struct VarEditor {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum VarSpecifier {
+    BitWise(KBitWise),
     Config(KConfig),
     Const(KConst),
     Deprecated(KDeprecated),
@@ -66,7 +67,9 @@ pub enum VarSpecifier {
     NoClear(KNoClear),
     NoExport(KNoExport),
     NoImport(KNoImport),
-    Private(KPrivate),
+    Private(KPrivate, Option<CppBlob>),
+    Protected(KProtected, Option<CppBlob>),
+    Public(KPublic, Option<CppBlob>),
     RepNotify(KRepNotify),
     Transient(KTransient),
 }

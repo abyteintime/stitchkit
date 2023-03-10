@@ -5,7 +5,7 @@ use muscript_foundation::{
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
-    ast::{CppBlob, Extends, KImmutable, KNative},
+    ast::{CppBlob, Extends, KImmutable, KImmutableWhenCooked, KNative, KTransient},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
@@ -16,8 +16,15 @@ use super::Item;
 
 keyword!(KStruct = "struct");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct ItemStruct {
+    pub def: StructDef,
+    // UX thing: MuScript considers the semicolon after `}` optional.
+    pub semi: Option<Semi>,
+}
+
+#[derive(Debug, Clone, PredictiveParse)]
+pub struct StructDef {
     pub kstruct: KStruct,
     pub specifiers: Vec<StructSpecifier>,
     pub cpp_name: Option<CppBlob>,
@@ -26,11 +33,9 @@ pub struct ItemStruct {
     pub open: LeftBrace,
     pub items: Vec<Item>,
     pub close: RightBrace,
-    // UX thing: MuScript considers the semicolon after `}` optional.
-    pub semi: Option<Semi>,
 }
 
-impl Parse for ItemStruct {
+impl Parse for StructDef {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kstruct = parser.parse()?;
         let specifiers = parser.parse_greedy_list()?;
@@ -52,7 +57,6 @@ impl Parse for ItemStruct {
             }
             error.parse
         })?;
-        let semi = parser.parse()?;
         Ok(Self {
             kstruct,
             specifiers,
@@ -62,7 +66,6 @@ impl Parse for ItemStruct {
             open,
             items,
             close,
-            semi,
         })
     }
 }
@@ -71,7 +74,9 @@ impl Parse for ItemStruct {
 #[parse(error = "specifier_error")]
 pub enum StructSpecifier {
     Immutable(KImmutable),
+    ImmutableWhenCooked(KImmutableWhenCooked),
     Native(KNative),
+    Transient(KTransient),
 }
 
 fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

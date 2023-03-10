@@ -5,7 +5,7 @@ use crate::{
     diagnostics::notes,
     lexis::token::{
         Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace, RightParen,
-        Semi, StringLit, Token,
+        Semi, StringLit, Sub, Token,
     },
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -46,10 +46,17 @@ pub struct Index {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-#[parse(error = "lit_error")]
-pub enum Lit {
+#[parse(error = "num_lit_error")]
+pub enum NumLit {
     Int(IntLit),
     Float(FloatLit),
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "lit_error")]
+pub enum Lit {
+    Num(NumLit),
+    Neg(Sub, NumLit),
     String(StringLit),
     Ident(Ident, Option<NameLit>),
     Compound(BracedCompound),
@@ -157,6 +164,11 @@ fn default_property_error(parser: &Parser<'_, impl ParseStream>, token: &Token) 
                    - `Array.Operation(OptionalArgs)`
             "#,
         ))
+}
+
+fn num_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "number literal expected")
+        .with_label(Label::primary(token.span, "number literal expected here"))
 }
 
 fn lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

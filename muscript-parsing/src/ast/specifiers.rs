@@ -10,6 +10,7 @@ use super::Expr;
 
 keyword! {
     KAbstract = "abstract",
+    KBitWise = "bitwise",
     KCoerce = "coerce",
     KCollapseCategories = "collapsecategories",
     KConfig = "config",
@@ -25,6 +26,7 @@ keyword! {
     KGlobalConfig = "globalconfig",
     KHideCategories = "hidecategories",
     KImmutable = "immutable",
+    KImmutableWhenCooked = "immutablewhencooked",
     KImplements = "implements",
     KInherits = "inherits",
     KInterp = "interp",
@@ -37,7 +39,9 @@ keyword! {
     KOptional = "optional",
     KOut = "out",
     KPrivate = "private",
+    KProtected = "protected",
     KPlaceable = "placeable",
+    KPublic = "public",
     KReliable = "reliable",
     KRepNotify = "repnotify",
     KServer = "server",

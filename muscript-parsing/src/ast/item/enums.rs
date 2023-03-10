@@ -1,6 +1,7 @@
 use muscript_foundation::errors::Diagnostic;
 
 use crate::{
+    ast::Meta,
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,
@@ -9,17 +10,28 @@ use crate::{
 
 keyword!(KEnum = "enum");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct ItemEnum {
-    pub kenum: KEnum,
-    pub name: Ident,
-    pub open: LeftBrace,
-    pub variants: Vec<Ident>,
-    pub close: RightBrace,
+    pub def: EnumDef,
     pub semi: Option<Semi>,
 }
 
-impl Parse for ItemEnum {
+#[derive(Debug, Clone, PredictiveParse)]
+pub struct EnumDef {
+    pub kenum: KEnum,
+    pub name: Ident,
+    pub open: LeftBrace,
+    pub variants: Vec<EnumVariant>,
+    pub close: RightBrace,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct EnumVariant {
+    pub name: Ident,
+    pub meta: Option<Meta>,
+}
+
+impl Parse for EnumDef {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kenum = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
@@ -43,14 +55,12 @@ impl Parse for ItemEnum {
                 },
             )
         })?;
-        let semi = parser.parse()?;
         Ok(Self {
             kenum,
             name,
             open,
             variants,
             close,
-            semi,
         })
     }
 }

@@ -380,7 +380,18 @@ impl TokenStream for Lexer {
                 ']' => self.single_char_token(TokenKind::RightBracket),
                 '{' => self.single_char_token(TokenKind::LeftBrace),
                 '}' => self.single_char_token(TokenKind::RightBrace),
-                '.' => self.single_char_token(TokenKind::Dot),
+                '.' => {
+                    self.advance_char();
+                    if let Some('0'..='9') = self.current_char() {
+                        // Hack: need to advance the position back to the `.` so that
+                        // decimal_number can pick it up properly and not allow `.0.0`, which would
+                        // be invalid syntax.
+                        self.position -= 1;
+                        self.decimal_number(start)?
+                    } else {
+                        TokenKind::Dot
+                    }
+                }
                 ',' => self.single_char_token(TokenKind::Comma),
                 ';' => self.single_char_token(TokenKind::Semi),
                 '#' => self.single_char_token(TokenKind::Hash),

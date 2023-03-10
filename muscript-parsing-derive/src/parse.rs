@@ -21,8 +21,12 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
             .ident
             .clone()
             .unwrap_or_else(|| Ident::new(&i.to_string(), field.span()));
+        let field_ty = &field.ty;
         fields.push(quote! {
-            #field_name: parser.parse()?,
+            #field_name: match parser.parse::<#field_ty>() {
+                Ok(n) => n,
+                Err(e) => return Err(e),
+            },
         })
     }
 
@@ -65,7 +69,13 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             .iter()
             .enumerate()
             .map(|(i, field)| {
-                let do_parse = quote! { parser.parse()? };
+                let ty = &field.ty;
+                let do_parse = quote! {
+                    match parser.parse::<#ty>() {
+                        Ok(n) => n,
+                        Err(e) => return Err(e),
+                    }
+                };
                 if let Some(field_name) = &field.ident {
                     quote! { #field_name: #do_parse, }
                 } else {
@@ -101,7 +111,9 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             _ => {
                 let ref_parser: &::muscript_parsing::Parser<'_, _> = parser;
                 let the_error = #error(ref_parser, &token);
-                parser.bail(token.span, the_error)?
+                parser.emit_diagnostic(the_error);
+                return Err(parser.make_error(token.span));
+                // parser.bail::<Self>(token.span, the_error)?
             },
         }
     });
@@ -112,7 +124,10 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                 parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::ParseStream>
             ) -> ::std::result::Result<Self, ::muscript_parsing::ParseError>
             {
-                let token = parser.peek_token()?;
+                let token = match parser.peek_token() {
+                    Ok(n) => n,
+                    Err(e) => return Err(e),
+                };
                 Ok(match token {
                     #match_arms
                     #catchall_arm

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Cond, KIf},
+    ast::{KIf, ParenExpr},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -18,7 +18,7 @@ pub struct ItemReplication {
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct RepCondition {
     pub kif: KIf,
-    pub cond: Cond,
+    pub cond: ParenExpr,
     pub vars: Vec<Ident>,
     pub semi: Semi,
 }

@@ -2,7 +2,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{Expr, Precedence},
-    lexis::token::{LeftParen, RightParen, Semi, Token},
+    lexis::token::{Colon, LeftParen, RightParen, Semi, Token},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -26,7 +26,7 @@ keyword! {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-pub struct Cond {
+pub struct ParenExpr {
     pub open: LeftParen,
     pub cond: Expr,
     pub close: RightParen,
@@ -35,7 +35,7 @@ pub struct Cond {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct StmtIf {
     pub kif: KIf,
-    pub cond: Cond,
+    pub cond: ParenExpr,
     pub true_branch: Box<Stmt>,
     pub false_branch: Option<Else>,
 }
@@ -49,7 +49,7 @@ pub struct Else {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct StmtWhile {
     pub kwhile: KWhile,
-    pub cond: Cond,
+    pub cond: ParenExpr,
     pub body: Box<Stmt>,
 }
 
@@ -58,7 +58,7 @@ pub struct StmtDo {
     pub kdo: KDo,
     pub block: Block,
     pub until: KUntil,
-    pub cond: Cond,
+    pub cond: ParenExpr,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -81,6 +81,20 @@ pub struct StmtForEach {
     pub foreach: KForEach,
     pub iterator: Expr,
     pub stmt: Box<Stmt>,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct StmtSwitch {
+    pub switch: KSwitch,
+    pub value: ParenExpr,
+    pub block: Block,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct StmtCase {
+    pub case: KCase,
+    pub cond: Expr,
+    pub colon: Colon,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]

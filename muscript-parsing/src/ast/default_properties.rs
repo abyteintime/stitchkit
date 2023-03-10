@@ -4,8 +4,8 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use crate::{
     diagnostics::notes,
     lexis::token::{
-        Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace, RightParen,
-        Semi, StringLit, Sub, Token,
+        Add, Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace,
+        RightParen, Semi, StringLit, Sub, Token,
     },
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -56,6 +56,7 @@ pub enum NumLit {
 #[parse(error = "lit_error")]
 pub enum Lit {
     Num(NumLit),
+    Pos(Add, NumLit),
     Neg(Sub, NumLit),
     String(StringLit),
     Ident(Ident, Option<NameLit>),

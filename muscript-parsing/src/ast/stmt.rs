@@ -26,7 +26,9 @@ pub enum Stmt {
     Do(StmtDo),
     For(StmtFor),
     ForEach(StmtForEach),
+    Switch(StmtSwitch),
 
+    Case(StmtCase),
     Return(StmtReturn),
     Break(StmtBreak),
     Continue(StmtContinue),

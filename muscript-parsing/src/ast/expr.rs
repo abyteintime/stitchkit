@@ -14,7 +14,7 @@ use crate::{
         Question, RightBracket, RightParen, StringLit, Token, TokenKind,
     },
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 pub use lit::*;
@@ -66,7 +66,7 @@ pub enum Expr {
     Call {
         function: Box<Expr>,
         open: LeftParen,
-        args: Vec<Expr>,
+        args: Vec<Arg>,
         close: RightParen,
     },
     Ternary {
@@ -83,6 +83,10 @@ pub struct InfixOperator {
     pub token: Token,
     pub assign: Option<Assign>,
 }
+
+/// Optional function argument.
+#[derive(Debug, Clone)]
+pub struct Arg(Option<Expr>);
 
 impl Spanned for InfixOperator {
     fn span(&self) -> Span {
@@ -328,6 +332,17 @@ impl Expr {
         }
 
         Ok(chain)
+    }
+}
+
+impl Parse for Arg {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let token = parser.peek_token()?;
+        if !matches!(token.kind, TokenKind::Comma | TokenKind::RightParen) {
+            Ok(Self(Some(parser.parse()?)))
+        } else {
+            Ok(Self(None))
+        }
     }
 }
 

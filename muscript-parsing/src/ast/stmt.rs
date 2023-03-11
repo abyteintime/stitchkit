@@ -29,6 +29,7 @@ pub enum Stmt {
     Switch(StmtSwitch),
 
     Case(StmtCase),
+    Default(StmtDefault),
     Return(StmtReturn),
     Break(StmtBreak),
     Continue(StmtContinue),

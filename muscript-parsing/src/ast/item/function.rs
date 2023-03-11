@@ -3,8 +3,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, KCoerce, KConst, KEditorOnly, KExec, KFinal, KIterator, KLatent, KNative,
-        KNoExport, KOptional, KOut, KReliable, KServer, KSimulated, KSkip, KStatic, KVirtual, Type,
+        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KFinal, KIterator, KLatent,
+        KNative, KNoExport, KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer,
+        KSimulated, KSkip, KStatic, KVirtual, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -12,9 +13,12 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
+use super::VarArray;
+
 keyword! {
     KFunction = "function",
     KEvent = "event",
+    KDelegate = "delegate",
     KOperator = "operator",
     KPreOperator = "preoperator",
     KPostOperator = "postoperator",
@@ -22,9 +26,9 @@ keyword! {
 
 #[derive(Debug, Clone)]
 pub struct ItemFunction {
-    pub pre_specifiers: Vec<PreFunctionSpecifier>,
+    pub pre_specifiers: Vec<FunctionSpecifier>,
     pub function: FunctionKind,
-    pub post_specifiers: Option<PostFunctionSpecifier>,
+    pub post_specifiers: Vec<FunctionSpecifier>,
     pub return_ty: Option<Type>,
     pub name: Ident,
     pub params: Params,
@@ -33,26 +37,25 @@ pub struct ItemFunction {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-#[parse(error = "pre_function_specifier_error")]
-pub enum PreFunctionSpecifier {
+#[parse(error = "function_specifier_error")]
+pub enum FunctionSpecifier {
+    Client(KClient),
+    Coerce(KCoerce),
+    EditorOnly(KEditorOnly),
     Exec(KExec),
     Final(KFinal),
     Iterator(KIterator),
     Latent(KLatent),
     Native(KNative, Option<ParenInt>),
     NoExport(KNoExport),
+    Public(KPublic),
+    Private(KPrivate),
+    Protected(KProtected),
     Reliable(KReliable),
     Server(KServer),
     Simulated(KSimulated),
     Static(KStatic),
     Virtual(KVirtual),
-}
-
-#[derive(Debug, Clone, Parse, PredictiveParse)]
-#[parse(error = "post_function_specifier_error")]
-pub enum PostFunctionSpecifier {
-    EditorOnly(KEditorOnly),
-    Coerce(KCoerce),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -67,6 +70,7 @@ pub struct ParenInt {
 pub enum FunctionKind {
     Function(KFunction),
     Event(KEvent),
+    Delegate(KDelegate),
     Operator(KOperator, ParenInt),
     PreOperator(KPreOperator),
     PostOperator(KPostOperator),
@@ -84,6 +88,7 @@ pub struct Param {
     pub specifiers: Vec<ParamSpecifier>,
     pub ty: Type,
     pub name: Ident,
+    pub array: Option<VarArray>,
     pub default: Option<ParamDefault>,
 }
 
@@ -122,12 +127,12 @@ impl ItemFunction {
 
 impl Parse for ItemFunction {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let specifiers = parser.parse_greedy_list()?;
+        let pre_specifiers = parser.parse_greedy_list()?;
         let function = parser.parse()?;
-        let editor_only = parser.parse()?;
+        let post_specifiers = parser.parse_greedy_list()?;
 
         let (return_ty, name) = match &function {
-            FunctionKind::Function(_) | FunctionKind::Event(_) => {
+            FunctionKind::Function(_) | FunctionKind::Event(_) | FunctionKind::Delegate(_) => {
                 // NOTE: We need to do a little dance to parse return types (though it's still 100%
                 // possible to do predictively, which is very nice.) This would've been easier if
                 // return types weren't optional, but alas.
@@ -140,6 +145,7 @@ impl Parse for ItemFunction {
                         Some(Type {
                             name: name_or_type,
                             generic,
+                            cpptemplate: None,
                         }),
                         Self::parse_name(parser)?,
                     )
@@ -191,6 +197,7 @@ impl Parse for ItemFunction {
                         // overload. FML.
                         name: return_ty,
                         generic: None,
+                        cpptemplate: None,
                     }),
                     Ident { span },
                 )
@@ -201,9 +208,9 @@ impl Parse for ItemFunction {
         let kconst = parser.parse()?;
         let body = parser.parse()?;
         Ok(Self {
-            pre_specifiers: specifiers,
+            pre_specifiers,
             function,
-            post_specifiers: editor_only,
+            post_specifiers,
             return_ty,
             name,
             params,
@@ -216,7 +223,7 @@ impl Parse for ItemFunction {
 impl PredictiveParse for ItemFunction {
     fn started_by(token: &Token, input: &str) -> bool {
         // Kind of sub-optimal that we have to check here each and every single identifier.
-        FunctionKind::started_by(token, input) || PreFunctionSpecifier::started_by(token, input)
+        FunctionKind::started_by(token, input) || FunctionSpecifier::started_by(token, input)
     }
 }
 
@@ -248,15 +255,12 @@ impl Parse for Params {
 
 impl Parse for Param {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let specifiers = parser.parse_greedy_list()?;
-        let ty = parser.parse()?;
-        let name = parser.parse()?;
-        let default = parser.parse()?;
         Ok(Self {
-            specifiers,
-            ty,
-            name,
-            default,
+            specifiers: parser.parse_greedy_list()?,
+            ty: parser.parse()?,
+            name: parser.parse()?,
+            array: parser.parse()?,
+            default: parser.parse()?,
         })
     }
 }
@@ -267,10 +271,7 @@ impl PredictiveParse for Param {
     }
 }
 
-fn pre_function_specifier_error(
-    parser: &Parser<'_, impl ParseStream>,
-    token: &Token,
-) -> Diagnostic {
+fn function_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(
         parser.file,
         format!(
@@ -283,24 +284,6 @@ fn pre_function_specifier_error(
         "this specifier is not recognized",
     ))
     .with_note("note: notable function specifiers include `static` and `final`")
-}
-
-fn post_function_specifier_error(
-    parser: &Parser<'_, impl ParseStream>,
-    token: &Token,
-) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown function specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
-    ))
-    .with_note("note: function specifiers allowed in this place include `noexport` and `coerce`")
 }
 
 fn param_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

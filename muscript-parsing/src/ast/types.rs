@@ -6,7 +6,7 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{EnumDef, StructDef};
+use super::{CppBlob, EnumDef, StructDef};
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "type_or_def_error")]
@@ -16,10 +16,11 @@ pub enum TypeOrDef {
     Type(Type),
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct Type {
     pub name: Ident,
     pub generic: Option<Generic>,
+    pub cpptemplate: Option<CppBlob>,
 }
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -27,15 +28,6 @@ pub struct Generic {
     pub less: Less,
     pub args: Vec<Type>,
     pub greater: Greater,
-}
-
-impl Parse for Type {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        Ok(Self {
-            name: parser.parse()?,
-            generic: parser.parse()?,
-        })
-    }
 }
 
 impl Parse for Generic {

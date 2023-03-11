@@ -98,6 +98,12 @@ pub struct StmtCase {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
+pub struct StmtDefault {
+    pub case: KDefault,
+    pub colon: Colon,
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct StmtReturn {
     pub kreturn: KReturn,
     pub value: ReturnValue,

@@ -1,7 +1,7 @@
 use crate::{
-    ast::Type,
+    ast::{Type, VarDef},
     diagnostics,
-    lexis::token::{Ident, Semi},
+    lexis::token::Semi,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -11,7 +11,7 @@ keyword!(KLocal = "local");
 pub struct StmtLocal {
     pub local: KLocal,
     pub ty: Type,
-    pub vars: Vec<Ident>,
+    pub vars: Vec<VarDef>,
     pub semi: Semi,
 }
 

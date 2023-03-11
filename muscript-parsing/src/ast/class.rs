@@ -10,7 +10,7 @@ use crate::{
 use super::{
     KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig, KDependsOn,
     KDeprecated, KEditInlineNew, KHideCategories, KImplements, KInherits, KNative,
-    KNativeReplication, KNoExport, KPlaceable, KTransient, SpecifierArgs,
+    KNativeReplication, KNoExport, KNotPlaceable, KPlaceable, KTransient, SpecifierArgs,
 };
 
 keyword! {
@@ -66,6 +66,7 @@ pub enum ClassSpecifier {
     Native(KNative, Option<SpecifierArgs>),
     NativeReplication(KNativeReplication),
     NoExport(KNoExport),
+    NotPlaceable(KNotPlaceable),
     Placeable(KPlaceable),
     Transient(KTransient),
 }

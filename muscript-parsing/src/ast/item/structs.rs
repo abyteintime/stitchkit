@@ -5,7 +5,7 @@ use muscript_foundation::{
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
-    ast::{CppBlob, Extends, KImmutable, KImmutableWhenCooked, KNative, KTransient},
+    ast::{CppBlob, Extends, KExport, KImmutable, KImmutableWhenCooked, KNative, KTransient},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
@@ -73,6 +73,7 @@ impl Parse for StructDef {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum StructSpecifier {
+    Export(KExport),
     Immutable(KImmutable),
     ImmutableWhenCooked(KImmutableWhenCooked),
     Native(KNative),

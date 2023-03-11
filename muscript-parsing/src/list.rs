@@ -51,7 +51,7 @@ where
                 .peek_token()
                 .map_err(error(TerminatedListErrorKind::Parse))?;
             match token.kind {
-                _ if R::matches(&token, self.input) => {
+                _ if R::matches(&token, token.span.get_input(self.input)) => {
                     self.next_token().expect("the token was already parsed");
                     break R::default_from_span(token.span);
                 }
@@ -63,11 +63,18 @@ where
                 }
                 _ => (),
             }
-            let result = self.try_with_delimiter_recovery(|parser| parser.parse());
-            match result {
-                Ok(node) => elements.push(node),
-                Err(closing) => break closing,
-            }
+            if R::KIND.closes().is_some() {
+                let result = self.try_with_delimiter_recovery(|parser| parser.parse());
+                match result {
+                    Ok(node) => elements.push(node),
+                    Err(closing) => break closing,
+                }
+            } else {
+                elements.push(
+                    self.parse()
+                        .map_err(error(TerminatedListErrorKind::Parse))?,
+                );
+            };
         };
 
         Ok((elements, terminator))

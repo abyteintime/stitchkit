@@ -100,7 +100,7 @@ where
 
         match inner(self) {
             Ok(ok) => Ok(ok),
-            Err(_) => {
+            Err(error) => {
                 let mut last_token_span = None;
                 // Note the use of >= here; as mentioned, we want to descend one level further
                 // because at the time this function is called the opening delimiter has already
@@ -119,9 +119,10 @@ where
                         Err(error) => error.span,
                     });
                 }
-                Err(C::default_from_span(
-                    last_token_span.expect("while should have looped at least once"),
-                ))
+                // Worst case scenario: we have to use the error span provided to us, if a token
+                // consumed by `inner` happens to be a closing token and the nesting level is
+                // decremented because of that.
+                Err(C::default_from_span(last_token_span.unwrap_or(error.span)))
             }
         }
     }

@@ -1,15 +1,18 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
+use tracing::debug;
 
 use crate::{
     diagnostics::notes,
     lexis::token::{
-        Add, Assign, FloatLit, Ident, IntLit, LeftBrace, LeftParen, NameLit, RightBrace,
-        RightParen, Semi, StringLit, Sub, Token,
+        Add, Assign, Dot, FloatLit, Ident, IntLit, LeftBrace, LeftBracket, LeftParen, NameLit,
+        RightBrace, RightBracket, RightParen, Semi, StringLit, Sub, Token,
     },
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
+
+use super::ParenExpr;
 
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct DefaultPropertiesBlock {
@@ -21,14 +24,14 @@ pub struct DefaultPropertiesBlock {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "default_property_error")]
 pub enum DefaultProperty {
-    KeyValuePair(KeyValuePair),
+    Subobject(Subobject),
+    Value(Value),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-pub struct KeyValuePair {
+pub struct Value {
     pub key: Key,
-    pub equals: Assign,
-    pub value: Lit,
+    pub action: ValueAction,
     pub semi: Option<Semi>,
 }
 
@@ -39,10 +42,17 @@ pub struct Key {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
-pub struct Index {
-    pub open: LeftParen,
-    pub index: IntLit,
-    pub close: RightParen,
+#[parse(error = "index_error")]
+pub enum Index {
+    Parens(LeftParen, IntLit, RightParen),
+    Brackets(LeftBracket, IntLit, RightBracket),
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "value_action_error")]
+pub enum ValueAction {
+    Assign(Assign, Lit),
+    Call(Dot, Ident, Option<ParenExpr>),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -90,6 +100,21 @@ pub struct Compound {
 pub enum CompoundElement {
     Lit(Lit),
     Field(Ident, Assign, Lit),
+}
+
+keyword! {
+    KBegin = "begin",
+    KEnd = "end",
+    KObject = "object",
+}
+
+#[derive(Debug, Clone, PredictiveParse)]
+pub struct Subobject {
+    pub begin: KBegin,
+    pub object1: KObject,
+    pub properties: Vec<Value>,
+    pub end: KEnd,
+    pub object2: KObject,
 }
 
 impl Parse for DefaultPropertiesBlock {
@@ -152,6 +177,35 @@ impl Parse for CompoundElement {
     }
 }
 
+impl Parse for Subobject {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let begin: KBegin = parser.parse()?;
+        let object1: KObject = parser.parse()?;
+        debug!("begin subobject");
+        let (properties, end) = parser.parse_terminated_list().map_err(|error| {
+            if let TerminatedListErrorKind::MissingTerminator = error.kind {
+                parser.emit_diagnostic(
+                    Diagnostic::error(parser.file, "missing `end object` to end default subobject")
+                        .with_label(Label::primary(
+                            begin.span.join(&object1.span),
+                            "this `begin object` does not have a matching `end object`",
+                        )),
+                );
+            }
+            error.parse
+        })?;
+        debug!("end subobject");
+        let object2 = parser.parse()?;
+        Ok(Self {
+            begin,
+            object1,
+            properties,
+            end,
+            object2,
+        })
+    }
+}
+
 fn default_property_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "default property expected")
         .with_label(Label::primary(
@@ -165,6 +219,16 @@ fn default_property_error(parser: &Parser<'_, impl ParseStream>, token: &Token) 
                    - `Array.Operation(OptionalArgs)`
             "#,
         ))
+}
+
+fn index_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "`(Index)` or `[Index]` expected")
+        .with_label(Label::primary(token.span, "array index expected here"))
+}
+
+fn value_action_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "`=` or `.Operation(Arg)` expected")
+        .with_label(Label::primary(token.span, "property action expected here"))
 }
 
 fn num_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

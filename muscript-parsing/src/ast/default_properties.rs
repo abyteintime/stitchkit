@@ -1,6 +1,5 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
-use tracing::debug;
 
 use crate::{
     diagnostics::notes,
@@ -212,7 +211,6 @@ impl Parse for Subobject {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let begin: KBegin = parser.parse()?;
         let object1: KObject = parser.parse()?;
-        debug!("begin subobject");
         let (properties, end) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
                 parser.emit_diagnostic(
@@ -225,7 +223,6 @@ impl Parse for Subobject {
             }
             error.parse
         })?;
-        debug!("end subobject");
         let object2 = parser.parse()?;
         Ok(Self {
             begin,

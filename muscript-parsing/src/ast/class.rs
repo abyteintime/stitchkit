@@ -10,7 +10,7 @@ use crate::{
 use super::{
     KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig, KDependsOn,
     KDeprecated, KEditInlineNew, KHideCategories, KImplements, KInherits, KNative,
-    KNativeReplication, KNoExport, KNotPlaceable, KPlaceable, KShowCategories, KTransient,
+    KNativeReplication, KNoExport, KNotPlaceable, KPlaceable, KShowCategories, KTransient, Path,
     SpecifierArgs,
 };
 
@@ -41,7 +41,7 @@ pub struct Class {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct Extends {
     pub extends: KExtends,
-    pub parent_class: Ident,
+    pub parent_class: Path,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]

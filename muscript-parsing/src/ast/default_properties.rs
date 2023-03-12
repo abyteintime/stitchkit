@@ -44,8 +44,15 @@ pub struct Key {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "index_error")]
 pub enum Index {
-    Parens(LeftParen, IntLit, RightParen),
-    Brackets(LeftBracket, IntLit, RightBracket),
+    Parens(LeftParen, IndexLit, RightParen),
+    Brackets(LeftBracket, IndexLit, RightBracket),
+}
+
+#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "index_lit_error")]
+pub enum IndexLit {
+    Num(IntLit),
+    Enum(Ident),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -224,6 +231,12 @@ fn default_property_error(parser: &Parser<'_, impl ParseStream>, token: &Token) 
 fn index_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
     Diagnostic::error(parser.file, "`(Index)` or `[Index]` expected")
         .with_label(Label::primary(token.span, "array index expected here"))
+}
+
+fn index_lit_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(parser.file, "integer or enum index expected")
+        .with_label(Label::primary(token.span, "array index expected here"))
+        .with_note("note: indices are integers `[1]`, or enums `[EXAMPLE_EnumValue]`")
 }
 
 fn value_action_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

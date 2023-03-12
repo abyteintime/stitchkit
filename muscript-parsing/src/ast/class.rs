@@ -9,9 +9,10 @@ use crate::{
 
 use super::{
     BoolLit, KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig,
-    KDependsOn, KDeprecated, KDontCollapseCategories, KEditInlineNew, KForceScriptOrder,
-    KHideCategories, KImplements, KInherits, KNative, KNativeReplication, KNoExport, KNotPlaceable,
-    KPlaceable, KShowCategories, KTransient, Path, SpecifierArgs,
+    KDependsOn, KDeprecated, KDontCollapseCategories, KDontSortCategories, KEditInlineNew,
+    KForceScriptOrder, KHideCategories, KImplements, KInherits, KNative, KNativeReplication,
+    KNoExport, KNotPlaceable, KPerObjectConfig, KPlaceable, KShowCategories, KTransient, Path,
+    SpecifierArgs,
 };
 
 keyword! {
@@ -61,6 +62,7 @@ pub enum ClassSpecifier {
     DependsOn(KDependsOn, SpecifierArgs),
     Deprecated(KDeprecated),
     DontCollapseCategories(KDontCollapseCategories),
+    DontSortCategories(KDontSortCategories, SpecifierArgs),
     EditInlineNew(KEditInlineNew),
     ForceScriptOrder(KForceScriptOrder, LeftParen, BoolLit, RightParen),
     HideCategories(KHideCategories, SpecifierArgs),
@@ -70,6 +72,7 @@ pub enum ClassSpecifier {
     NativeReplication(KNativeReplication),
     NoExport(KNoExport),
     NotPlaceable(KNotPlaceable),
+    PerObjectConfig(KPerObjectConfig),
     Placeable(KPlaceable),
     ShowCategories(KShowCategories, SpecifierArgs),
     Transient(KTransient),

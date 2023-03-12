@@ -69,6 +69,13 @@ pub enum Expr {
         args: Vec<Arg>,
         close: RightParen,
     },
+    New {
+        new: Ident,
+        open: LeftParen,
+        args: Vec<Arg>,
+        close: RightParen,
+        class: Box<Expr>,
+    },
     Ternary {
         cond: Box<Expr>,
         question: Question,
@@ -316,6 +323,24 @@ impl Expr {
                 },
             )
         })?;
+
+        if let Expr::Ident(ident) = left {
+            if ident
+                .span
+                .get_input(parser.input)
+                .eq_ignore_ascii_case("new")
+            {
+                let class = Expr::precedence_parse(parser, Precedence::MAX, false)?;
+                return Ok(Expr::New {
+                    new: ident,
+                    open,
+                    args,
+                    close,
+                    class: Box::new(class),
+                });
+            }
+        }
+
         Ok(Expr::Call {
             function: Box::new(left),
             open,
@@ -376,6 +401,8 @@ impl Parse for Arg {
 }
 
 impl Precedence {
+    pub const MAX: Self = Self::Some(0);
+
     pub const PATH: Self = Self::Some(6);
     pub const CALL: Self = Self::Some(8);
     // Needed for `foreach` statements. UnrealScript may be a little more... hardcoded in this

@@ -2,11 +2,12 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        CppBlob, Expr, KBitWise, KConfig, KDeprecated, KDuplicateTransient, KEditConst,
-        KEditFixedSize, KEditHide, KEditInline, KEditInlineUse, KEditTextBox, KEditorOnly, KExport,
-        KGlobalConfig, KInit, KInput, KInstanced, KInterp, KLocalized, KNoClear, KNoExport,
-        KNoImport, KNonTransactional, KNotForConsole, KPrivate, KProtected, KProtectedWrite,
-        KPublic, KRepNotify, Meta, TypeOrDef, TypeSpecifier,
+        CppBlob, Expr, KBitWise, KConfig, KCrossLevelActive, KCrossLevelPassive, KDataBinding,
+        KDeprecated, KDuplicateTransient, KEditConst, KEditFixedSize, KEditHide, KEditInline,
+        KEditInlineUse, KEditTextBox, KEditorOnly, KExport, KGlobalConfig, KInit, KInput,
+        KInstanced, KInterp, KLocalized, KNoClear, KNoExport, KNoImport, KNonTransactional,
+        KNotForConsole, KPrivate, KProtected, KProtectedWrite, KPublic, KRepNotify, KSerializeText,
+        Meta, TypeOrDef, TypeSpecifier,
     },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
@@ -38,6 +39,9 @@ pub struct VarEditor {
 pub enum VarSpecifier {
     BitWise(KBitWise),
     Config(KConfig),
+    CrossLevelActive(KCrossLevelActive),
+    CrossLevelPassive(KCrossLevelPassive),
+    DataBinding(KDataBinding),
     Deprecated(KDeprecated),
     DuplicateTransient(KDuplicateTransient),
     EditConst(KEditConst),
@@ -64,7 +68,7 @@ pub enum VarSpecifier {
     ProtectedWrite(KProtectedWrite, Option<CppBlob>),
     Public(KPublic, Option<CppBlob>),
     RepNotify(KRepNotify),
-
+    SerializeText(KSerializeText),
     Type(TypeSpecifier),
 }
 

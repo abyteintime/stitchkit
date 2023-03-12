@@ -3,9 +3,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KFinal, KIterator, KLatent,
-        KNative, KNoExport, KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer,
-        KSimulated, KSkip, KStatic, KVirtual, Path, Type,
+        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KFinal, KInit, KIterator,
+        KLatent, KNative, KNoExport, KNoExportHeader, KOptional, KOut, KPrivate, KProtected,
+        KPublic, KReliable, KServer, KSimulated, KSingular, KSkip, KStatic, KVirtual, Path, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -48,12 +48,14 @@ pub enum FunctionSpecifier {
     Latent(KLatent),
     Native(KNative, Option<ParenInt>),
     NoExport(KNoExport),
+    NoExportHeader(KNoExportHeader),
     Public(KPublic),
     Private(KPrivate),
     Protected(KProtected),
     Reliable(KReliable),
     Server(KServer),
     Simulated(KSimulated),
+    Singular(KSingular),
     Static(KStatic),
     Virtual(KVirtual),
 }
@@ -97,6 +99,7 @@ pub struct Param {
 pub enum ParamSpecifier {
     Coerce(KCoerce),
     Const(KConst),
+    Init(KInit),
     Optional(KOptional),
     Out(KOut),
     Skip(KSkip),

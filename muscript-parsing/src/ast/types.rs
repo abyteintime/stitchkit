@@ -16,6 +16,7 @@ pub enum TypeOrDef {
     Type(Type),
 }
 
+/// Some variable specifiers are attached to types within the engine source.
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum TypeSpecifier {

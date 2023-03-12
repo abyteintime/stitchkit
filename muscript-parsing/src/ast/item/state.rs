@@ -1,6 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
+    ast::Extends,
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -20,6 +21,7 @@ pub struct ItemState {
     pub state: KState,
     pub editor: Option<VarEditor>,
     pub name: Ident,
+    pub extends: Option<Extends>,
     pub open: LeftBrace,
     pub ignores: Option<Ignores>,
     pub items: Vec<Item>,
@@ -39,6 +41,7 @@ impl Parse for ItemState {
         let state = parser.parse()?;
         let editor = parser.parse()?;
         let name = parser.parse()?;
+        let extends = parser.parse()?;
         let open: LeftBrace = parser.parse()?;
         let ignores = parser.parse()?;
         let (items, close) = parser.parse_terminated_list().map_err(|error| {
@@ -56,6 +59,7 @@ impl Parse for ItemState {
             state,
             editor,
             name,
+            extends,
             open,
             ignores,
             items,

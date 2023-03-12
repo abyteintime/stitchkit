@@ -444,12 +444,44 @@ impl<'a> Preprocessor<'a> {
         Ok(())
     }
 
-    fn parse_include(&mut self, span: Span) {
+    fn parse_include(&mut self, span: Span) -> Result<(), LexError> {
         self.errors.emit(
             Diagnostic::warning(self.lexer().file, "use of `include preprocessor directive")
                 .with_label(Label::primary(span, ""))
                 .with_note("note: MuScript ignores `include directives because it processes files in the correct order automatically"),
-        )
+        );
+
+        let left_paren = self.expect_token(TokenKind::LeftParen, |file, token| {
+            Diagnostic::error(file, "`(` expected")
+                .with_label(Label::primary(token.span, "`(` expected here"))
+        })?;
+
+        loop {
+            let token = self.lexer_mut().peek()?;
+            match token.kind {
+                TokenKind::RightParen => break,
+                TokenKind::EndOfFile => {
+                    return Err(LexError::new(
+                        left_paren.span,
+                        Diagnostic::error(self.lexer().file, "missing `)` to close `include path")
+                            .with_label(Label::primary(
+                                left_paren.span,
+                                "this `(` does not have a matching `)`",
+                            )),
+                    ));
+                }
+                _ => {
+                    self.lexer_mut().next()?;
+                }
+            }
+        }
+
+        let _right_paren = self.expect_token(TokenKind::RightParen, |file, token| {
+            Diagnostic::error(file, "`)` expected after `include path")
+                .with_label(Label::primary(token.span, "`)` expected here"))
+        })?;
+
+        Ok(())
     }
 
     fn parse_isdefined(&mut self, span: Span, not: bool) -> Result<Option<Token>, LexError> {
@@ -651,7 +683,7 @@ impl<'a> Preprocessor<'a> {
             _ if macro_name == UniCase::ascii("if") => self.parse_if(span)?,
             _ if macro_name == UniCase::ascii("else") => self.parse_else(span)?,
             _ if macro_name == UniCase::ascii("endif") => self.parse_endif(span)?,
-            _ if macro_name == UniCase::ascii("include") => self.parse_include(span),
+            _ if macro_name == UniCase::ascii("include") => self.parse_include(span)?,
             _ if macro_name == UniCase::ascii("isdefined") => {
                 return Ok(self
                     .parse_isdefined(span, false)?

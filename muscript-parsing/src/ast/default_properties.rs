@@ -12,8 +12,6 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::ParenExpr;
-
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct DefaultPropertiesBlock {
     pub open: LeftBrace,
@@ -59,7 +57,14 @@ pub enum IndexLit {
 #[parse(error = "value_action_error")]
 pub enum ValueAction {
     Assign(Assign, Lit),
-    Call(Dot, Ident, Option<ParenExpr>),
+    Call(Dot, Ident, Option<CallArg>),
+}
+
+#[derive(Debug, Clone, PredictiveParse)]
+pub struct CallArg {
+    pub open: LeftParen,
+    pub expr: Option<Lit>,
+    pub close: RightParen,
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -141,6 +146,25 @@ impl Parse for DefaultPropertiesBlock {
             properties,
             close,
         })
+    }
+}
+
+impl Parse for CallArg {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let open = parser.parse()?;
+        if let Some(close) = parser.parse()? {
+            Ok(Self {
+                open,
+                expr: None,
+                close,
+            })
+        } else {
+            Ok(Self {
+                open,
+                expr: Some(parser.parse()?),
+                close: parser.parse()?,
+            })
+        }
     }
 }
 

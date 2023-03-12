@@ -125,7 +125,8 @@ impl Expr {
             TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
             TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { span: token.span })),
 
-            TokenKind::Sub
+            TokenKind::Add
+            | TokenKind::Sub
             | TokenKind::Not
             | TokenKind::BitNot
             | TokenKind::Inc

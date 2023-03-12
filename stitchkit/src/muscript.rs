@@ -124,7 +124,7 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
                 },
             )?;
             count += 1;
-            if count > limit {
+            if count >= limit {
                 warn!("Only the first {limit} diagnostics are displayed; the limit can be set with `--diagnostics-limit=N`");
                 break;
             }

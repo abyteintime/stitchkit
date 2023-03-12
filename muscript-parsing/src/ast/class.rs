@@ -8,11 +8,11 @@ use crate::{
 };
 
 use super::{
-    BoolLit, KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig,
-    KDependsOn, KDeprecated, KDontCollapseCategories, KDontSortCategories, KEditInlineNew,
-    KForceScriptOrder, KHideCategories, KImplements, KInherits, KNative, KNativeReplication,
-    KNoExport, KNotPlaceable, KPerObjectConfig, KPlaceable, KShowCategories, KTransient, Path,
-    SpecifierArgs,
+    BoolLit, KAbstract, KAlwaysLoaded, KAutoExpandCategories, KClassGroup, KCollapseCategories,
+    KConfig, KDependsOn, KDeprecated, KDontCollapseCategories, KDontSortCategories, KEditInlineNew,
+    KForceScriptOrder, KHideCategories, KHideDropdown, KImplements, KInherits, KIterationOptimized,
+    KNative, KNativeReplication, KNeverCook, KNoExport, KNotPlaceable, KPerObjectConfig,
+    KPlaceable, KShowCategories, KTransient, Path, SpecifierArgs,
 };
 
 keyword! {
@@ -55,6 +55,7 @@ pub struct Within {
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
     Abstract(KAbstract),
+    AlwaysLoaded(KAlwaysLoaded),
     AutoExpandCategories(KAutoExpandCategories, SpecifierArgs),
     ClassGroup(KClassGroup, SpecifierArgs),
     CollapseCategories(KCollapseCategories),
@@ -66,10 +67,13 @@ pub enum ClassSpecifier {
     EditInlineNew(KEditInlineNew),
     ForceScriptOrder(KForceScriptOrder, LeftParen, BoolLit, RightParen),
     HideCategories(KHideCategories, SpecifierArgs),
+    HideDropdown(KHideDropdown),
     Implements(KImplements, SpecifierArgs),
     Inherits(KInherits, SpecifierArgs),
+    IterationOptimized(KIterationOptimized),
     Native(KNative, Option<SpecifierArgs>),
     NativeReplication(KNativeReplication),
+    NeverCook(KNeverCook),
     NoExport(KNoExport),
     NotPlaceable(KNotPlaceable),
     PerObjectConfig(KPerObjectConfig),

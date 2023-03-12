@@ -4,6 +4,7 @@ mod default_properties;
 mod enums;
 mod function;
 mod replication;
+mod simulated_hack;
 mod state;
 mod structs;
 mod var;
@@ -22,6 +23,7 @@ pub use default_properties::*;
 pub use enums::*;
 pub use function::*;
 pub use replication::*;
+pub use simulated_hack::*;
 pub use state::*;
 pub use structs::*;
 pub use var::*;
@@ -34,6 +36,8 @@ pub enum Item {
     Empty(Semi),
     Var(ItemVar),
     Const(ItemConst),
+    // NOTE: This one needs to be above `function` and `state`.
+    Simulated(ItemSimulated),
     Function(ItemFunction),
     Struct(ItemStruct),
     Enum(ItemEnum),

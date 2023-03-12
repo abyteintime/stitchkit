@@ -6,7 +6,7 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{CppBlob, EnumDef, Path, StructDef};
+use super::{CppBlob, EnumDef, KConst, KNative, KTransient, Path, StructDef};
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "type_or_def_error")]
@@ -17,7 +17,16 @@ pub enum TypeOrDef {
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
+#[parse(error = "specifier_error")]
+pub enum TypeSpecifier {
+    Const(KConst),
+    Native(KNative),
+    Transient(KTransient),
+}
+
+#[derive(Debug, Clone)]
 pub struct Type {
+    pub specifiers: Vec<TypeSpecifier>,
     pub path: Path,
     pub generic: Option<Generic>,
     pub cpptemplate: Option<CppBlob>,
@@ -28,6 +37,23 @@ pub struct Generic {
     pub less: Less,
     pub args: Vec<Type>,
     pub greater: Greater,
+}
+
+impl Parse for Type {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        Ok(Self {
+            specifiers: parser.parse_greedy_list()?,
+            path: parser.parse()?,
+            generic: parser.parse()?,
+            cpptemplate: parser.parse()?,
+        })
+    }
+}
+
+impl PredictiveParse for Type {
+    fn started_by(token: &Token, input: &str) -> bool {
+        Path::started_by(token, input) || TypeSpecifier::started_by(token, input)
+    }
 }
 
 impl Parse for Generic {
@@ -55,6 +81,20 @@ impl Parse for Generic {
             greater,
         })
     }
+}
+
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
+    Diagnostic::error(
+        parser.file,
+        format!(
+            "unknown type specifier `{}`",
+            token.span.get_input(parser.input)
+        ),
+    )
+    .with_label(Label::primary(
+        token.span,
+        "this specifier is not recognized",
+    ))
 }
 
 fn type_or_def_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

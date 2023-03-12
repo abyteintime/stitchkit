@@ -2,11 +2,11 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        CppBlob, Expr, KBitWise, KConfig, KConst, KDeprecated, KDuplicateTransient, KEditConst,
-        KEditFixedSize, KEditHide, KEditInline, KEditInlineUse, KEditorOnly, KExport,
-        KGlobalConfig, KInit, KInput, KInstanced, KInterp, KLocalized, KNative, KNoClear,
-        KNoExport, KNoImport, KNotForConsole, KPrivate, KProtected, KProtectedWrite, KPublic,
-        KRepNotify, KTransient, Meta, TypeOrDef,
+        CppBlob, Expr, KBitWise, KConfig, KDeprecated, KDuplicateTransient, KEditConst,
+        KEditFixedSize, KEditHide, KEditInline, KEditInlineUse, KEditTextBox, KEditorOnly, KExport,
+        KGlobalConfig, KInit, KInput, KInstanced, KInterp, KLocalized, KNoClear, KNoExport,
+        KNoImport, KNonTransactional, KNotForConsole, KPrivate, KProtected, KProtectedWrite,
+        KPublic, KRepNotify, Meta, TypeOrDef, TypeSpecifier,
     },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
@@ -38,7 +38,6 @@ pub struct VarEditor {
 pub enum VarSpecifier {
     BitWise(KBitWise),
     Config(KConfig),
-    Const(KConst),
     Deprecated(KDeprecated),
     DuplicateTransient(KDuplicateTransient),
     EditConst(KEditConst),
@@ -47,6 +46,7 @@ pub enum VarSpecifier {
     EditInline(KEditInline),
     EditInlineUse(KEditInlineUse),
     EditorOnly(KEditorOnly),
+    EditTextBox(KEditTextBox),
     Export(KExport),
     GlobalConfig(KGlobalConfig),
     Init(KInit),
@@ -54,17 +54,18 @@ pub enum VarSpecifier {
     Instanced(KInstanced),
     Interp(KInterp),
     Localized(KLocalized),
-    Native(KNative),
     NoClear(KNoClear),
     NoExport(KNoExport),
     NoImport(KNoImport),
+    NonTransactional(KNonTransactional),
     NotForConsole(KNotForConsole),
     Private(KPrivate, Option<CppBlob>),
     Protected(KProtected, Option<CppBlob>),
     ProtectedWrite(KProtectedWrite, Option<CppBlob>),
     Public(KPublic, Option<CppBlob>),
     RepNotify(KRepNotify),
-    Transient(KTransient),
+
+    Type(TypeSpecifier),
 }
 
 impl Parse for ItemVar {

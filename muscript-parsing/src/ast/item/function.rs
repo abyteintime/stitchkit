@@ -144,6 +144,7 @@ impl Parse for ItemFunction {
                     let generic = parser.parse()?;
                     (
                         Some(Type {
+                            specifiers: vec![],
                             path,
                             generic,
                             cpptemplate: None,
@@ -194,6 +195,7 @@ impl Parse for ItemFunction {
                 };
                 (
                     Some(Type {
+                        specifiers: vec![],
                         // Ugly hack to work around the fact that `int <` is a valid operator
                         // overload. FML.
                         path: return_ty,

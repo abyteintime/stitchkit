@@ -2,16 +2,16 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::token::{Ident, Semi, Token},
+    lexis::token::{Ident, LeftParen, RightParen, Semi, Token},
     list::TerminatedListErrorKind,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::{
-    KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig, KDependsOn,
-    KDeprecated, KEditInlineNew, KHideCategories, KImplements, KInherits, KNative,
-    KNativeReplication, KNoExport, KNotPlaceable, KPlaceable, KShowCategories, KTransient, Path,
-    SpecifierArgs,
+    BoolLit, KAbstract, KAutoExpandCategories, KClassGroup, KCollapseCategories, KConfig,
+    KDependsOn, KDeprecated, KDontCollapseCategories, KEditInlineNew, KForceScriptOrder,
+    KHideCategories, KImplements, KInherits, KNative, KNativeReplication, KNoExport, KNotPlaceable,
+    KPlaceable, KShowCategories, KTransient, Path, SpecifierArgs,
 };
 
 keyword! {
@@ -60,7 +60,9 @@ pub enum ClassSpecifier {
     Config(KConfig, SpecifierArgs),
     DependsOn(KDependsOn, SpecifierArgs),
     Deprecated(KDeprecated),
+    DontCollapseCategories(KDontCollapseCategories),
     EditInlineNew(KEditInlineNew),
+    ForceScriptOrder(KForceScriptOrder, LeftParen, BoolLit, RightParen),
     HideCategories(KHideCategories, SpecifierArgs),
     Implements(KImplements, SpecifierArgs),
     Inherits(KInherits, SpecifierArgs),

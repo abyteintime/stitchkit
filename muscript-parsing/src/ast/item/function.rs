@@ -5,7 +5,7 @@ use crate::{
     ast::{
         Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KFinal, KIterator, KLatent,
         KNative, KNoExport, KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer,
-        KSimulated, KSkip, KStatic, KVirtual, Type,
+        KSimulated, KSkip, KStatic, KVirtual, Path, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -140,10 +140,11 @@ impl Parse for ItemFunction {
                 if parser.peek_token()?.kind == TokenKind::LeftParen {
                     (None, name_or_type)
                 } else {
+                    let path = Path::continue_parsing(parser, name_or_type)?;
                     let generic = parser.parse()?;
                     (
                         Some(Type {
-                            name: name_or_type,
+                            path,
                             generic,
                             cpptemplate: None,
                         }),
@@ -195,7 +196,7 @@ impl Parse for ItemFunction {
                     Some(Type {
                         // Ugly hack to work around the fact that `int <` is a valid operator
                         // overload. FML.
-                        name: return_ty,
+                        path: return_ty,
                         generic: None,
                         cpptemplate: None,
                     }),

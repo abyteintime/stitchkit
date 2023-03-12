@@ -6,7 +6,7 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{CppBlob, EnumDef, StructDef};
+use super::{CppBlob, EnumDef, Path, StructDef};
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "type_or_def_error")]
@@ -18,7 +18,7 @@ pub enum TypeOrDef {
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 pub struct Type {
-    pub name: Ident,
+    pub path: Path,
     pub generic: Option<Generic>,
     pub cpptemplate: Option<CppBlob>,
 }

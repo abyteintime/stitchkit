@@ -12,7 +12,7 @@ use crate::{
 pub use control_flow::*;
 pub use local::*;
 
-use super::Expr;
+use super::{Expr, Precedence};
 
 #[derive(Debug, Clone, Parse)]
 #[parse(error = "_stmt_error")]
@@ -39,10 +39,10 @@ pub enum Stmt {
     Expr(StmtExpr),
 }
 
-#[derive(Debug, Clone, Parse)]
+#[derive(Debug, Clone)]
 pub struct StmtExpr {
     pub expr: Expr,
-    pub semi: Semi,
+    pub semi: Option<Semi>,
 }
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -50,6 +50,20 @@ pub struct Block {
     pub open: LeftBrace,
     pub stmts: Vec<Stmt>,
     pub close: RightBrace,
+}
+
+impl Parse for StmtExpr {
+    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+        let expr = Expr::precedence_parse(parser, Precedence::EXPR, true)?;
+        if let Expr::Label { .. } = &expr {
+            Ok(Self { expr, semi: None })
+        } else {
+            Ok(Self {
+                expr,
+                semi: parser.parse()?,
+            })
+        }
+    }
 }
 
 impl Parse for Block {

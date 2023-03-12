@@ -76,6 +76,14 @@ pub enum Expr {
         colon: Colon,
         false_result: Box<Expr>,
     },
+
+    /// `goto` and state labels are parsed as expressions, because we don't want 2-token peekahead
+    /// while parsing statements. The semantic phase can then filter out labels that occur in places
+    /// where they don't make sense.
+    Label {
+        label: Ident,
+        colon: Colon,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,11 +114,12 @@ impl Expr {
     fn parse_prefix(
         parser: &mut Parser<'_, impl ParseStream>,
         token: Token,
+        is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         use crate::lexis::token::SingleToken;
 
         Ok(match token.kind {
-            TokenKind::Ident => Expr::ident(parser, token)?,
+            TokenKind::Ident => Expr::ident(parser, token, is_stmt)?,
             TokenKind::IntLit => Expr::Lit(Lit::Int(IntLit { span: token.span })),
             TokenKind::FloatLit => Expr::Lit(Lit::Float(FloatLit { span: token.span })),
             TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
@@ -120,10 +129,10 @@ impl Expr {
             | TokenKind::Not
             | TokenKind::BitNot
             | TokenKind::Inc
-            | TokenKind::Dec => Expr::unary(parser, token)?,
+            | TokenKind::Dec => Expr::unary(parser, token, is_stmt)?,
 
             TokenKind::LeftParen => {
-                let inner = Expr::precedence_parse(parser, Precedence::EXPR)?;
+                let inner = Expr::precedence_parse(parser, Precedence::EXPR, false)?;
                 let close = parser.parse_with_error(|parser, span| {
                     Diagnostic::error(parser.file, "missing `)` to close grouped expression")
                         .with_label(Label::primary(span, "`)` expected here..."))
@@ -155,17 +164,22 @@ impl Expr {
     fn unary(
         parser: &mut Parser<'_, impl ParseStream>,
         operator: Token,
+        is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         Ok(Expr::Prefix {
             operator,
             right: {
                 let token = parser.next_token()?;
-                Box::new(Self::parse_prefix(parser, token)?)
+                Box::new(Self::parse_prefix(parser, token, is_stmt)?)
             },
         })
     }
 
-    fn ident(parser: &mut Parser<'_, impl ParseStream>, ident: Token) -> Result<Expr, ParseError> {
+    fn ident(
+        parser: &mut Parser<'_, impl ParseStream>,
+        ident: Token,
+        is_stmt: bool,
+    ) -> Result<Expr, ParseError> {
         let s = ident.span.get_input(parser.input);
         Ok(match () {
             _ if KNone::matches(s) => Expr::Lit(Lit::None(KNone { span: ident.span })),
@@ -177,8 +191,17 @@ impl Expr {
             }
             _ => {
                 let ident = Ident { span: ident.span };
-                if let Some(name) = parser.parse()? {
-                    Expr::Object { class: ident, name }
+                let next_token = parser.peek_token()?;
+                if next_token.kind == TokenKind::NameLit {
+                    Expr::Object {
+                        class: ident,
+                        name: parser.parse()?,
+                    }
+                } else if next_token.kind == TokenKind::Colon && is_stmt {
+                    Expr::Label {
+                        label: ident,
+                        colon: parser.parse()?,
+                    }
                 } else {
                     Expr::Ident(ident)
                 }
@@ -220,7 +243,7 @@ impl Expr {
             TokenKind::LeftBracket => Expr::Index {
                 left: Box::new(left),
                 open: LeftBracket::default_from_span(op.token.span),
-                index: Box::new(Expr::precedence_parse(parser, Precedence::EXPR)?),
+                index: Box::new(Expr::precedence_parse(parser, Precedence::EXPR, false)?),
                 close: parser.parse()?,
             },
             TokenKind::Question => Expr::ternary(parser, left, op.token)?,
@@ -239,7 +262,7 @@ impl Expr {
         operator: InfixOperator,
         build: impl FnOnce(InfixOperator, Expr) -> Expr,
     ) -> Result<Expr, ParseError> {
-        let right = Expr::precedence_parse(parser, operator.token.precedence(parser.input))?;
+        let right = Expr::precedence_parse(parser, operator.token.precedence(parser.input), false)?;
         Ok(build(operator, right))
     }
 
@@ -254,11 +277,15 @@ impl Expr {
         Ok(Expr::Ternary {
             cond: Box::new(left),
             question: Question::default_from_span(token.span),
-            true_result: Box::new(Expr::precedence_parse(parser, precedence)?),
+            true_result: Box::new(Expr::precedence_parse(parser, precedence, false)?),
             colon: parser.parse()?,
             // NOTE: We want to use one less precedence here, since this should be able to match
             // ?: without a problem, so that ternaries can be chained like an if-else if-else.
-            false_result: Box::new(Expr::precedence_parse(parser, Precedence::BELOW_TERNARY)?),
+            false_result: Box::new(Expr::precedence_parse(
+                parser,
+                Precedence::BELOW_TERNARY,
+                false,
+            )?),
         })
     }
 
@@ -321,9 +348,10 @@ impl Expr {
     pub fn precedence_parse(
         parser: &mut Parser<'_, impl ParseStream>,
         precedence: Precedence,
+        is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         let token = parser.next_token()?;
-        let mut chain = Expr::parse_prefix(parser, token)?;
+        let mut chain = Expr::parse_prefix(parser, token, is_stmt)?;
 
         let mut operator;
         while precedence < parser.peek_token()?.precedence(parser.input) {
@@ -475,6 +503,7 @@ impl From<Precedence> for Option<u8> {
 
 impl Parse for Expr {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        Expr::precedence_parse(parser, Precedence::EXPR)
+        // If you want to override is_stmt, call Expr::precedence_parse manually.
+        Expr::precedence_parse(parser, Precedence::EXPR, false)
     }
 }

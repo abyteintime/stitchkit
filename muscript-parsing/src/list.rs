@@ -36,6 +36,50 @@ where
         Ok(elements)
     }
 
+    pub fn parse_terminated_list_with<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
+    where
+        E: Parse,
+        R: SingleToken,
+    {
+        fn error(kind: TerminatedListErrorKind) -> impl FnOnce(ParseError) -> TerminatedListError {
+            move |parse| TerminatedListError { kind, parse }
+        }
+
+        let mut elements = vec![];
+        let terminator = loop {
+            let token = self
+                .peek_token()
+                .map_err(error(TerminatedListErrorKind::Parse))?;
+            match token.kind {
+                _ if R::matches(&token, token.span.get_input(self.input)) => {
+                    self.next_token().expect("the token was already parsed");
+                    break R::default_from_span(token.span);
+                }
+                TokenKind::EndOfFile => {
+                    return Err(TerminatedListError {
+                        kind: TerminatedListErrorKind::MissingTerminator,
+                        parse: self.make_error(token.span),
+                    })
+                }
+                _ => (),
+            }
+            if R::KIND.closes().is_some() {
+                let result = self.try_with_delimiter_recovery(|parser| parser.parse());
+                match result {
+                    Ok(node) => elements.push(node),
+                    Err(closing) => break closing,
+                }
+            } else {
+                elements.push(
+                    self.parse()
+                        .map_err(error(TerminatedListErrorKind::Parse))?,
+                );
+            };
+        };
+
+        Ok((elements, terminator))
+    }
+
     pub fn parse_terminated_list<E, R>(&mut self) -> Result<(Vec<E>, R), TerminatedListError>
     where
         E: Parse,

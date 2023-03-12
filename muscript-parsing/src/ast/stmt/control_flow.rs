@@ -133,7 +133,7 @@ pub struct StmtContinue {
 impl Parse for StmtForEach {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let foreach = parser.parse()?;
-        let iterator = Expr::precedence_parse(parser, Precedence::BELOW_CALL)?;
+        let iterator = Expr::precedence_parse(parser, Precedence::BELOW_CALL, false)?;
         let stmt = Box::new(parser.parse()?);
         Ok(Self {
             foreach,

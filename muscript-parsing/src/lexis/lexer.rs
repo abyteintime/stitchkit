@@ -7,7 +7,7 @@ use muscript_foundation::{
 
 use super::{
     token::{Token, TokenKind},
-    EofReached, LexError, TokenStream,
+    Channel, EofReached, LexError, TokenStream,
 };
 
 #[derive(Debug)]
@@ -313,7 +313,7 @@ impl Lexer {
 }
 
 impl TokenStream for Lexer {
-    fn next_include_comments(&mut self) -> Result<Token, LexError> {
+    fn next_any(&mut self) -> Result<Token, LexError> {
         self.skip_whitespace();
 
         let start = self.position;
@@ -478,16 +478,9 @@ impl TokenStream for Lexer {
         Ok(Span::from(start..end))
     }
 
-    fn peek_include_comments(&mut self) -> Result<Token, LexError> {
+    fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
         let position = self.position;
-        let result = self.next_include_comments();
-        self.position = position;
-        result
-    }
-
-    fn peek(&mut self) -> Result<Token, LexError> {
-        let position = self.position;
-        let result = self.next();
+        let result = self.next_from(channel);
         self.position = position;
         result
     }

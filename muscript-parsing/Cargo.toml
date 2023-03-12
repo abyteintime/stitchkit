@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bitflags = { workspace = true }
 indoc = "2.0.0"
 thiserror = { workspace = true }
 tracing = { workspace = true }

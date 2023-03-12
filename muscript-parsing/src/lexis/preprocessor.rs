@@ -12,7 +12,7 @@ use crate::diagnostics::DiagnosticSink;
 
 use super::{
     token::{Token, TokenKind},
-    EofReached, LexError, Lexer, TokenStream,
+    Channel, EofReached, LexError, Lexer, TokenStream,
 };
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
@@ -313,7 +313,7 @@ impl<'a> Preprocessor<'a> {
         let mut consumed_tokens: usize = 0;
         let mut nesting: usize = 1;
         loop {
-            let token = self.next_include_comments()?;
+            let token = self.next_any()?;
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(LexError::new(
@@ -415,7 +415,7 @@ impl<'a> Preprocessor<'a> {
         let mut nesting: usize = 0;
         loop {
             let before_token = self.lexer().position;
-            let token = self.lexer_mut().next_include_comments()?;
+            let token = self.lexer_mut().next_any()?;
             match token.kind {
                 TokenKind::Accent => {
                     let macro_name_span = self.parse_macro_name()?;
@@ -744,9 +744,9 @@ enum PreprocessResult {
 }
 
 impl<'a> TokenStream for Preprocessor<'a> {
-    fn next_include_comments(&mut self) -> Result<Token, LexError> {
+    fn next_any(&mut self) -> Result<Token, LexError> {
         loop {
-            let token = self.lexer_mut().next_include_comments()?;
+            let token = self.lexer_mut().next_any()?;
             match self.do_preprocess(token)? {
                 PreprocessResult::Ignored(token) => return Ok(token),
                 PreprocessResult::Consumed => continue,
@@ -766,36 +766,12 @@ impl<'a> TokenStream for Preprocessor<'a> {
         self.lexer_mut().braced_string(left_brace_span)
     }
 
-    fn peek_include_comments(&mut self) -> Result<Token, LexError> {
+    fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
         let before = self.lexer().position;
         loop {
-            let token = self.lexer_mut().peek_include_comments()?;
+            let token = self.lexer_mut().peek_from(channel)?;
             if Self::is_preprocessor_token(token.kind) {
-                let token = self.lexer_mut().next_include_comments()?;
-                match self.do_preprocess(token)? {
-                    PreprocessResult::Ignored(token) => {
-                        // This can happen on EOF that is not significant to the preprocessor.
-                        // In that case we don't need to backtrack.
-                        return Ok(token);
-                    }
-                    PreprocessResult::Consumed => (),
-                    PreprocessResult::Produced(byproduct) => {
-                        self.lexer_mut().position = before;
-                        return Ok(byproduct);
-                    }
-                };
-            } else {
-                return Ok(token);
-            }
-        }
-    }
-
-    fn peek(&mut self) -> Result<Token, LexError> {
-        let before = self.lexer().position;
-        loop {
-            let token = self.lexer_mut().peek()?;
-            if Self::is_preprocessor_token(token.kind) {
-                let token = self.lexer_mut().next()?;
+                let token = self.lexer_mut().next_from(channel)?;
                 match self.do_preprocess(token)? {
                     PreprocessResult::Ignored(token) => {
                         // This can happen on EOF that is not significant to the preprocessor.

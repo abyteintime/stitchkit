@@ -170,6 +170,13 @@ impl TokenKind {
             _ => None,
         }
     }
+
+    pub fn channel(&self) -> Channel {
+        match self {
+            TokenKind::Comment => Channel::COMMENTS,
+            _ => Channel::MAIN,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -220,3 +227,5 @@ pub struct TokenKindMismatch<T>(pub T);
 mod keyword;
 
 pub use keyword::*;
+
+use super::Channel;

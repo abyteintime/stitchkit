@@ -245,6 +245,7 @@ dependencies = [
 name = "muscript-parsing"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.0.0-rc.3",
  "indoc",
  "muscript-foundation",
  "muscript-parsing-derive",

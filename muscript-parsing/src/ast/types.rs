@@ -1,7 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::token::{Greater, Ident, Less, Token},
+    lexis::token::{Greater, Less, Token},
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };

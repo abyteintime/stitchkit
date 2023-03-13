@@ -3,15 +3,18 @@ mod lit;
 use std::cmp::Ordering;
 
 use muscript_foundation::{
-    errors::{Diagnostic, Label},
+    errors::{Diagnostic, Label, Note, NoteKind},
     source::{Span, Spanned},
 };
 use unicase::UniCase;
 
 use crate::{
-    lexis::token::{
-        Assign, Colon, Dot, FloatLit, Ident, IntLit, Keyword, LeftBracket, LeftParen, NameLit,
-        Question, RightBracket, RightParen, StringLit, Token, TokenKind,
+    lexis::{
+        token::{
+            Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
+            LeftParen, NameLit, Question, RightBracket, RightParen, StringLit, Token, TokenKind,
+        },
+        Channel,
     },
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser,
@@ -23,6 +26,7 @@ pub use lit::*;
 pub enum Expr {
     Lit(Lit),
     Ident(Ident),
+    FailedExp(FailedExp),
     Object {
         class: Ident,
         name: NameLit,
@@ -132,6 +136,11 @@ impl Expr {
             TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
             TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { span: token.span })),
 
+            TokenKind::FailedExp => {
+                // TODO: Error message here.
+                Expr::FailedExp(FailedExp { span: token.span })
+            }
+
             TokenKind::Add
             | TokenKind::Sub
             | TokenKind::Not
@@ -164,7 +173,12 @@ impl Expr {
                         token.span,
                         "this token does not start an expression",
                     ))
-                    .with_note("note: expression types include literals, variables, math, etc."),
+                    .with_note("note: expression types include literals, variables, math, etc.")
+                    .with_note(Note {
+                        kind: NoteKind::Debug,
+                        text: format!("at token {token:?}"),
+                        suggestion: None,
+                    }),
             )?,
         })
     }
@@ -177,7 +191,7 @@ impl Expr {
         Ok(Expr::Prefix {
             operator,
             right: {
-                let token = parser.next_token()?;
+                let token = parser.next_token_from(Channel::CODE | Channel::MACRO)?;
                 Box::new(Self::parse_prefix(parser, token, is_stmt)?)
             },
         })
@@ -376,7 +390,7 @@ impl Expr {
         precedence: Precedence,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        let token = parser.next_token()?;
+        let token = parser.next_token_from(Channel::CODE | Channel::MACRO)?;
         let mut chain = Expr::parse_prefix(parser, token, is_stmt)?;
 
         let mut operator;

@@ -541,7 +541,7 @@ impl<'a> Preprocessor<'a> {
             .or_else(|| self.definitions.map.get(&name))
     }
 
-    fn parse_user_macro(&mut self, invocation_span: Span) -> Result<(), LexError> {
+    fn parse_user_macro(&mut self, invocation_span: Span) -> Result<PreprocessResult, LexError> {
         let arguments = if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
             let open = self.lexer_mut().next()?;
             let (arguments, close) = self.parse_comma_separated(&open, |preproc| {
@@ -665,11 +665,14 @@ impl<'a> Preprocessor<'a> {
                             .collect(),
                     })
                     .unwrap_or_default(),
-            })
+            });
+            Ok(PreprocessResult::Consumed)
         } else {
-            // TODO: Emit a warning or error? Needs verification of what UPP does
+            Ok(PreprocessResult::Produced(Token {
+                kind: TokenKind::FailedExp,
+                span: invocation_span,
+            }))
         }
-        Ok(())
     }
 
     fn parse_invocation(&mut self) -> Result<PreprocessResult, LexError> {
@@ -696,7 +699,7 @@ impl<'a> Preprocessor<'a> {
                     .map(PreprocessResult::Produced)
                     .unwrap_or(PreprocessResult::Consumed))
             }
-            _ => self.parse_user_macro(span)?,
+            _ => return self.parse_user_macro(span),
         }
 
         Ok(PreprocessResult::Consumed)
@@ -772,19 +775,26 @@ impl<'a> TokenStream for Preprocessor<'a> {
             let token = self.lexer_mut().peek_from(channel)?;
             if Self::is_preprocessor_token(token.kind) {
                 let token = self.lexer_mut().next_from(channel)?;
-                match self.do_preprocess(token)? {
+                let preprocess_result = self.do_preprocess(token)?;
+                match preprocess_result {
                     PreprocessResult::Ignored(token) => {
                         // This can happen on EOF that is not significant to the preprocessor.
                         // In that case we don't need to backtrack.
                         return Ok(token);
                     }
                     PreprocessResult::Consumed => (),
-                    PreprocessResult::Produced(byproduct) => {
+                    PreprocessResult::Produced(byproduct)
+                        if channel.contains(byproduct.kind.channel()) =>
+                    {
                         self.lexer_mut().position = before;
                         return Ok(byproduct);
                     }
+                    PreprocessResult::Produced(_) => (),
                 };
             } else {
+                // We still need to backtrack here because we may have consumed some preprocessor
+                // tokens in previous iterations of the loop.
+                self.lexer_mut().position = before;
                 return Ok(token);
             }
         }

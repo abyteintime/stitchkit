@@ -141,6 +141,9 @@ define_tokens! {
     // This kind is used for `isdefined and `notdefined, which should produce a valid token so that
     // they can be seen by `if, but should not be usable otherwise.
     Generated = "macro output",
+    // This kind is produced by expanding undefined macros, and is primarily used for error recovery
+    // in various places.
+    FailedExp = "undefined macro output",
     EndOfFile = "end of file",
 }
 
@@ -173,8 +176,9 @@ impl TokenKind {
 
     pub fn channel(&self) -> Channel {
         match self {
-            TokenKind::Comment => Channel::COMMENTS,
-            _ => Channel::MAIN,
+            TokenKind::Comment => Channel::COMMENT,
+            TokenKind::FailedExp => Channel::MACRO,
+            _ => Channel::CODE,
         }
     }
 }

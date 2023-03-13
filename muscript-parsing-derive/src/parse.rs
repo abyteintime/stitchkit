@@ -110,7 +110,12 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
         quote! {
             _ => {
                 let ref_parser: &::muscript_parsing::Parser<'_, _> = parser;
-                let the_error = #error(ref_parser, &token);
+                let the_error: ::muscript_foundation::errors::Diagnostic = #error(ref_parser, &token);
+                let the_error = the_error.with_note(::muscript_foundation::errors::Note {
+                    kind: ::muscript_foundation::errors::NoteKind::Debug,
+                    text: ::std::format!("at token {:?}", token),
+                    suggestion: ::std::option::Option::None,
+                });
                 parser.emit_diagnostic(the_error);
                 return Err(parser.make_error(token.span));
                 // parser.bail::<Self>(token.span, the_error)?

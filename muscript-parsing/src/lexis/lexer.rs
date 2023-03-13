@@ -27,7 +27,11 @@ impl Lexer {
     }
 
     pub fn current_char(&self) -> Option<char> {
-        self.input[self.position..].chars().next()
+        if let Some(input) = self.input.get(self.position..) {
+            input.chars().next()
+        } else {
+            None
+        }
     }
 
     pub fn advance_char(&mut self) {

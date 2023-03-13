@@ -9,7 +9,7 @@ use crate::{
     diagnostics::DiagnosticSink,
     lexis::{
         token::{SingleToken, Token, TokenKindMismatch},
-        LexError, TokenStream,
+        Channel, LexError, TokenStream,
     },
 };
 
@@ -95,15 +95,19 @@ impl<'a, T> Parser<'a, T>
 where
     T: ParseStream,
 {
-    pub fn next_token(&mut self) -> Result<Token, ParseError> {
+    pub fn next_token_from(&mut self, channel: Channel) -> Result<Token, ParseError> {
         self.tokens
-            .next()
+            .next_from(channel)
             .map_err(|LexError { span, diagnostics }| {
                 for diagnostic in diagnostics {
                     self.emit_diagnostic(diagnostic);
                 }
                 self.make_error(span)
             })
+    }
+
+    pub fn next_token(&mut self) -> Result<Token, ParseError> {
+        self.next_token_from(Channel::CODE)
     }
 
     pub fn peek_token(&mut self) -> Result<Token, ParseError> {
@@ -119,13 +123,20 @@ where
         match self.next_token() {
             Ok(token) => {
                 let input = token.span.get_input(self.input);
-                Tok::try_from_token(token, input).map_err(|TokenKindMismatch(token)| {
+                Tok::try_from_token(token.clone(), input).map_err(|TokenKindMismatch(failed)| {
                     self.emit_diagnostic(
-                        Diagnostic::error(self.file, format!("{} expected", Tok::NAME)).with_label(
-                            Label::primary(token.span(), format!("{} expected here", Tok::NAME)),
-                        ),
+                        Diagnostic::error(self.file, format!("{} expected", Tok::NAME))
+                            .with_label(Label::primary(
+                                failed.span(),
+                                format!("{} expected here", Tok::NAME),
+                            ))
+                            .with_note(Note {
+                                kind: NoteKind::Debug,
+                                text: format!("at token {token:?}"),
+                                suggestion: None,
+                            }),
                     );
-                    ParseError::new(token.span(), self.rule_traceback.clone())
+                    ParseError::new(failed.span(), self.rule_traceback.clone())
                 })
             }
             Err(ParseError {

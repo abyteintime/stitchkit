@@ -8,11 +8,11 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct Channel: u8 {
         /// Main input (everything that is not comments or macros.)
-        const MAIN     = 0x1;
+        const CODE     = 0x1;
         /// Comments only. This is not used by the parser, but it may be used by external tools.
-        const COMMENTS = 0x2;
+        const COMMENT = 0x2;
         /// Empty macro output. Some rules in the parser recognize this for better error recovery.
-        const MACROS   = 0x4;
+        const MACRO   = 0x4;
     }
 }
 
@@ -29,7 +29,7 @@ pub trait TokenStream {
     }
 
     fn next(&mut self) -> Result<Token, LexError> {
-        self.next_from(Channel::MAIN)
+        self.next_from(Channel::CODE)
     }
 
     fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached>;
@@ -43,7 +43,7 @@ pub trait TokenStream {
     }
 
     fn peek(&mut self) -> Result<Token, LexError> {
-        self.peek_from(Channel::MAIN)
+        self.peek_from(Channel::CODE)
     }
 
     /// Can be used to add token stream-known context to parser diagnostics.

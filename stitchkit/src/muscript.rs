@@ -11,7 +11,7 @@ use muscript_parsing::{
     lexis::{
         preprocessor::{Definitions, Preprocessor},
         token::TokenKind,
-        LexicalContext, TokenStream,
+        LexicalContext, PeekCaching, TokenStream,
     },
     Structured,
 };
@@ -207,12 +207,12 @@ fn perform_action_on_source_file(
         Action::Parse { no_print } => {
             let mut definitions = definitions.clone();
             let mut preproc_diagnostics = vec![];
-            let tokens = Preprocessor::new(
+            let tokens = PeekCaching::new(Preprocessor::new(
                 id,
                 Rc::clone(&file.source),
                 &mut definitions,
                 &mut preproc_diagnostics,
-            );
+            ));
             let mut parser_diagnostics = vec![];
             let mut parser = muscript_parsing::Parser::new(
                 id,

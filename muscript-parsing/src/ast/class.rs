@@ -16,6 +16,7 @@ use super::{
 };
 
 keyword! {
+    KPartial = "partial",
     KClass = "class",
     KInterface = "interface",
     KExtends = "extends",
@@ -26,6 +27,7 @@ keyword! {
 #[parse(error = "class_kind_error")]
 pub enum ClassKind {
     Class(KClass),
+    PartialClass(KPartial, KClass),
     Interface(KInterface),
 }
 
@@ -117,9 +119,12 @@ impl Parse for Class {
 }
 
 fn class_kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "`class` or `interface` expected")
-        .with_label(Label::primary(token.span, ""))
-        .with_note("note: the file must start with the kind of type you're declaring")
+    Diagnostic::error(
+        parser.file,
+        "`class`, `partial class`, or `interface` expected",
+    )
+    .with_label(Label::primary(token.span, ""))
+    .with_note("note: the file must start with the kind of type you're declaring")
 }
 
 fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

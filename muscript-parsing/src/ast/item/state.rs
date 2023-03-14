@@ -69,6 +69,7 @@ impl Parse for ItemState {
 }
 
 impl PredictiveParse for ItemState {
+    #[allow(deprecated)]
     fn started_by(token: &Token, input: &str) -> bool {
         KState::started_by(token, input) || KAuto::started_by(token, input)
     }

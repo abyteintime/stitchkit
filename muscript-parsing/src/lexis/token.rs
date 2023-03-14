@@ -74,6 +74,8 @@ macro_rules! define_tokens {
             }
 
             impl PredictiveParse for $name {
+                const LISTEN_TO_CHANNELS: Channel = Self::KIND.channel();
+
                 fn started_by(token: &Token, _: &str) -> bool {
                     token.kind == TokenKind::$name
                 }
@@ -174,7 +176,7 @@ impl TokenKind {
         }
     }
 
-    pub fn channel(&self) -> Channel {
+    pub const fn channel(&self) -> Channel {
         match self {
             TokenKind::Comment => Channel::COMMENT,
             TokenKind::FailedExp => Channel::MACRO,

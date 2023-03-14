@@ -27,6 +27,10 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics ::muscript_parsing::PredictiveParse for #type_name #type_generics #where_clause {
+            const LISTEN_TO_CHANNELS: ::muscript_parsing::lexis::Channel =
+                <#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS;
+
+            #[allow(deprecated)]
             fn started_by(
                 token: &::muscript_parsing::lexis::token::Token,
                 input: &::std::primitive::str,
@@ -39,7 +43,8 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
 }
 
 fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
-    let mut expr = TokenStream::new();
+    let mut listen_to_channels = TokenStream::new();
+    let mut started_by = TokenStream::new();
     for (i, variant) in item.variants.iter().enumerate() {
         let first_field = variant.fields.iter().next().ok_or_else(|| {
             syn::Error::new_spanned(
@@ -48,11 +53,22 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             )
         })?;
         let ty = &first_field.ty;
+
         if i != 0 {
-            expr.extend(quote!(||))
+            started_by.extend(quote!(||))
         }
-        expr.extend(quote! {
+        started_by.extend(quote! {
             <#ty as ::muscript_parsing::PredictiveParse>::started_by(token, input)
+        });
+
+        listen_to_channels.extend(if i != 0 {
+            quote! {
+                .union(<#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS)
+            }
+        } else {
+            quote! {
+                <#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS
+            }
         });
     }
 
@@ -66,7 +82,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                 input: &::std::primitive::str,
             ) -> bool
             {
-                #expr
+                #started_by
             }
         }
     })

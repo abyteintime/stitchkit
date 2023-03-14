@@ -91,7 +91,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
         let construct = quote! { #type_name::#variant_name { #constructor_fields } };
         if !attrs.fallback {
             match_arms.push(quote! {
-                _ if <#first_field_type as ::muscript_parsing::PredictiveParse>::started_by(&token, parser.input) => {
+                _ if parser.next_matches::<#first_field_type>() => {
                     #construct
                 }
             });

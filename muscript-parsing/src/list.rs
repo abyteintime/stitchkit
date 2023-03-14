@@ -22,8 +22,7 @@ where
     {
         let mut elements = vec![];
         loop {
-            let token = self.peek_token()?;
-            if E::started_by(&token, self.input) {
+            if self.next_matches::<E>() {
                 // NOTE: None of these errors are fatal; if any element happens to not match,
                 // we want to continue to report further errors.
                 if let Ok(element) = self.parse() {

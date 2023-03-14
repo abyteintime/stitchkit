@@ -777,9 +777,13 @@ impl<'a> TokenStream for Preprocessor<'a> {
             // This might seem a little slow given that this should be a "simple" peek
             // operation, but remember that most tokens are not relevant for the preprocessor
             // and as such use the fast path (this `if`'s `else` branch.)
-            let stack = self.stack.clone();
-            let preprocessed_token = self.next_from(channel)?;
-            self.stack = stack;
+            let mut sub = Preprocessor {
+                definitions: self.definitions,
+                // Peek must not emit any diagnostics.
+                errors: &mut (),
+                stack: self.stack.clone(),
+            };
+            let preprocessed_token = sub.next_from(channel)?;
             Ok(preprocessed_token)
         } else {
             Ok(lexed_token)

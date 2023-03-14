@@ -1,7 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    lexis::token::{Greater, Less, Token},
+    lexis::token::{Greater, Ident, Less, Token},
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
@@ -52,8 +52,9 @@ impl Parse for Type {
 }
 
 impl PredictiveParse for Type {
+    #[allow(deprecated)]
     fn started_by(token: &Token, input: &str) -> bool {
-        Path::started_by(token, input) || TypeSpecifier::started_by(token, input)
+        Ident::started_by(token, input)
     }
 }
 

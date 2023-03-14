@@ -110,17 +110,21 @@ where
         self.next_token_from(Channel::CODE)
     }
 
-    pub fn peek_token(&mut self) -> Result<Token, ParseError> {
+    pub fn peek_token_from(&mut self, channel: Channel) -> Result<Token, ParseError> {
         self.tokens
-            .peek()
+            .peek_from(channel)
             .map_err(|LexError { span, .. }| self.make_error(span))
+    }
+
+    pub fn peek_token(&mut self) -> Result<Token, ParseError> {
+        self.peek_token_from(Channel::CODE)
     }
 
     pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
     where
         Tok: SingleToken,
     {
-        match self.next_token() {
+        match self.next_token_from(Channel::CODE | Tok::LISTEN_TO_CHANNELS) {
             Ok(token) => {
                 let input = token.span.get_input(self.input);
                 Tok::try_from_token(token.clone(), input).map_err(|TokenKindMismatch(failed)| {
@@ -147,6 +151,19 @@ where
                 // We fabricate the token from the reported span.
                 Ok(Tok::default_from_span(span))
             }
+        }
+    }
+
+    /// Returns whether the next token starts `N` without advancing the token stream.
+    pub fn next_matches<N>(&mut self) -> bool
+    where
+        N: PredictiveParse,
+    {
+        if let Ok(next_token) = self.peek_token_from(Channel::CODE | N::LISTEN_TO_CHANNELS) {
+            #[allow(deprecated)]
+            N::started_by(&next_token, self.input)
+        } else {
+            false
         }
     }
 
@@ -229,7 +246,11 @@ where
 }
 
 pub trait PredictiveParse: Parse {
-    /// Returns `true` if this syntactic construct starts with the given token.
+    /// Additional channels to peek from when parsing this rule predictively.
+    const LISTEN_TO_CHANNELS: Channel = Channel::empty();
+
+    /// Returns `true` if this rule starts with the given token.
+    #[deprecated = "use [`Parser::next_matches`] instead"]
     fn started_by(token: &Token, input: &str) -> bool;
 }
 
@@ -238,16 +259,9 @@ where
     N: PredictiveParse,
 {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        if let Ok(next_token) = parser.peek_token() {
-            if N::started_by(&next_token, parser.input) {
-                #[allow(deprecated)]
-                Ok(Some(parser.parse()?))
-            } else {
-                Ok(None)
-            }
+        if parser.next_matches::<N>() {
+            Ok(Some(parser.parse()?))
         } else {
-            // It's fine if there's a lexing error; it'll be taken care of by whatever _requires_
-            // the following token.
             Ok(None)
         }
     }

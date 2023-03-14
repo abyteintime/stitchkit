@@ -230,6 +230,7 @@ impl Parse for ItemFunction {
 }
 
 impl PredictiveParse for ItemFunction {
+    #[allow(deprecated)]
     fn started_by(token: &Token, input: &str) -> bool {
         // Kind of sub-optimal that we have to check here each and every single identifier.
         FunctionKind::started_by(token, input) || FunctionSpecifier::started_by(token, input)
@@ -275,6 +276,7 @@ impl Parse for Param {
 }
 
 impl PredictiveParse for Param {
+    #[allow(deprecated)]
     fn started_by(token: &Token, input: &str) -> bool {
         Ident::started_by(token, input)
     }

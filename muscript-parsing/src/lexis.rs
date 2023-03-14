@@ -10,6 +10,7 @@ use muscript_foundation::{errors::Diagnostic, source::Span};
 pub use lexer::*;
 pub use token_stream::*;
 
+#[derive(Debug, Clone)]
 pub struct LexError {
     pub diagnostics: Vec<Diagnostic>,
     pub span: Span,

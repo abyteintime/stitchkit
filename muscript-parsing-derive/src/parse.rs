@@ -70,12 +70,16 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             .enumerate()
             .map(|(i, field)| {
                 let ty = &field.ty;
-                let do_parse = quote! {
-                    match parser.parse::<#ty>() {
+                let do_parse = quote! {{
+                    const NAME: &'static str =
+                        std::concat!("    -> ", std::stringify!(#variant_name));
+                    match parser.scope_mut(NAME, |parser| {
+                        parser.parse::<#ty>()
+                    }) {
                         Ok(n) => n,
                         Err(e) => return Err(e),
                     }
-                };
+                }};
                 if let Some(field_name) = &field.ident {
                     quote! { #field_name: #do_parse, }
                 } else {

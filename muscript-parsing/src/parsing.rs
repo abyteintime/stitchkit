@@ -79,7 +79,7 @@ where
             text: {
                 let mut s = String::from("parser traceback (innermost rule last):");
                 for rule in &self.rule_traceback {
-                    s.push_str("\n  - ");
+                    s.push_str("\n    ");
                     s.push_str(rule);
                 }
                 s
@@ -150,15 +150,21 @@ where
         }
     }
 
+    pub fn scope_mut<R>(&mut self, name: &'static str, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.rule_traceback.push(name);
+        let result = f(self);
+        self.rule_traceback.pop();
+        result
+    }
+
     pub fn parse<N>(&mut self) -> Result<N, ParseError>
     where
         N: Parse,
     {
-        self.rule_traceback.push(std::any::type_name::<N>());
-        #[allow(deprecated)]
-        let result = N::parse(self);
-        self.rule_traceback.pop();
-        result
+        self.scope_mut(std::any::type_name::<N>(), |parser| {
+            #[allow(deprecated)]
+            N::parse(parser)
+        })
     }
 
     pub fn parse_with_error<N>(

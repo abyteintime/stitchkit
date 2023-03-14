@@ -1,12 +1,10 @@
-use unicase::UniCase;
-
 use crate::lexis::token::SingleToken;
 
 pub trait Keyword: SingleToken {
     const KEYWORD: &'static str;
 
     fn matches(ident: &str) -> bool {
-        UniCase::new(ident) == UniCase::ascii(Self::KEYWORD)
+        ident.eq_ignore_ascii_case(Self::KEYWORD)
     }
 }
 
@@ -81,8 +79,7 @@ macro_rules! __keyword_impl {
 
         impl $crate::parsing::PredictiveParse for $T {
             fn started_by(token: &$crate::lexis::token::Token, input: &str) -> bool {
-                ::unicase::UniCase::new(token.span.get_input(input))
-                    == ::unicase::UniCase::ascii($keyword)
+                token.span.get_input(input).eq_ignore_ascii_case($keyword)
             }
         }
     };

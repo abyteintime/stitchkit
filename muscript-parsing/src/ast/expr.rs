@@ -6,7 +6,6 @@ use muscript_foundation::{
     errors::{Diagnostic, Label, Note, NoteKind},
     source::{Span, Spanned},
 };
-use unicase::UniCase;
 
 use crate::{
     lexis::{
@@ -482,10 +481,10 @@ impl Token {
             // declared in Object.uc doesn't make sense. Why would `$` and `@` bind weaker than `=`?
             TokenKind::Dollar | TokenKind::At => Precedence::Some(34),
 
-            TokenKind::Ident => match UniCase::new(self.span.get_input(input)) {
-                s if s == UniCase::ascii("dot") => Precedence::Some(16),
-                s if s == UniCase::ascii("cross") => Precedence::Some(16),
-                s if s == UniCase::ascii("clockwisefrom") => Precedence::Some(24),
+            TokenKind::Ident => match self.span.get_input(input) {
+                s if s.eq_ignore_ascii_case("dot") => Precedence::Some(16),
+                s if s.eq_ignore_ascii_case("cross") => Precedence::Some(16),
+                s if s.eq_ignore_ascii_case("clockwisefrom") => Precedence::Some(24),
                 _ => Precedence::None,
             },
 

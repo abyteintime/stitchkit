@@ -353,7 +353,7 @@ impl<'a> Preprocessor<'a> {
 
         if !condition {
             self.skip_until_macro(
-                |name| name == UniCase::ascii("else") || name == UniCase::ascii("endif"),
+                |name| name.eq_ignore_ascii_case("else") || name.eq_ignore_ascii_case("endif"),
                 |file| {
                     LexError::new(
                         if_span,
@@ -373,7 +373,7 @@ impl<'a> Preprocessor<'a> {
             let if_span = last_if.open;
             if last_if.condition {
                 self.skip_until_macro(
-                    |name| name == UniCase::ascii("endif"),
+                    |name| name.eq_ignore_ascii_case("endif"),
                     |file| {
                         LexError::new(
                             else_span,
@@ -410,7 +410,7 @@ impl<'a> Preprocessor<'a> {
 
     fn skip_until_macro(
         &mut self,
-        cond: impl Fn(UniCase<&str>) -> bool,
+        cond: impl Fn(&str) -> bool,
         error: impl FnOnce(SourceFileId) -> LexError,
     ) -> Result<(), LexError> {
         let _span = trace_span!("skip_until_macro").entered();
@@ -423,12 +423,11 @@ impl<'a> Preprocessor<'a> {
                 TokenKind::Accent => {
                     let macro_name_span = self.parse_macro_name()?;
                     let macro_name = macro_name_span.get_input(&self.lexer().input);
-                    let macro_name = UniCase::new(macro_name);
                     // We need to keep track of nesting levels to skip over nested `ifs.
-                    if macro_name == UniCase::ascii("if") {
+                    if macro_name.eq_ignore_ascii_case("if") {
                         trace!("Nesting: `if");
                         nesting += 1;
-                    } else if nesting > 0 && macro_name == UniCase::ascii("endif") {
+                    } else if nesting > 0 && macro_name.eq_ignore_ascii_case("endif") {
                         trace!("Nesting: `endif");
                         nesting -= 1;
                     } else if nesting == 0 && cond(macro_name) {
@@ -681,23 +680,23 @@ impl<'a> Preprocessor<'a> {
 
     fn parse_invocation(&mut self) -> Result<PreprocessResult, LexError> {
         let span = self.parse_macro_name()?;
-        let macro_name = UniCase::new(span.get_input(&self.lexer().input));
+        let macro_name = span.get_input(&self.lexer().input);
         trace!("Invoking macro `{macro_name}");
 
         match () {
-            _ if macro_name == UniCase::ascii("define") => self.parse_define()?,
-            _ if macro_name == UniCase::ascii("undefine") => self.parse_undefine()?,
-            _ if macro_name == UniCase::ascii("if") => self.parse_if(span)?,
-            _ if macro_name == UniCase::ascii("else") => self.parse_else(span)?,
-            _ if macro_name == UniCase::ascii("endif") => self.parse_endif(span)?,
-            _ if macro_name == UniCase::ascii("include") => self.parse_include(span)?,
-            _ if macro_name == UniCase::ascii("isdefined") => {
+            _ if macro_name.eq_ignore_ascii_case("define") => self.parse_define()?,
+            _ if macro_name.eq_ignore_ascii_case("undefine") => self.parse_undefine()?,
+            _ if macro_name.eq_ignore_ascii_case("if") => self.parse_if(span)?,
+            _ if macro_name.eq_ignore_ascii_case("else") => self.parse_else(span)?,
+            _ if macro_name.eq_ignore_ascii_case("endif") => self.parse_endif(span)?,
+            _ if macro_name.eq_ignore_ascii_case("include") => self.parse_include(span)?,
+            _ if macro_name.eq_ignore_ascii_case("isdefined") => {
                 return Ok(self
                     .parse_isdefined(span, false)?
                     .map(PreprocessResult::Produced)
                     .unwrap_or(PreprocessResult::Consumed))
             }
-            _ if macro_name == UniCase::ascii("notdefined") => {
+            _ if macro_name.eq_ignore_ascii_case("notdefined") => {
                 return Ok(self
                     .parse_isdefined(span, true)?
                     .map(PreprocessResult::Produced)

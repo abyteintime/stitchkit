@@ -18,7 +18,6 @@ keyword! {
     KForEach = "foreach",
     KSwitch = "switch",
     KCase = "case",
-    KDefault = "default",
 
     KReturn = "return",
     KBreak = "break",
@@ -94,12 +93,6 @@ pub struct StmtSwitch {
 pub struct StmtCase {
     pub case: KCase,
     pub cond: Expr,
-    pub colon: Colon,
-}
-
-#[derive(Debug, Clone, Parse, PredictiveParse)]
-pub struct StmtDefault {
-    pub case: KDefault,
     pub colon: Colon,
 }
 

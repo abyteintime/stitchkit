@@ -3,7 +3,7 @@ use std::{collections::HashMap, ffi::OsStr, path::PathBuf, rc::Rc};
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticConfig},
+    errors::{Diagnostic, DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
 use muscript_parsing::{
@@ -103,7 +103,7 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
     }
 
     debug!("Performing action");
-    let stats = perform_action(
+    let mut stats = perform_action(
         args.action,
         &source_file_set,
         &Definitions {
@@ -111,6 +111,9 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
         },
     )?;
     if !stats.diagnostics.is_empty() {
+        stats
+            .diagnostics
+            .sort_by_key(|diagnostic| diagnostic.severity);
         eprintln!();
         info!("Finished with the following diagnostics:");
         eprintln!();
@@ -163,7 +166,10 @@ fn perform_action(
             Ok(()) => (),
             Err(mut diagnosis) => {
                 diagnostics.append(&mut diagnosis);
-                num_failed += 1;
+                num_failed += diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.severity >= Severity::Error)
+                    as usize;
             }
         }
     }

@@ -3,13 +3,20 @@
 //! The error reporting in MuScript is largely inspired by the Rust compiler, though arguably it's a
 //! lot simpler.
 
-pub use codespan_reporting::diagnostic::{LabelStyle, Severity};
 use codespan_reporting::{
     term,
     term::termcolor::{ColorChoice, StandardStream},
 };
 
 use crate::source::{SourceFileId, SourceFileSet, Span};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LabelStyle {
+    /// Labels that describe the primary cause of a diagnostic.
+    Primary,
+    /// Labels that provide additional context for a diagnostic.
+    Secondary,
+}
 
 /// Labels allow you to attach information about where in the code an error occurred.
 #[derive(Debug, Clone)]
@@ -132,6 +139,21 @@ impl From<(&str, ReplacementSuggestion)> for Note {
     }
 }
 
+/// Diagnostic severity.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+pub enum Severity {
+    /// A help message.
+    Help,
+    /// A note.
+    Note,
+    /// A warning.
+    Warning,
+    /// An error.
+    Error,
+    /// An unexpected bug.
+    Bug,
+}
+
 /// Diagnostic describing a problem encountered within the code.
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
@@ -247,14 +269,25 @@ impl Diagnostic {
         config: &DiagnosticConfig,
     ) -> codespan_reporting::diagnostic::Diagnostic<SourceFileId> {
         codespan_reporting::diagnostic::Diagnostic {
-            severity: self.severity,
+            severity: match self.severity {
+                Severity::Help => codespan_reporting::diagnostic::Severity::Help,
+                Severity::Note => codespan_reporting::diagnostic::Severity::Note,
+                Severity::Warning => codespan_reporting::diagnostic::Severity::Warning,
+                Severity::Error => codespan_reporting::diagnostic::Severity::Error,
+                Severity::Bug => codespan_reporting::diagnostic::Severity::Bug,
+            },
             code: self.code.clone(),
             message: self.message.clone(),
             labels: self
                 .labels
                 .iter()
                 .map(|label| codespan_reporting::diagnostic::Label {
-                    style: label.style,
+                    style: match label.style {
+                        LabelStyle::Primary => codespan_reporting::diagnostic::LabelStyle::Primary,
+                        LabelStyle::Secondary => {
+                            codespan_reporting::diagnostic::LabelStyle::Secondary
+                        }
+                    },
                     file_id: label.file.unwrap_or(self.source_file),
                     range: label.span.into(),
                     message: label.message.clone(),

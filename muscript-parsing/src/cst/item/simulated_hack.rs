@@ -2,7 +2,7 @@
 
 use muscript_foundation::errors::{Diagnostic, Label};
 
-use crate::{ast::KSimulated, lexis::token::Token, Parse, ParseStream, Parser, PredictiveParse};
+use crate::{cst::KSimulated, lexis::token::Token, Parse, ParseStream, Parser, PredictiveParse};
 
 use super::{ItemFunction, ItemState};
 

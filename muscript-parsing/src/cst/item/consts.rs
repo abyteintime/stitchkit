@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, KConst},
+    cst::{Expr, KConst},
     lexis::token::{Assign, Ident, Semi},
     Parse, PredictiveParse,
 };

@@ -2,7 +2,7 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{
+    cst::{
         Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KExpensive, KFinal, KInit,
         KIterator, KLatent, KMulticast, KNative, KNoExport, KNoExportHeader, KNoOwnerReplication,
         KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer, KSimulated, KSingular,

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Type, VarDef},
+    cst::{Type, VarDef},
     diagnostics,
     lexis::token::Semi,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,

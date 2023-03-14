@@ -5,7 +5,7 @@ use muscript_foundation::{
 use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
-    ast::{CppBlob, Extends, KExport, KImmutable, KImmutableWhenCooked, KNative, KTransient},
+    cst::{CppBlob, Extends, KExport, KImmutable, KImmutableWhenCooked, KNative, KTransient},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,

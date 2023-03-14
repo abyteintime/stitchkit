@@ -6,7 +6,7 @@ pub mod lexis;
 #[macro_use]
 mod parsing;
 
-pub mod ast;
+pub mod cst;
 pub mod diagnostics;
 pub mod list;
 

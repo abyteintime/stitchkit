@@ -1,4 +1,4 @@
-use crate::{ast::CppBlob, Parse, PredictiveParse};
+use crate::{cst::CppBlob, Parse, PredictiveParse};
 
 keyword!(KCppText = "cpptext");
 keyword!(KStructCppText = "structcpptext");

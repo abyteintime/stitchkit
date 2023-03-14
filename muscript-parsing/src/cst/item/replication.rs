@@ -1,5 +1,5 @@
 use crate::{
-    ast::{KIf, ParenExpr},
+    cst::{KIf, ParenExpr},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,

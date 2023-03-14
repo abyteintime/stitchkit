@@ -7,7 +7,7 @@ use muscript_foundation::{
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
 use muscript_parsing::{
-    self, ast,
+    self, cst,
     lexis::{
         preprocessor::{Definitions, Preprocessor},
         token::TokenKind,
@@ -220,7 +220,7 @@ fn perform_action_on_source_file(
                 Structured::new(tokens),
                 &mut parser_diagnostics,
             );
-            let file = parser.parse::<ast::File>();
+            let file = parser.parse::<cst::File>();
             preproc_diagnostics.append(&mut parser_diagnostics);
             if !preproc_diagnostics.is_empty() {
                 return Err(preproc_diagnostics);

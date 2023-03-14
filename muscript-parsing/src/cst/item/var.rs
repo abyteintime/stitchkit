@@ -1,7 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    ast::{
+    cst::{
         CppBlob, Expr, KBitWise, KConfig, KCrossLevelActive, KCrossLevelPassive, KDataBinding,
         KDeprecated, KDuplicateTransient, KEditConst, KEditFixedSize, KEditHide, KEditInline,
         KEditInlineUse, KEditTextBox, KEditorOnly, KExport, KGlobalConfig, KInit, KInput,

@@ -1,4 +1,4 @@
-use crate::{ast::default_properties::DefaultPropertiesBlock, Parse, PredictiveParse};
+use crate::{cst::default_properties::DefaultPropertiesBlock, Parse, PredictiveParse};
 
 keyword!(KDefaultProperties = "defaultproperties");
 keyword!(KStructDefaultProperties = "structdefaultproperties");

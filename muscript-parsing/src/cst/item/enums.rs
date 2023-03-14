@@ -1,7 +1,7 @@
 use muscript_foundation::errors::Diagnostic;
 
 use crate::{
-    ast::Meta,
+    cst::Meta,
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,

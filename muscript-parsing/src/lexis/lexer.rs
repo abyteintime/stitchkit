@@ -10,7 +10,7 @@ use super::{
     Channel, EofReached, LexError, TokenStream,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
     pub file: SourceFileId,
     pub input: Rc<str>,

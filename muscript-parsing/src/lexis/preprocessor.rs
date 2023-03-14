@@ -50,6 +50,7 @@ pub struct Preprocessor<'a> {
     stack: Vec<Expansion>,
 }
 
+#[derive(Debug, Clone)]
 struct Expansion {
     invocation_site: Option<(SourceFileId, Span)>,
     lexer: Lexer,
@@ -57,6 +58,7 @@ struct Expansion {
     arguments: Definitions,
 }
 
+#[derive(Debug, Clone)]
 struct If {
     condition: bool,
     open: Span,
@@ -770,33 +772,17 @@ impl<'a> TokenStream for Preprocessor<'a> {
     }
 
     fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
-        let before = self.lexer().position;
-        loop {
-            let token = self.lexer_mut().peek_from(channel)?;
-            if Self::is_preprocessor_token(token.kind) {
-                let token = self.lexer_mut().next_from(channel)?;
-                let preprocess_result = self.do_preprocess(token)?;
-                match preprocess_result {
-                    PreprocessResult::Ignored(token) => {
-                        // This can happen on EOF that is not significant to the preprocessor.
-                        // In that case we don't need to backtrack.
-                        return Ok(token);
-                    }
-                    PreprocessResult::Consumed => (),
-                    PreprocessResult::Produced(byproduct)
-                        if channel.contains(byproduct.kind.channel()) =>
-                    {
-                        self.lexer_mut().position = before;
-                        return Ok(byproduct);
-                    }
-                    PreprocessResult::Produced(_) => (),
-                };
-            } else {
-                // We still need to backtrack here because we may have consumed some preprocessor
-                // tokens in previous iterations of the loop.
-                self.lexer_mut().position = before;
-                return Ok(token);
-            }
+        let lexed_token = self.lexer_mut().peek_from(channel)?;
+        if Self::is_preprocessor_token(lexed_token.kind) {
+            // This might seem a little slow given that this should be a "simple" peek
+            // operation, but remember that most tokens are not relevant for the preprocessor
+            // and as such use the fast path (this `if`'s `else` branch.)
+            let stack = self.stack.clone();
+            let preprocessed_token = self.next_from(channel)?;
+            self.stack = stack;
+            Ok(preprocessed_token)
+        } else {
+            Ok(lexed_token)
         }
     }
 

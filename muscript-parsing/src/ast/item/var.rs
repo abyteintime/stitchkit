@@ -7,7 +7,7 @@ use crate::{
         KEditInlineUse, KEditTextBox, KEditorOnly, KExport, KGlobalConfig, KInit, KInput,
         KInstanced, KInterp, KLocalized, KNoClear, KNoExport, KNoImport, KNonTransactional,
         KNotForConsole, KPrivate, KPrivateWrite, KProtected, KProtectedWrite, KPublic, KRepNotify,
-        KSerializeText, Meta, TypeOrDef, TypeSpecifier,
+        KSerialize, KSerializeText, Meta, TypeOrDef, TypeSpecifier,
     },
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
@@ -69,6 +69,7 @@ pub enum VarSpecifier {
     ProtectedWrite(KProtectedWrite, Option<CppBlob>),
     Public(KPublic, Option<CppBlob>),
     RepNotify(KRepNotify),
+    Serailize(KSerialize),
     SerializeText(KSerializeText),
     Type(TypeSpecifier),
 }

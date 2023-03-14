@@ -3,10 +3,10 @@ use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
     ast::{
-        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KFinal, KInit, KIterator,
-        KLatent, KMulticast, KNative, KNoExport, KNoExportHeader, KNoOwnerReplication, KOptional,
-        KOut, KPrivate, KProtected, KPublic, KReliable, KServer, KSimulated, KSingular, KSkip,
-        KStatic, KVirtual, Path, Type,
+        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KExpensive, KFinal, KInit,
+        KIterator, KLatent, KMulticast, KNative, KNoExport, KNoExportHeader, KNoOwnerReplication,
+        KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer, KSimulated, KSingular,
+        KSkip, KStatic, KVirtual, Path, Type,
     },
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
@@ -44,6 +44,7 @@ pub enum FunctionSpecifier {
     Coerce(KCoerce),
     EditorOnly(KEditorOnly),
     Exec(KExec),
+    Expensive(KExpensive),
     Final(KFinal),
     Iterator(KIterator),
     Latent(KLatent),

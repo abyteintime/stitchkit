@@ -1,4 +1,4 @@
-extern crate self as muscript_parsing;
+extern crate self as muscript_syntax;
 
 #[macro_use]
 pub mod lexis;
@@ -12,4 +12,4 @@ pub mod list;
 
 pub use parsing::*;
 
-pub use muscript_parsing_derive::*;
+pub use muscript_syntax_derive::*;

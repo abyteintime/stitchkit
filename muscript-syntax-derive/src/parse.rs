@@ -35,10 +35,10 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
     let fields = TokenStream::from_iter(fields);
 
     Ok(quote! {
-        impl #impl_generics ::muscript_parsing::Parse for #type_name #type_generics #where_clause {
+        impl #impl_generics ::muscript_syntax::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::ParseStream>
-            ) -> ::std::result::Result<Self, ::muscript_parsing::ParseError>
+                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_syntax::ParseStream>
+            ) -> ::std::result::Result<Self, ::muscript_syntax::ParseError>
             {
                 Ok(Self {
                     #fields
@@ -113,7 +113,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     let catchall_arm = fallback.unwrap_or_else(|| {
         quote! {
             _ => {
-                let ref_parser: &::muscript_parsing::Parser<'_, _> = parser;
+                let ref_parser: &::muscript_syntax::Parser<'_, _> = parser;
                 let the_error: ::muscript_foundation::errors::Diagnostic = #error(ref_parser, &token);
                 let the_error = the_error.with_note(::muscript_foundation::errors::Note {
                     kind: ::muscript_foundation::errors::NoteKind::Debug,
@@ -128,10 +128,10 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     });
 
     Ok(quote! {
-        impl #impl_generics ::muscript_parsing::Parse for #type_name #type_generics #where_clause {
+        impl #impl_generics ::muscript_syntax::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_parsing::Parser<'_, impl ::muscript_parsing::ParseStream>
-            ) -> ::std::result::Result<Self, ::muscript_parsing::ParseError>
+                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_syntax::ParseStream>
+            ) -> ::std::result::Result<Self, ::muscript_syntax::ParseError>
             {
                 let token = match parser.peek_token() {
                     Ok(n) => n,

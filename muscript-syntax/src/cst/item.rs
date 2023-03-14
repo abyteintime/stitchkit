@@ -10,11 +10,10 @@ mod structs;
 mod var;
 
 use muscript_foundation::errors::{Diagnostic, Label};
-use muscript_parsing_derive::Parse;
 
 use crate::{
     lexis::token::{Semi, Token},
-    ParseStream, Parser,
+    Parse, ParseStream, Parser,
 };
 
 pub use consts::*;

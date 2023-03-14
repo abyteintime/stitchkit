@@ -6,7 +6,7 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileId, SourceFileSet},
 };
-use muscript_parsing::{
+use muscript_syntax::{
     self, cst,
     lexis::{
         preprocessor::{Definitions, Preprocessor},
@@ -214,7 +214,7 @@ fn perform_action_on_source_file(
                 &mut preproc_diagnostics,
             ));
             let mut parser_diagnostics = vec![];
-            let mut parser = muscript_parsing::Parser::new(
+            let mut parser = muscript_syntax::Parser::new(
                 id,
                 &file.source,
                 Structured::new(tokens),

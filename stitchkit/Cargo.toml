@@ -17,4 +17,4 @@ stitchkit-reflection-types = { workspace = true }
 stitchkit-manifest = { workspace = true }
 
 muscript-foundation = { workspace = true }
-muscript-parsing = { workspace = true }
+muscript-syntax = { workspace = true }

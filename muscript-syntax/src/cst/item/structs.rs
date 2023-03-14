@@ -2,14 +2,13 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::Spanned,
 };
-use muscript_parsing_derive::PredictiveParse;
 
 use crate::{
     cst::{CppBlob, Extends, KExport, KImmutable, KImmutableWhenCooked, KNative, KTransient},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, ParseStream, Parser,
+    Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
 use super::Item;

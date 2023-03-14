@@ -26,17 +26,17 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
     let ty = &first_field.ty;
 
     Ok(quote! {
-        impl #impl_generics ::muscript_parsing::PredictiveParse for #type_name #type_generics #where_clause {
-            const LISTEN_TO_CHANNELS: ::muscript_parsing::lexis::Channel =
-                <#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS;
+        impl #impl_generics ::muscript_syntax::PredictiveParse for #type_name #type_generics #where_clause {
+            const LISTEN_TO_CHANNELS: ::muscript_syntax::lexis::Channel =
+                <#ty as ::muscript_syntax::PredictiveParse>::LISTEN_TO_CHANNELS;
 
             #[allow(deprecated)]
             fn started_by(
-                token: &::muscript_parsing::lexis::token::Token,
+                token: &::muscript_syntax::lexis::token::Token,
                 input: &::std::primitive::str,
             ) -> bool
             {
-                <#ty as ::muscript_parsing::PredictiveParse>::started_by(token, input)
+                <#ty as ::muscript_syntax::PredictiveParse>::started_by(token, input)
             }
         }
     })
@@ -58,16 +58,16 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             started_by.extend(quote!(||))
         }
         started_by.extend(quote! {
-            <#ty as ::muscript_parsing::PredictiveParse>::started_by(token, input)
+            <#ty as ::muscript_syntax::PredictiveParse>::started_by(token, input)
         });
 
         listen_to_channels.extend(if i != 0 {
             quote! {
-                .union(<#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS)
+                .union(<#ty as ::muscript_syntax::PredictiveParse>::LISTEN_TO_CHANNELS)
             }
         } else {
             quote! {
-                <#ty as ::muscript_parsing::PredictiveParse>::LISTEN_TO_CHANNELS
+                <#ty as ::muscript_syntax::PredictiveParse>::LISTEN_TO_CHANNELS
             }
         });
     }
@@ -76,9 +76,9 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics ::muscript_parsing::PredictiveParse for #type_name #type_generics #where_clause {
+        impl #impl_generics ::muscript_syntax::PredictiveParse for #type_name #type_generics #where_clause {
             fn started_by(
-                token: &::muscript_parsing::lexis::token::Token,
+                token: &::muscript_syntax::lexis::token::Token,
                 input: &::std::primitive::str,
             ) -> bool
             {

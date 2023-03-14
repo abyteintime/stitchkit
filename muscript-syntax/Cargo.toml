@@ -1,5 +1,5 @@
 [package]
-name = "muscript-parsing"
+name = "muscript-syntax"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,4 +11,4 @@ tracing = { workspace = true }
 unicase = "2.6.0"
 
 muscript-foundation = { workspace = true }
-muscript-parsing-derive = { workspace = true }
+muscript-syntax-derive = { workspace = true }

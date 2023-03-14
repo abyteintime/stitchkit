@@ -242,20 +242,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "muscript-parsing"
+name = "muscript-syntax"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.0.0-rc.3",
  "indoc",
  "muscript-foundation",
- "muscript-parsing-derive",
+ "muscript-syntax-derive",
  "thiserror",
  "tracing",
  "unicase",
 ]
 
 [[package]]
-name = "muscript-parsing-derive"
+name = "muscript-syntax-derive"
 version = "0.1.0"
 dependencies = [
  "darling",
@@ -418,7 +418,7 @@ dependencies = [
  "anyhow",
  "clap",
  "muscript-foundation",
- "muscript-parsing",
+ "muscript-syntax",
  "stitchkit-archive",
  "stitchkit-core",
  "stitchkit-manifest",

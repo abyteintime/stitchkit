@@ -11,6 +11,8 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
+use super::Path;
+
 #[derive(Debug, Clone, PredictiveParse)]
 pub struct DefaultPropertiesBlock {
     pub open: LeftBrace,
@@ -49,7 +51,7 @@ pub enum Index {
 #[parse(error = "index_lit_error")]
 pub enum IndexLit {
     Num(IntLit),
-    Enum(Ident),
+    Enum(Path),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -111,7 +113,7 @@ pub struct Compound {
 #[derive(Debug, Clone, PredictiveParse)]
 pub enum CompoundElement {
     Lit(Lit),
-    Field(Ident, Assign, Lit),
+    Field(Key, Assign, Lit),
 }
 
 keyword! {
@@ -197,8 +199,18 @@ impl Parse for Compound {
 impl Parse for CompoundElement {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         if let Some(ident) = parser.parse()? {
-            if let Some(assign) = parser.parse()? {
-                Ok(Self::Field(ident, assign, parser.parse()?))
+            if let index @ Some(_) = parser.parse()? {
+                Ok(Self::Field(
+                    Key { ident, index },
+                    parser.parse()?,
+                    parser.parse()?,
+                ))
+            } else if let Some(assign) = parser.parse()? {
+                Ok(Self::Field(
+                    Key { ident, index: None },
+                    assign,
+                    parser.parse()?,
+                ))
             } else {
                 Ok(Self::Lit(Lit::Ident(ident, parser.parse()?)))
             }

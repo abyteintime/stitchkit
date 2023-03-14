@@ -10,14 +10,18 @@ use codespan_reporting::files::Files;
 /// [`Range`] not implementing [`Copy`], and is therefore a lot easier to handle.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Span {
-    pub start: usize,
-    pub end: usize,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Span {
     /// Converts the span to a [`Range`].
-    pub fn to_range(self) -> Range<usize> {
+    pub fn to_range(self) -> Range<u32> {
         Range::from(self)
+    }
+
+    pub fn to_usize_range(self) -> Range<usize> {
+        self.start as usize..self.end as usize
     }
 
     /// Joins two spans together, forming one big span that includes both `self` and `other`.
@@ -30,18 +34,18 @@ impl Span {
 
     /// Returns the slice of the original input string that this span represents.
     pub fn get_input<'a>(&self, input: &'a str) -> &'a str {
-        &input[self.to_range()]
+        &input[self.to_usize_range()]
     }
 }
 
-impl From<Span> for Range<usize> {
+impl From<Span> for Range<u32> {
     fn from(value: Span) -> Self {
         value.start..value.end
     }
 }
 
-impl From<Range<usize>> for Span {
-    fn from(value: Range<usize>) -> Self {
+impl From<Range<u32>> for Span {
+    fn from(value: Range<u32>) -> Self {
         Self {
             start: value.start,
             end: value.end,

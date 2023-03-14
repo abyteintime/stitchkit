@@ -289,7 +289,7 @@ impl Diagnostic {
                         }
                     },
                     file_id: label.file.unwrap_or(self.source_file),
-                    range: label.span.into(),
+                    range: label.span.to_usize_range(),
                     message: label.message.clone(),
                 })
                 .collect(),

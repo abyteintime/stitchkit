@@ -235,7 +235,7 @@ impl<'a> Preprocessor<'a> {
         loop {
             self.lexer_mut().eat_until_line_feed();
             let here = self.lexer_mut().position;
-            let text = &self.lexer_mut().input[start..here].trim_end();
+            let text = &self.lexer_mut().input[start as usize..here as usize].trim_end();
             // Macros can be carried over to the next line using \.
             if text.ends_with('\\') {
                 continue;
@@ -250,12 +250,12 @@ impl<'a> Preprocessor<'a> {
         // position.
         let source_file = self.lexer_mut().file;
         let macro_name = macro_name.span.get_input(&self.lexer().input);
-        let text: Rc<str> = Rc::from(&self.lexer().input[..end]);
+        let text: Rc<str> = Rc::from(&self.lexer().input[..end as usize]);
 
         trace!(
             ?source_file,
             macro_name,
-            text = &text[start..],
+            text = &text[start as usize..],
             "Defined macro"
         );
 
@@ -573,7 +573,7 @@ impl<'a> Preprocessor<'a> {
                     Ok(Definition {
                         source_file: preproc.lexer().file,
                         span: Span::from(start..end),
-                        text: Rc::from(&preproc.lexer().input[0..end]),
+                        text: Rc::from(&preproc.lexer().input[0..end as usize]),
                         parameters: None,
                     })
                 })?;
@@ -622,7 +622,7 @@ impl<'a> Preprocessor<'a> {
                             source_file: self.lexer().file,
                             // Just use the position right before the right parenthesis.
                             span: Span::from(close.span.start..close.span.start),
-                            text: Rc::from(&self.lexer().input[..close.span.start]),
+                            text: Rc::from(&self.lexer().input[..close.span.start as usize]),
                             parameters: None,
                         });
                     }
@@ -635,7 +635,7 @@ impl<'a> Preprocessor<'a> {
                         arguments.push(Definition {
                             source_file: self.lexer().file,
                             span: Span::from(first.span.start..last.span.end),
-                            text: Rc::from(&self.lexer().input[..last.span.end]),
+                            text: Rc::from(&self.lexer().input[..last.span.end as usize]),
                             parameters: None,
                         });
                     }

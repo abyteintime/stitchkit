@@ -198,7 +198,7 @@ fn perform_action_on_source_file(
             );
             loop {
                 let token = tokens.next(LexicalContext::Default)?;
-                println!("{token:?} {:?}", &file.source[token.span.to_range()]);
+                println!("{token:?} {:?}", &file.source[token.span.to_usize_range()]);
                 if token.kind == TokenKind::EndOfFile {
                     break;
                 }

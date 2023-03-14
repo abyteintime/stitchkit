@@ -24,7 +24,7 @@ pub enum LexicalContext {
 pub struct Lexer {
     pub file: SourceFileId,
     pub input: Rc<str>,
-    pub position: usize,
+    pub position: u32,
 }
 
 impl Lexer {
@@ -37,7 +37,7 @@ impl Lexer {
     }
 
     pub fn current_char(&self) -> Option<char> {
-        if let Some(input) = self.input.get(self.position..) {
+        if let Some(input) = self.input.get(self.position as usize..) {
             input.chars().next()
         } else {
             None
@@ -46,22 +46,22 @@ impl Lexer {
 
     pub fn advance_char(&mut self) {
         if let Some(char) = self.current_char() {
-            self.position += char.len_utf8();
+            self.position += char.len_utf8() as u32;
         }
     }
 
-    fn span(&self, start: usize) -> Span {
+    fn span(&self, start: u32) -> Span {
         Span::from(start..self.position)
     }
 
-    fn span_with_len(&self, start: usize, len: usize) -> Span {
-        let len = self.input[start..]
+    fn span_with_len(&self, start: u32, len: u32) -> Span {
+        let len = self.input[start as usize..]
             .char_indices()
-            .skip(len)
+            .skip(len as usize)
             .map(|(index, _)| index)
             .next()
             .unwrap_or(self.input.len());
-        Span::from(start..start + len)
+        Span::from(start..start + len as u32)
     }
 
     fn one_or_more(&mut self, mut test: impl Fn(char) -> bool) -> Result<(), ()> {
@@ -80,7 +80,7 @@ impl Lexer {
         }
     }
 
-    fn comment_or_division(&mut self, start: usize) -> Result<TokenKind, LexError> {
+    fn comment_or_division(&mut self, start: u32) -> Result<TokenKind, LexError> {
         self.advance_char();
         match self.current_char() {
             Some('/') => {
@@ -140,7 +140,7 @@ impl Lexer {
         TokenKind::Ident
     }
 
-    fn decimal_number(&mut self, start: usize) -> Result<TokenKind, LexError> {
+    fn decimal_number(&mut self, start: u32) -> Result<TokenKind, LexError> {
         while let Some('0'..='9') = self.current_char() {
             self.advance_char();
         }
@@ -187,7 +187,7 @@ impl Lexer {
         }
     }
 
-    fn number(&mut self, start: usize) -> Result<TokenKind, LexError> {
+    fn number(&mut self, start: u32) -> Result<TokenKind, LexError> {
         let result = if self.current_char() == Some('0') {
             self.advance_char();
             if let Some('x' | 'X') = self.current_char() {
@@ -229,8 +229,8 @@ impl Lexer {
                         span: Span::from(start..ident_end),
                         replacement: format!(
                             "{} {}",
-                            &self.input[start..ident_start],
-                            &self.input[ident_start..ident_end]
+                            &self.input[start as usize..ident_start as usize],
+                            &self.input[ident_start as usize..ident_end as usize]
                         ),
                     },
                 )),
@@ -254,7 +254,7 @@ impl Lexer {
         Ok(())
     }
 
-    fn string(&mut self, start: usize) -> Result<TokenKind, LexError> {
+    fn string(&mut self, start: u32) -> Result<TokenKind, LexError> {
         self.advance_char();
         while self.current_char() != Some('"') {
             if self.current_char().is_none() {
@@ -276,7 +276,7 @@ impl Lexer {
         Ok(TokenKind::StringLit)
     }
 
-    fn name(&mut self, start: usize) -> Result<TokenKind, LexError> {
+    fn name(&mut self, start: u32) -> Result<TokenKind, LexError> {
         self.advance_char();
         while self.current_char() != Some('\'') {
             if self.current_char().is_none() {

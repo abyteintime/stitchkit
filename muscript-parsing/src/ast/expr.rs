@@ -498,7 +498,7 @@ impl Token {
     fn is_compound_assignment(&self, input: &str) -> bool {
         // This is a little bit cursed, but the level of cursedness here is nothing compared to
         // UnrealScript as a whole.
-        input[self.span.end..].starts_with('=')
+        input[self.span.end as usize..].starts_with('=')
     }
 }
 

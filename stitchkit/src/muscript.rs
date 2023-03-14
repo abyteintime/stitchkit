@@ -11,7 +11,7 @@ use muscript_parsing::{
     lexis::{
         preprocessor::{Definitions, Preprocessor},
         token::TokenKind,
-        TokenStream,
+        LexicalContext, TokenStream,
     },
     Structured,
 };
@@ -197,7 +197,7 @@ fn perform_action_on_source_file(
                 &mut diagnostics,
             );
             loop {
-                let token = tokens.next()?;
+                let token = tokens.next(LexicalContext::Default)?;
                 println!("{token:?} {:?}", &file.source[token.span.to_range()]);
                 if token.kind == TokenKind::EndOfFile {
                     break;

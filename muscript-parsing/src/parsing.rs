@@ -9,7 +9,7 @@ use crate::{
     diagnostics::DiagnosticSink,
     lexis::{
         token::{SingleToken, Token, TokenKindMismatch},
-        Channel, LexError, TokenStream,
+        Channel, LexError, LexicalContext, TokenStream,
     },
 };
 
@@ -95,9 +95,13 @@ impl<'a, T> Parser<'a, T>
 where
     T: ParseStream,
 {
-    pub fn next_token_from(&mut self, channel: Channel) -> Result<Token, ParseError> {
+    pub fn next_token_from(
+        &mut self,
+        context: LexicalContext,
+        channel: Channel,
+    ) -> Result<Token, ParseError> {
         self.tokens
-            .next_from(channel)
+            .next_from(context, channel)
             .map_err(|LexError { span, diagnostics }| {
                 for diagnostic in diagnostics {
                     self.emit_diagnostic(diagnostic);
@@ -107,24 +111,32 @@ where
     }
 
     pub fn next_token(&mut self) -> Result<Token, ParseError> {
-        self.next_token_from(Channel::CODE)
+        self.next_token_from(LexicalContext::Default, Channel::CODE)
     }
 
-    pub fn peek_token_from(&mut self, channel: Channel) -> Result<Token, ParseError> {
+    pub fn peek_token_from(
+        &mut self,
+        context: LexicalContext,
+        channel: Channel,
+    ) -> Result<Token, ParseError> {
         self.tokens
-            .peek_from(channel)
+            .peek_from(context, channel)
             .map_err(|LexError { span, .. }| self.make_error(span))
     }
 
     pub fn peek_token(&mut self) -> Result<Token, ParseError> {
-        self.peek_token_from(Channel::CODE)
+        self.peek_token_from(LexicalContext::Default, Channel::CODE)
     }
 
-    pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
+    pub fn expect_token_from<Tok>(
+        &mut self,
+        context: LexicalContext,
+        channel: Channel,
+    ) -> Result<Tok, ParseError>
     where
         Tok: SingleToken,
     {
-        match self.next_token_from(Channel::CODE | Tok::LISTEN_TO_CHANNELS) {
+        match self.next_token_from(context, channel | Tok::LISTEN_TO_CHANNELS) {
             Ok(token) => {
                 let input = token.span.get_input(self.input);
                 Tok::try_from_token(token.clone(), input).map_err(|TokenKindMismatch(failed)| {
@@ -154,12 +166,22 @@ where
         }
     }
 
+    pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
+    where
+        Tok: SingleToken,
+    {
+        self.expect_token_from(LexicalContext::Default, Channel::CODE)
+    }
+
     /// Returns whether the next token starts `N` without advancing the token stream.
     pub fn next_matches<N>(&mut self) -> bool
     where
         N: PredictiveParse,
     {
-        if let Ok(next_token) = self.peek_token_from(Channel::CODE | N::LISTEN_TO_CHANNELS) {
+        if let Ok(next_token) = self.peek_token_from(
+            LexicalContext::Default,
+            Channel::CODE | N::LISTEN_TO_CHANNELS,
+        ) {
             #[allow(deprecated)]
             N::started_by(&next_token, self.input)
         } else {

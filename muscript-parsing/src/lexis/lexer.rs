@@ -10,6 +10,16 @@ use super::{
     Channel, EofReached, LexError, TokenStream,
 };
 
+/// Context for lexical analysis.
+///
+/// In the default context multiple `>` operators use maximal munch, therefore `>>` is a single
+/// token. In the type context, each `>` character produces a single `>` token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LexicalContext {
+    Default,
+    Type,
+}
+
 #[derive(Debug, Clone)]
 pub struct Lexer {
     pub file: SourceFileId,
@@ -317,7 +327,7 @@ impl Lexer {
 }
 
 impl TokenStream for Lexer {
-    fn next_any(&mut self) -> Result<Token, LexError> {
+    fn next_any(&mut self, context: LexicalContext) -> Result<Token, LexError> {
         self.skip_whitespace();
 
         let start = self.position;
@@ -350,7 +360,7 @@ impl TokenStream for Lexer {
                 '>' => {
                     self.advance_char();
                     match self.current_char() {
-                        Some('>') => {
+                        Some('>') if context != LexicalContext::Type => {
                             self.advance_char();
                             if self.current_char() == Some('>') {
                                 self.advance_char();
@@ -482,9 +492,9 @@ impl TokenStream for Lexer {
         Ok(Span::from(start..end))
     }
 
-    fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
+    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> Result<Token, LexError> {
         let position = self.position;
-        let result = self.next_from(channel);
+        let result = self.next_from(context, channel);
         self.position = position;
         result
     }

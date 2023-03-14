@@ -12,7 +12,7 @@ use crate::diagnostics::DiagnosticSink;
 
 use super::{
     token::{Token, TokenKind},
-    Channel, EofReached, LexError, Lexer, TokenStream,
+    Channel, EofReached, LexError, Lexer, LexicalContext, TokenStream,
 };
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
@@ -114,7 +114,7 @@ impl<'a> Preprocessor<'a> {
         kind: TokenKind,
         error: impl FnOnce(SourceFileId, Token) -> Diagnostic,
     ) -> Result<Token, LexError> {
-        let token = self.lexer_mut().next()?;
+        let token = self.lexer_mut().next(LexicalContext::Default)?;
         if token.kind != kind {
             return Err(LexError::new(
                 token.span,
@@ -125,7 +125,7 @@ impl<'a> Preprocessor<'a> {
     }
 
     fn parse_macro_name(&mut self) -> Result<Span, LexError> {
-        let token = self.lexer_mut().next()?;
+        let token = self.lexer_mut().next(LexicalContext::Default)?;
         Ok(match token.kind {
             TokenKind::Ident => token.span,
             TokenKind::LeftBrace => {
@@ -171,7 +171,7 @@ impl<'a> Preprocessor<'a> {
         // compatibility reasons.
         let mut elements = vec![];
         let close = loop {
-            let token = self.lexer_mut().peek()?;
+            let token = self.lexer_mut().peek(LexicalContext::Default)?;
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(LexError::new(
@@ -185,12 +185,12 @@ impl<'a> Preprocessor<'a> {
                     ));
                 }
                 TokenKind::RightParen => {
-                    break self.lexer_mut().next()?;
+                    break self.lexer_mut().next(LexicalContext::Default)?;
                 }
                 _ => (),
             }
             elements.push(parse(self)?);
-            let next_token = self.lexer_mut().next()?;
+            let next_token = self.lexer_mut().next(LexicalContext::Default)?;
             match next_token.kind {
                 TokenKind::Comma => (),
                 TokenKind::RightParen => {
@@ -215,20 +215,21 @@ impl<'a> Preprocessor<'a> {
                 .with_label(Label::primary(token.span, "identifier expected here"))
         })?;
 
-        let parameters = if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
-            let open = self.lexer_mut().next()?;
-            let (parameters, _) = self.parse_comma_separated(&open, |preproc| {
-                let parameter = preproc.expect_token(TokenKind::Ident, |file, token| {
-                    Diagnostic::error(file, "macro argument name expected")
-                        .with_label(Label::primary(token.span, "identifier expected here"))
+        let parameters =
+            if self.lexer_mut().peek(LexicalContext::Default)?.kind == TokenKind::LeftParen {
+                let open = self.lexer_mut().next(LexicalContext::Default)?;
+                let (parameters, _) = self.parse_comma_separated(&open, |preproc| {
+                    let parameter = preproc.expect_token(TokenKind::Ident, |file, token| {
+                        Diagnostic::error(file, "macro argument name expected")
+                            .with_label(Label::primary(token.span, "identifier expected here"))
+                    })?;
+                    let name = parameter.span.get_input(&preproc.lexer().input);
+                    Ok(name.to_owned())
                 })?;
-                let name = parameter.span.get_input(&preproc.lexer().input);
-                Ok(name.to_owned())
-            })?;
-            Some(parameters)
-        } else {
-            None
-        };
+                Some(parameters)
+            } else {
+                None
+            };
 
         let start = self.lexer_mut().position;
         loop {
@@ -315,7 +316,7 @@ impl<'a> Preprocessor<'a> {
         let mut consumed_tokens: usize = 0;
         let mut nesting: usize = 1;
         loop {
-            let token = self.next_any()?;
+            let token = self.next_any(LexicalContext::Default)?;
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(LexError::new(
@@ -417,7 +418,7 @@ impl<'a> Preprocessor<'a> {
         let mut nesting: usize = 0;
         loop {
             let before_token = self.lexer().position;
-            let token = self.lexer_mut().next_any()?;
+            let token = self.lexer_mut().next_any(LexicalContext::Default)?;
             match token.kind {
                 TokenKind::Accent => {
                     let macro_name_span = self.parse_macro_name()?;
@@ -459,7 +460,7 @@ impl<'a> Preprocessor<'a> {
         })?;
 
         loop {
-            let token = self.lexer_mut().peek()?;
+            let token = self.lexer_mut().peek(LexicalContext::Default)?;
             match token.kind {
                 TokenKind::RightParen => break,
                 TokenKind::EndOfFile => {
@@ -473,7 +474,7 @@ impl<'a> Preprocessor<'a> {
                     ));
                 }
                 _ => {
-                    self.lexer_mut().next()?;
+                    self.lexer_mut().next(LexicalContext::Default)?;
                 }
             }
         }
@@ -544,41 +545,42 @@ impl<'a> Preprocessor<'a> {
     }
 
     fn parse_user_macro(&mut self, invocation_span: Span) -> Result<PreprocessResult, LexError> {
-        let arguments = if self.lexer_mut().peek()?.kind == TokenKind::LeftParen {
-            let open = self.lexer_mut().next()?;
-            let (arguments, close) = self.parse_comma_separated(&open, |preproc| {
-                let start = preproc.lexer().position;
-                let mut nesting = 0;
-                loop {
-                    let token = preproc.lexer_mut().peek()?;
-                    match token.kind {
-                        TokenKind::LeftParen => {
-                            let _ = preproc.lexer_mut().next()?;
-                            nesting += 1;
-                        }
-                        TokenKind::RightParen if nesting > 0 => {
-                            let _ = preproc.lexer_mut().next()?;
-                            nesting -= 1;
-                        }
-                        TokenKind::RightParen if nesting == 0 => break,
-                        TokenKind::Comma if nesting == 0 => break,
-                        _ => {
-                            let _ = preproc.lexer_mut().next()?;
+        let arguments =
+            if self.lexer_mut().peek(LexicalContext::Default)?.kind == TokenKind::LeftParen {
+                let open = self.lexer_mut().next(LexicalContext::Default)?;
+                let (arguments, close) = self.parse_comma_separated(&open, |preproc| {
+                    let start = preproc.lexer().position;
+                    let mut nesting = 0;
+                    loop {
+                        let token = preproc.lexer_mut().peek(LexicalContext::Default)?;
+                        match token.kind {
+                            TokenKind::LeftParen => {
+                                let _ = preproc.lexer_mut().next(LexicalContext::Default)?;
+                                nesting += 1;
+                            }
+                            TokenKind::RightParen if nesting > 0 => {
+                                let _ = preproc.lexer_mut().next(LexicalContext::Default)?;
+                                nesting -= 1;
+                            }
+                            TokenKind::RightParen if nesting == 0 => break,
+                            TokenKind::Comma if nesting == 0 => break,
+                            _ => {
+                                let _ = preproc.lexer_mut().next(LexicalContext::Default)?;
+                            }
                         }
                     }
-                }
-                let end = preproc.lexer().position;
-                Ok(Definition {
-                    source_file: preproc.lexer().file,
-                    span: Span::from(start..end),
-                    text: Rc::from(&preproc.lexer().input[0..end]),
-                    parameters: None,
-                })
-            })?;
-            Some((arguments, close))
-        } else {
-            None
-        };
+                    let end = preproc.lexer().position;
+                    Ok(Definition {
+                        source_file: preproc.lexer().file,
+                        span: Span::from(start..end),
+                        text: Rc::from(&preproc.lexer().input[0..end]),
+                        parameters: None,
+                    })
+                })?;
+                Some((arguments, close))
+            } else {
+                None
+            };
 
         let macro_name = invocation_span.get_input(&self.lexer().input);
         if let Some(definition) = self.get_definition(macro_name) {
@@ -709,9 +711,9 @@ impl<'a> Preprocessor<'a> {
 
     fn parse_backslash(&mut self) -> Result<(), LexError> {
         // Skip \n, which MuScript parses as two tokens `\` and `n`.
-        let next_token = self.lexer_mut().peek()?;
+        let next_token = self.lexer_mut().peek(LexicalContext::Default)?;
         if next_token.span.get_input(&self.lexer().input) == "n" {
-            let _ = self.lexer_mut().next()?;
+            let _ = self.lexer_mut().next(LexicalContext::Default)?;
         }
         Ok(())
     }
@@ -749,9 +751,9 @@ enum PreprocessResult {
 }
 
 impl<'a> TokenStream for Preprocessor<'a> {
-    fn next_any(&mut self) -> Result<Token, LexError> {
+    fn next_any(&mut self, context: LexicalContext) -> Result<Token, LexError> {
         loop {
-            let token = self.lexer_mut().next_any()?;
+            let token = self.lexer_mut().next_any(context)?;
             match self.do_preprocess(token)? {
                 PreprocessResult::Ignored(token) => return Ok(token),
                 PreprocessResult::Consumed => continue,
@@ -771,8 +773,8 @@ impl<'a> TokenStream for Preprocessor<'a> {
         self.lexer_mut().braced_string(left_brace_span)
     }
 
-    fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
-        let lexed_token = self.lexer_mut().peek_from(channel)?;
+    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> Result<Token, LexError> {
+        let lexed_token = self.lexer_mut().peek_from(context, channel)?;
         if Self::is_preprocessor_token(lexed_token.kind) {
             // This might seem a little slow given that this should be a "simple" peek
             // operation, but remember that most tokens are not relevant for the preprocessor
@@ -783,7 +785,7 @@ impl<'a> TokenStream for Preprocessor<'a> {
                 errors: &mut (),
                 stack: self.stack.clone(),
             };
-            let preprocessed_token = sub.next_from(channel)?;
+            let preprocessed_token = sub.next_from(context, channel)?;
             Ok(preprocessed_token)
         } else {
             Ok(lexed_token)

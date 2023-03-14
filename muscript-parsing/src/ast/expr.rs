@@ -14,7 +14,7 @@ use crate::{
             Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
             LeftParen, NameLit, Question, RightBracket, RightParen, StringLit, Token, TokenKind,
         },
-        Channel,
+        Channel, LexicalContext,
     },
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser,
@@ -191,7 +191,8 @@ impl Expr {
         Ok(Expr::Prefix {
             operator,
             right: {
-                let token = parser.next_token_from(Channel::CODE | Channel::MACRO)?;
+                let token = parser
+                    .next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO)?;
                 Box::new(Self::parse_prefix(parser, token, is_stmt)?)
             },
         })
@@ -390,7 +391,8 @@ impl Expr {
         precedence: Precedence,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        let token = parser.next_token_from(Channel::CODE | Channel::MACRO)?;
+        let token =
+            parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO)?;
         let mut chain = Expr::parse_prefix(parser, token, is_stmt)?;
 
         let mut operator;

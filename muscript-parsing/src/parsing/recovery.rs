@@ -3,7 +3,7 @@ use muscript_foundation::{errors::Diagnostic, source::Span};
 use crate::{
     lexis::{
         token::{SingleToken, Token, TokenKind},
-        Channel, EofReached, LexError, TokenStream,
+        Channel, EofReached, LexError, LexicalContext, TokenStream,
     },
     ParseError, ParseStream, Parser,
 };
@@ -27,8 +27,8 @@ impl<T> TokenStream for Structured<T>
 where
     T: TokenStream,
 {
-    fn next_any(&mut self) -> Result<Token, LexError> {
-        let token = self.inner.next_any()?;
+    fn next_any(&mut self, context: LexicalContext) -> Result<Token, LexError> {
+        let token = self.inner.next_any(context)?;
 
         if let Some(closing_kind) = token.kind.closed_by() {
             self.delimiter_stack.push(closing_kind);
@@ -61,8 +61,8 @@ where
         self.inner.braced_string(left_brace_span)
     }
 
-    fn peek_from(&mut self, channel: Channel) -> Result<Token, LexError> {
-        self.inner.peek_from(channel)
+    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> Result<Token, LexError> {
+        self.inner.peek_from(context, channel)
     }
 
     fn contextualize_diagnostic(&self, diagnostic: Diagnostic) -> Diagnostic {

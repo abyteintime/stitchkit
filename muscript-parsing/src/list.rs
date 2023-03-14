@@ -7,7 +7,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use crate::{
     lexis::{
         token::{Comma, SingleToken, TokenKind},
-        TokenStream,
+        Channel, LexicalContext, TokenStream,
     },
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
@@ -97,8 +97,12 @@ where
 
         let mut elements = vec![];
         let close = loop {
+            // Will we ever need to peek/next a non-Type context token here?
+            // Type was chosen here because of generic lists, which are terminated with `>` and thus
+            // `>>` need to be treated as disjoint tokens. But will we ever need a separated list
+            // terminated with `>>` (RightShift)?
             let token = self
-                .peek_token()
+                .peek_token_from(LexicalContext::Type, Channel::CODE)
                 .map_err(error(SeparatedListErrorKind::Parse))?;
             match token.kind {
                 TokenKind::EndOfFile => {
@@ -112,7 +116,7 @@ where
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
-                    self.next_token()
+                    self.next_token_from(LexicalContext::Type, Channel::CODE)
                         .map_err(error(SeparatedListErrorKind::Parse))?;
                     break R::default_from_span(token.span);
                 }
@@ -122,7 +126,7 @@ where
             // tokens fails.
             elements.push(self.parse().map_err(error(SeparatedListErrorKind::Parse))?);
             match self
-                .next_token()
+                .next_token_from(LexicalContext::Type, Channel::CODE)
                 .map_err(error(SeparatedListErrorKind::Parse))?
             {
                 token if S::matches(&token, token.span.get_input(self.input)) => (),

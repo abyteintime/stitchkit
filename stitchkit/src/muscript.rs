@@ -67,11 +67,7 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
             source_file_paths.push(path.to_owned());
         }
     }
-    debug!(
-        ?source_file_paths,
-        "{} source files found",
-        source_file_paths.len()
-    );
+    debug!("{} source files found", source_file_paths.len());
 
     debug!("Building source file set");
     let dir_prefix = if args.package.is_file() {
@@ -84,8 +80,35 @@ pub fn muscript(args: Args) -> anyhow::Result<()> {
     };
     let mut source_file_set = SourceFileSet::new();
     for path in source_file_paths {
-        let source = std::fs::read_to_string(&path)
-            .with_context(|| format!("cannot read source file at {path:?}"));
+        let source_bytes =
+            std::fs::read(&path).with_context(|| format!("cannot read source file at {path:?}"));
+        let source_bytes = match source_bytes {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                error!("{error:?}");
+                continue;
+            }
+        };
+
+        let source = if source_bytes.starts_with(&[0xFE, 0xFF]) {
+            // UTF-16 big-endian
+            let words: Vec<_> = source_bytes
+                .chunks_exact(2)
+                .map(|arr| (arr[0] as u16) << 8 | arr[1] as u16)
+                .collect();
+            String::from_utf16(&words[1..]).context("encoding error in UTF-16 (big-endian) file")
+        } else if source_bytes.starts_with(&[0xFF, 0xFE]) {
+            // UTF-16 little-endian
+            let words: Vec<_> = source_bytes
+                .chunks_exact(2)
+                .map(|arr| (arr[0]) as u16 | (arr[1] as u16) << 8)
+                .collect();
+            String::from_utf16(&words[1..]).context("encoding error in UTF-16 (little-endian) file")
+        } else {
+            // UTF-8
+            String::from_utf8(source_bytes).context("encoding error in UTF-8 file")
+        };
+
         match source {
             Ok(source) => {
                 let pretty_file_name = path

@@ -8,7 +8,7 @@ use muscript_foundation::{
 use crate::{
     diagnostics::DiagnosticSink,
     lexis::{
-        token::{SingleToken, Token, TokenKindMismatch},
+        token::{SingleToken, Token},
         Channel, LexError, LexicalContext, TokenStream,
     },
 };
@@ -22,6 +22,7 @@ pub struct Parser<'a, T> {
     diagnostics: &'a mut dyn DiagnosticSink,
     // TODO: This should probably be a &mut because with how it's done currently creating a sub
     // parser involves cloning the vector.
+    #[cfg(feature = "parse-traceback")]
     rule_traceback: Vec<&'static str>,
 }
 
@@ -37,6 +38,7 @@ impl<'a, T> Parser<'a, T> {
             input,
             tokens,
             diagnostics,
+            #[cfg(feature = "parse-traceback")]
             rule_traceback: Vec::with_capacity(32),
         }
     }
@@ -55,6 +57,7 @@ impl<'a, T> Parser<'a, T> {
                     d
                 })
                 .unwrap_or(self.diagnostics),
+            #[cfg(feature = "parse-traceback")]
             rule_traceback: self.rule_traceback.clone(),
         }
     }
@@ -64,8 +67,19 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
+    fn rule_traceback(&self) -> Vec<&'static str> {
+        #[cfg(feature = "parse-traceback")]
+        {
+            self.rule_traceback.clone()
+        }
+        #[cfg(not(feature = "parse-traceback"))]
+        {
+            vec![]
+        }
+    }
+
     pub fn make_error(&self, span: Span) -> ParseError {
-        ParseError::new(span, self.rule_traceback.clone())
+        ParseError::new(span, self.rule_traceback())
     }
 
     pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
@@ -74,6 +88,7 @@ where
     }
 
     pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
+        #[cfg(feature = "parse-traceback")]
         let diagnostic = diagnostic.with_note(Note {
             kind: NoteKind::Debug,
             text: {
@@ -139,11 +154,11 @@ where
         match self.next_token_from(context, channel | Tok::LISTEN_TO_CHANNELS) {
             Ok(token) => {
                 let input = token.span.get_input(self.input);
-                Tok::try_from_token(token.clone(), input).map_err(|TokenKindMismatch(failed)| {
+                Tok::try_from_token(token.clone(), input).map_err(|error| {
                     self.emit_diagnostic(
                         Diagnostic::error(self.file, format!("{} expected", Tok::NAME))
                             .with_label(Label::primary(
-                                failed.span(),
+                                error.span,
                                 format!("{} expected here", Tok::NAME),
                             ))
                             .with_note(Note {
@@ -152,7 +167,7 @@ where
                                 suggestion: None,
                             }),
                     );
-                    ParseError::new(failed.span(), self.rule_traceback.clone())
+                    ParseError::new(error.span, self.rule_traceback())
                 })
             }
             Err(ParseError {
@@ -190,10 +205,18 @@ where
     }
 
     pub fn scope_mut<R>(&mut self, name: &'static str, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.rule_traceback.push(name);
-        let result = f(self);
-        self.rule_traceback.pop();
-        result
+        #[cfg(feature = "parse-traceback")]
+        {
+            self.rule_traceback.push(name);
+            let result = f(self);
+            self.rule_traceback.pop();
+            result
+        }
+        #[cfg(not(feature = "parse-traceback"))]
+        {
+            let _ = name;
+            f(self)
+        }
     }
 
     pub fn parse<N>(&mut self) -> Result<N, ParseError>

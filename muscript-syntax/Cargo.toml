@@ -3,6 +3,11 @@ name = "muscript-syntax"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
+# Enables capturing of parse rule tracebacks into diagnostics.
+parse-traceback = []
+
 [dependencies]
 bitflags = { workspace = true }
 indoc = "2.0.0"

@@ -54,11 +54,11 @@ macro_rules! define_tokens {
                     Self { span }
                 }
 
-                fn try_from_token(token: Token, _: &str) -> Result<Self, TokenKindMismatch<Self>> {
+                fn try_from_token(token: Token, _: &str) -> Result<Self, TokenKindMismatch> {
                     if token.kind == TokenKind::$name {
                         Ok(Self { span: token.span })
                     } else {
-                        Err(TokenKindMismatch(Self { span: token.span }))
+                        Err(TokenKindMismatch { span: token.span })
                     }
                 }
 
@@ -221,13 +221,15 @@ pub trait SingleToken: Spanned + Into<Token> + Parse + PredictiveParse {
 
     fn default_from_span(span: Span) -> Self;
 
-    fn try_from_token(token: Token, input: &str) -> Result<Self, TokenKindMismatch<Self>>;
+    fn try_from_token(token: Token, input: &str) -> Result<Self, TokenKindMismatch>;
 
     fn matches(token: &Token, input: &str) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TokenKindMismatch<T>(pub T);
+pub struct TokenKindMismatch {
+    pub span: Span,
+}
 
 #[macro_use]
 mod keyword;

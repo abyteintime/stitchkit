@@ -41,18 +41,12 @@ macro_rules! __keyword_impl {
             fn try_from_token(
                 token: $crate::lexis::token::Token,
                 input: &str,
-            ) -> Result<Self, $crate::lexis::token::TokenKindMismatch<Self>> {
-                let ident = $crate::lexis::token::Ident::try_from_token(token, input).map_err(
-                    |$crate::lexis::token::TokenKindMismatch(ident)| {
-                        $crate::lexis::token::TokenKindMismatch(Self { span: ident.span })
-                    },
-                )?;
+            ) -> Result<Self, $crate::lexis::token::TokenKindMismatch> {
+                let ident = $crate::lexis::token::Ident::try_from_token(token, input)?;
                 if <$T as $crate::lexis::token::Keyword>::matches(input) {
                     Ok(Self { span: ident.span })
                 } else {
-                    Err($crate::lexis::token::TokenKindMismatch(Self {
-                        span: ident.span,
-                    }))
+                    Err($crate::lexis::token::TokenKindMismatch { span: ident.span })
                 }
             }
 

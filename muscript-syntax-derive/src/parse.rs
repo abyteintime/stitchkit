@@ -1,7 +1,7 @@
 use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{spanned::Spanned, Index, Item, ItemEnum, ItemStruct, Path};
+use syn::{spanned::Spanned, Index, Item, ItemEnum, ItemStruct, LitStr, Path};
 
 pub fn derive_parse_impl(item: Item) -> syn::Result<TokenStream> {
     match item {
@@ -90,8 +90,14 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             .collect();
         let construct = quote! { #type_name::#variant_name { #constructor_fields } };
         if !attrs.fallback {
+            let guard = if let Some(keyword) = &attrs.keyword {
+                let keyword = LitStr::new(keyword, variant_name.span());
+                quote! { parser.next_matches_keyword(#keyword) }
+            } else {
+                quote! { parser.next_matches::<#first_field_type>() }
+            };
             match_arms.push(quote! {
-                _ if parser.next_matches::<#first_field_type>() => {
+                _ if #guard => {
                     #construct
                 }
             });
@@ -122,7 +128,6 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                 });
                 parser.emit_diagnostic(the_error);
                 return Err(parser.make_error(token.span));
-                // parser.bail::<Self>(token.span, the_error)?
             },
         }
     });
@@ -154,7 +159,9 @@ struct ParseAttrs {
 
 #[derive(Debug, FromAttributes)]
 #[darling(attributes(parse))]
-struct ParseFieldAttrs {
+pub(crate) struct ParseFieldAttrs {
     #[darling(default)]
-    fallback: bool,
+    pub fallback: bool,
+    #[darling(default)]
+    pub keyword: Option<String>,
 }

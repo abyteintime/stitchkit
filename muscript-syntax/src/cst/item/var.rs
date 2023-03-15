@@ -1,14 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    cst::{
-        CppBlob, Expr, KBitWise, KConfig, KCrossLevelActive, KCrossLevelPassive, KDataBinding,
-        KDeprecated, KDuplicateTransient, KEditConst, KEditFixedSize, KEditHide, KEditInline,
-        KEditInlineUse, KEditTextBox, KEditorOnly, KExport, KGlobalConfig, KInit, KInput,
-        KInstanced, KInterp, KLocalized, KNoClear, KNoExport, KNoImport, KNonTransactional,
-        KNotForConsole, KPrivate, KPrivateWrite, KProtected, KProtectedWrite, KPublic, KRepNotify,
-        KSerialize, KSerializeText, Meta, TypeOrDef, TypeSpecifier,
-    },
+    cst::{CppBlob, Expr, Meta, TypeOrDef, TypeSpecifier},
     diagnostics,
     lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
     list::SeparatedListDiagnostics,
@@ -37,40 +30,74 @@ pub struct VarEditor {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum VarSpecifier {
-    BitWise(KBitWise),
-    Config(KConfig),
-    CrossLevelActive(KCrossLevelActive),
-    CrossLevelPassive(KCrossLevelPassive),
-    DataBinding(KDataBinding),
-    Deprecated(KDeprecated),
-    DuplicateTransient(KDuplicateTransient),
-    EditConst(KEditConst),
-    EditHide(KEditHide),
-    EditFixedSize(KEditFixedSize),
-    EditInline(KEditInline),
-    EditInlineUse(KEditInlineUse),
-    EditorOnly(KEditorOnly),
-    EditTextBox(KEditTextBox),
-    Export(KExport),
-    GlobalConfig(KGlobalConfig),
-    Init(KInit),
-    Input(KInput),
-    Instanced(KInstanced),
-    Interp(KInterp),
-    Localized(KLocalized),
-    NoClear(KNoClear),
-    NoExport(KNoExport),
-    NoImport(KNoImport),
-    NonTransactional(KNonTransactional),
-    NotForConsole(KNotForConsole),
-    Private(KPrivate, Option<CppBlob>),
-    PrivateWrite(KPrivateWrite),
-    Protected(KProtected, Option<CppBlob>),
-    ProtectedWrite(KProtectedWrite, Option<CppBlob>),
-    Public(KPublic, Option<CppBlob>),
-    RepNotify(KRepNotify),
-    Serailize(KSerialize),
-    SerializeText(KSerializeText),
+    #[parse(keyword = "bitwise")]
+    BitWise(Ident),
+    #[parse(keyword = "config")]
+    Config(Ident),
+    #[parse(keyword = "crosslevelactive")]
+    CrossLevelActive(Ident),
+    #[parse(keyword = "crosslevelpassive")]
+    CrossLevelPassive(Ident),
+    #[parse(keyword = "databinding")]
+    DataBinding(Ident),
+    #[parse(keyword = "deprecated")]
+    Deprecated(Ident),
+    #[parse(keyword = "duplicatetransient")]
+    DuplicateTransient(Ident),
+    #[parse(keyword = "editconst")]
+    EditConst(Ident),
+    #[parse(keyword = "edithide")]
+    EditHide(Ident),
+    #[parse(keyword = "editfixedsize")]
+    EditFixedSize(Ident),
+    #[parse(keyword = "editinline")]
+    EditInline(Ident),
+    #[parse(keyword = "editinlineuse")]
+    EditInlineUse(Ident),
+    #[parse(keyword = "editoronly")]
+    EditorOnly(Ident),
+    #[parse(keyword = "edittextbox")]
+    EditTextBox(Ident),
+    #[parse(keyword = "export")]
+    Export(Ident),
+    #[parse(keyword = "globalconfig")]
+    GlobalConfig(Ident),
+    #[parse(keyword = "init")]
+    Init(Ident),
+    #[parse(keyword = "input")]
+    Input(Ident),
+    #[parse(keyword = "instanced")]
+    Instanced(Ident),
+    #[parse(keyword = "interp")]
+    Interp(Ident),
+    #[parse(keyword = "localized")]
+    Localized(Ident),
+    #[parse(keyword = "noclear")]
+    NoClear(Ident),
+    #[parse(keyword = "noexport")]
+    NoExport(Ident),
+    #[parse(keyword = "noimport")]
+    NoImport(Ident),
+    #[parse(keyword = "nontransactional")]
+    NonTransactional(Ident),
+    #[parse(keyword = "notforconsole")]
+    NotForConsole(Ident),
+    #[parse(keyword = "private")]
+    Private(Ident, Option<CppBlob>),
+    #[parse(keyword = "privatewrite")]
+    PrivateWrite(Ident),
+    #[parse(keyword = "protected")]
+    Protected(Ident, Option<CppBlob>),
+    #[parse(keyword = "protectedwrite")]
+    ProtectedWrite(Ident, Option<CppBlob>),
+    #[parse(keyword = "public")]
+    Public(Ident, Option<CppBlob>),
+    #[parse(keyword = "repnotify")]
+    RepNotify(Ident),
+    #[parse(keyword = "serialize")]
+    Serailize(Ident),
+    #[parse(keyword = "serializetext")]
+    SerializeText(Ident),
     Type(TypeSpecifier),
 }
 

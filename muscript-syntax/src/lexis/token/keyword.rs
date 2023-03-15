@@ -1,4 +1,6 @@
-use crate::lexis::token::SingleToken;
+use crate::{lexis::token::SingleToken, ParseStream, Parser};
+
+use super::TokenKind;
 
 pub trait Keyword: SingleToken {
     const KEYWORD: &'static str;
@@ -90,5 +92,24 @@ macro_rules! keyword {
         $(
             $crate::__keyword_impl!($T = $keyword);
         )*
+    }
+}
+
+// Fast keyword parsing that does not slow down compile times nearly as much as `keyword!` does.
+// This is expected to replace `keyword!` entirely.
+impl<'a, T> Parser<'a, T>
+where
+    T: ParseStream,
+{
+    pub fn next_matches_keyword(&mut self, keyword: &str) -> bool {
+        if let Ok(next) = self.peek_token() {
+            next.kind == TokenKind::Ident
+                && next
+                    .span
+                    .get_input(self.input)
+                    .eq_ignore_ascii_case(keyword)
+        } else {
+            false
+        }
     }
 }

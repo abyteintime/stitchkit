@@ -6,7 +6,7 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{CppBlob, EnumDef, KConst, KNative, KTransient, Path, StructDef};
+use super::{CppBlob, EnumDef, Path, StructDef};
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "type_or_def_error")]
@@ -15,14 +15,17 @@ pub enum TypeOrDef {
     EnumDef(EnumDef),
     Type(Type),
 }
-
+//
 /// Some variable specifiers are attached to types within the engine source.
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum TypeSpecifier {
-    Const(KConst),
-    Native(KNative),
-    Transient(KTransient),
+    #[parse(keyword = "const")]
+    Const(Ident),
+    #[parse(keyword = "native")]
+    Native(Ident),
+    #[parse(keyword = "transient")]
+    Transient(Ident),
 }
 
 #[derive(Debug, Clone)]

@@ -1,6 +1,9 @@
+use darling::FromAttributes;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Item, ItemEnum, ItemStruct};
+use syn::{Item, ItemEnum, ItemStruct, LitStr};
+
+use crate::parse::ParseFieldAttrs;
 
 pub fn derive_predictive_parse_impl(item: Item) -> syn::Result<TokenStream> {
     match item {
@@ -46,6 +49,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     let mut listen_to_channels = TokenStream::new();
     let mut started_by = TokenStream::new();
     for (i, variant) in item.variants.iter().enumerate() {
+        let attrs = ParseFieldAttrs::from_attributes(&variant.attrs)?;
         let first_field = variant.fields.iter().next().ok_or_else(|| {
             syn::Error::new_spanned(
                 &item.ident,
@@ -57,9 +61,16 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
         if i != 0 {
             started_by.extend(quote!(||))
         }
-        started_by.extend(quote! {
-            <#ty as ::muscript_syntax::PredictiveParse>::started_by(token, input)
-        });
+        let test = if let Some(keyword) = &attrs.keyword {
+            let keyword = LitStr::new(keyword, variant.ident.span());
+            quote! {
+                (token.kind == ::muscript_syntax::lexis::token::TokenKind::Ident &&
+                    token.span.get_input(input).eq_ignore_ascii_case(#keyword))
+            }
+        } else {
+            quote! { <#ty as ::muscript_syntax::PredictiveParse>::started_by(token, input) }
+        };
+        started_by.extend(test);
 
         listen_to_channels.extend(if i != 0 {
             quote! {

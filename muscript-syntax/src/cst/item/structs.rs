@@ -4,7 +4,7 @@ use muscript_foundation::{
 };
 
 use crate::{
-    cst::{CppBlob, Extends, KExport, KImmutable, KImmutableWhenCooked, KNative, KTransient},
+    cst::{CppBlob, Extends},
     diagnostics::{labels, notes},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
@@ -72,11 +72,16 @@ impl Parse for StructDef {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "specifier_error")]
 pub enum StructSpecifier {
-    Export(KExport),
-    Immutable(KImmutable),
-    ImmutableWhenCooked(KImmutableWhenCooked),
-    Native(KNative),
-    Transient(KTransient),
+    #[parse(keyword = "export")]
+    Export(Ident),
+    #[parse(keyword = "immutable")]
+    Immutable(Ident),
+    #[parse(keyword = "immutablewhencooked")]
+    ImmutableWhenCooked(Ident),
+    #[parse(keyword = "native")]
+    Native(Ident),
+    #[parse(keyword = "transient")]
+    Transient(Ident),
 }
 
 fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {

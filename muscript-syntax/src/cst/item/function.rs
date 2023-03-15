@@ -2,12 +2,7 @@ use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    cst::{
-        Block, Expr, KClient, KCoerce, KConst, KEditorOnly, KExec, KExpensive, KFinal, KInit,
-        KIterator, KLatent, KMulticast, KNative, KNoExport, KNoExportHeader, KNoOwnerReplication,
-        KOptional, KOut, KPrivate, KProtected, KPublic, KReliable, KServer, KSimulated, KSingular,
-        KSkip, KStatic, KVirtual, Path, Type,
-    },
+    cst::{Block, Expr, KConst, Path, Type},
     diagnostics::{labels, notes},
     lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
     list::SeparatedListDiagnostics,
@@ -15,15 +10,6 @@ use crate::{
 };
 
 use super::VarArray;
-
-keyword! {
-    KFunction = "function",
-    KEvent = "event",
-    KDelegate = "delegate",
-    KOperator = "operator",
-    KPreOperator = "preoperator",
-    KPostOperator = "postoperator",
-}
 
 #[derive(Debug, Clone)]
 pub struct ItemFunction {
@@ -40,28 +26,50 @@ pub struct ItemFunction {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "function_specifier_error")]
 pub enum FunctionSpecifier {
-    Client(KClient),
-    Coerce(KCoerce),
-    EditorOnly(KEditorOnly),
-    Exec(KExec),
-    Expensive(KExpensive),
-    Final(KFinal),
-    Iterator(KIterator),
-    Latent(KLatent),
-    Multicast(KMulticast),
-    Native(KNative, Option<ParenInt>),
-    NoExport(KNoExport),
-    NoExportHeader(KNoExportHeader),
-    NoOwnerReplication(KNoOwnerReplication),
-    Public(KPublic),
-    Private(KPrivate),
-    Protected(KProtected),
-    Reliable(KReliable),
-    Server(KServer),
-    Simulated(KSimulated),
-    Singular(KSingular),
-    Static(KStatic),
-    Virtual(KVirtual),
+    #[parse(keyword = "client")]
+    Client(Ident),
+    #[parse(keyword = "coerce")]
+    Coerce(Ident),
+    #[parse(keyword = "editoronly")]
+    EditorOnly(Ident),
+    #[parse(keyword = "exec")]
+    Exec(Ident),
+    #[parse(keyword = "expensive")]
+    Expensive(Ident),
+    #[parse(keyword = "final")]
+    Final(Ident),
+    #[parse(keyword = "iterator")]
+    Iterator(Ident),
+    #[parse(keyword = "latent")]
+    Latent(Ident),
+    #[parse(keyword = "multicast")]
+    Multicast(Ident),
+    #[parse(keyword = "native")]
+    Native(Ident, Option<ParenInt>),
+    #[parse(keyword = "noexport")]
+    NoExport(Ident),
+    #[parse(keyword = "noexportheader")]
+    NoExportHeader(Ident),
+    #[parse(keyword = "noownerreplication")]
+    NoOwnerReplication(Ident),
+    #[parse(keyword = "public")]
+    Public(Ident),
+    #[parse(keyword = "private")]
+    Private(Ident),
+    #[parse(keyword = "protected")]
+    Protected(Ident),
+    #[parse(keyword = "reliable")]
+    Reliable(Ident),
+    #[parse(keyword = "server")]
+    Server(Ident),
+    #[parse(keyword = "simulated")]
+    Simulated(Ident),
+    #[parse(keyword = "singular")]
+    Singular(Ident),
+    #[parse(keyword = "static")]
+    Static(Ident),
+    #[parse(keyword = "virtual")]
+    Virtual(Ident),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]
@@ -74,12 +82,18 @@ pub struct ParenInt {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "kind_error")]
 pub enum FunctionKind {
-    Function(KFunction),
-    Event(KEvent),
-    Delegate(KDelegate),
-    Operator(KOperator, ParenInt),
-    PreOperator(KPreOperator),
-    PostOperator(KPostOperator),
+    #[parse(keyword = "function")]
+    Function(Ident),
+    #[parse(keyword = "event")]
+    Event(Ident),
+    #[parse(keyword = "delegate")]
+    Delegate(Ident),
+    #[parse(keyword = "operator")]
+    Operator(Ident, ParenInt),
+    #[parse(keyword = "preoperator")]
+    PreOperator(Ident),
+    #[parse(keyword = "postoperator")]
+    PostOperator(Ident),
 }
 
 #[derive(Debug, Clone, PredictiveParse)]
@@ -101,12 +115,18 @@ pub struct Param {
 #[derive(Debug, Clone, Parse, PredictiveParse)]
 #[parse(error = "param_specifier_error")]
 pub enum ParamSpecifier {
-    Coerce(KCoerce),
-    Const(KConst),
-    Init(KInit),
-    Optional(KOptional),
-    Out(KOut),
-    Skip(KSkip),
+    #[parse(keyword = "coerce")]
+    Coerce(Ident),
+    #[parse(keyword = "const")]
+    Const(Ident),
+    #[parse(keyword = "init")]
+    Init(Ident),
+    #[parse(keyword = "optional")]
+    Optional(Ident),
+    #[parse(keyword = "out")]
+    Out(Ident),
+    #[parse(keyword = "skip")]
+    Skip(Ident),
 }
 
 #[derive(Debug, Clone, Parse, PredictiveParse)]

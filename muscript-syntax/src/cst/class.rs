@@ -7,13 +7,7 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-use super::{
-    BoolLit, KAbstract, KAlwaysLoaded, KAutoExpandCategories, KClassGroup, KCollapseCategories,
-    KConfig, KDependsOn, KDeprecated, KDontCollapseCategories, KDontSortCategories, KEditInlineNew,
-    KForceScriptOrder, KHideCategories, KHideDropdown, KImplements, KInherits, KIterationOptimized,
-    KNative, KNativeReplication, KNeverCook, KNoExport, KNotPlaceable, KPerObjectConfig,
-    KPlaceable, KShowCategories, KTransient, Path, SpecifierArgs,
-};
+use super::{BoolLit, Path, SpecifierArgs};
 
 keyword! {
     KPartial = "partial",
@@ -56,32 +50,58 @@ pub struct Within {
 #[derive(Debug, Clone, Parse)]
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
-    Abstract(KAbstract),
-    AlwaysLoaded(KAlwaysLoaded),
-    AutoExpandCategories(KAutoExpandCategories, SpecifierArgs),
-    ClassGroup(KClassGroup, SpecifierArgs),
-    CollapseCategories(KCollapseCategories),
-    Config(KConfig, SpecifierArgs),
-    DependsOn(KDependsOn, SpecifierArgs),
-    Deprecated(KDeprecated),
-    DontCollapseCategories(KDontCollapseCategories),
-    DontSortCategories(KDontSortCategories, SpecifierArgs),
-    EditInlineNew(KEditInlineNew),
-    ForceScriptOrder(KForceScriptOrder, LeftParen, BoolLit, RightParen),
-    HideCategories(KHideCategories, SpecifierArgs),
-    HideDropdown(KHideDropdown),
-    Implements(KImplements, SpecifierArgs),
-    Inherits(KInherits, SpecifierArgs),
-    IterationOptimized(KIterationOptimized),
-    Native(KNative, Option<SpecifierArgs>),
-    NativeReplication(KNativeReplication),
-    NeverCook(KNeverCook),
-    NoExport(KNoExport),
-    NotPlaceable(KNotPlaceable),
-    PerObjectConfig(KPerObjectConfig),
-    Placeable(KPlaceable),
-    ShowCategories(KShowCategories, SpecifierArgs),
-    Transient(KTransient),
+    #[parse(keyword = "abstract")]
+    Abstract(Ident),
+    #[parse(keyword = "alwaysloaded")]
+    AlwaysLoaded(Ident),
+    #[parse(keyword = "autoexpandcategories")]
+    AutoExpandCategories(Ident, SpecifierArgs),
+    #[parse(keyword = "classgroup")]
+    ClassGroup(Ident, SpecifierArgs),
+    #[parse(keyword = "collapsecategories")]
+    CollapseCategories(Ident),
+    #[parse(keyword = "config")]
+    Config(Ident, SpecifierArgs),
+    #[parse(keyword = "dependson")]
+    DependsOn(Ident, SpecifierArgs),
+    #[parse(keyword = "deprecated")]
+    Deprecated(Ident),
+    #[parse(keyword = "dontcollapsecategories")]
+    DontCollapseCategories(Ident),
+    #[parse(keyword = "dontsortcategories")]
+    DontSortCategories(Ident, SpecifierArgs),
+    #[parse(keyword = "editinlinenew")]
+    EditInlineNew(Ident),
+    #[parse(keyword = "forcescriptorder")]
+    ForceScriptOrder(Ident, LeftParen, BoolLit, RightParen),
+    #[parse(keyword = "hidecategories")]
+    HideCategories(Ident, SpecifierArgs),
+    #[parse(keyword = "hidedropdown")]
+    HideDropdown(Ident),
+    #[parse(keyword = "implements")]
+    Implements(Ident, SpecifierArgs),
+    #[parse(keyword = "inherits")]
+    Inherits(Ident, SpecifierArgs),
+    #[parse(keyword = "iterationoptimized")]
+    IterationOptimized(Ident),
+    #[parse(keyword = "native")]
+    Native(Ident, Option<SpecifierArgs>),
+    #[parse(keyword = "nativereplication")]
+    NativeReplication(Ident),
+    #[parse(keyword = "nevercook")]
+    NeverCook(Ident),
+    #[parse(keyword = "noexport")]
+    NoExport(Ident),
+    #[parse(keyword = "notplaceable")]
+    NotPlaceable(Ident),
+    #[parse(keyword = "perobjectconfig")]
+    PerObjectConfig(Ident),
+    #[parse(keyword = "placeable")]
+    Placeable(Ident),
+    #[parse(keyword = "showcategories")]
+    ShowCategories(Ident, SpecifierArgs),
+    #[parse(keyword = "transient")]
+    Transient(Ident),
 }
 
 impl Parse for Class {

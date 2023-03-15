@@ -235,6 +235,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "muscript"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "muscript-foundation",
+ "muscript-syntax",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+]
+
+[[package]]
 name = "muscript-foundation"
 version = "0.1.0"
 dependencies = [

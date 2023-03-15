@@ -1,6 +1,5 @@
 mod ardump;
 mod manifest;
-mod muscript;
 mod objdump;
 
 use std::path::PathBuf;
@@ -8,7 +7,6 @@ use std::path::PathBuf;
 use ardump::{ardump, Ardump};
 use clap::{Parser, Subcommand};
 use manifest::manifest;
-use muscript::muscript;
 use objdump::{objdump, Objdump};
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, EnvFilter};
@@ -46,12 +44,6 @@ enum Command {
         #[clap(flatten)]
         args: manifest::Args,
     },
-
-    /// Analyze MuScript code.
-    Muscript {
-        #[clap(flatten)]
-        args: muscript::Args,
-    },
 }
 
 #[derive(Parser)]
@@ -68,7 +60,6 @@ fn fallible_main() -> anyhow::Result<()> {
         Command::Ardump { filename, what } => ardump(&filename, what)?,
         Command::Objdump { what } => objdump(what)?,
         Command::Manifest { args } => manifest(args)?,
-        Command::Muscript { args } => muscript(args)?,
     }
 
     Ok(())
@@ -89,7 +80,7 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("cannot set default tracing subscriber");
 
-    info!("Stitch toolkit version {}", env!("CARGO_PKG_VERSION"));
+    info!("Stitchkit version {}", env!("CARGO_PKG_VERSION"));
 
     match fallible_main() {
         Ok(_) => (),

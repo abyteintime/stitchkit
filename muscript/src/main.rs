@@ -15,7 +15,8 @@ use muscript_syntax::{
     },
     Structured,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, metadata::LevelFilter, warn};
+use tracing_subscriber::{prelude::*, EnvFilter};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Subcommand)]
@@ -254,4 +255,27 @@ fn perform_action_on_source_file(
         }
     }
     Ok(())
+}
+
+fn main() {
+    let subscriber = tracing_subscriber::registry()
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::DEBUG.into())
+                .from_env_lossy(),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_writer(std::io::stderr),
+        );
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("cannot set default tracing subscriber");
+
+    let args = Args::parse();
+
+    match muscript(args) {
+        Ok(_) => (),
+        Err(error) => error!("{error:?}"),
+    }
 }

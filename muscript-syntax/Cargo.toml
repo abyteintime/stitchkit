@@ -8,6 +8,9 @@ edition = "2021"
 # Enables capturing of parse rule tracebacks into diagnostics.
 parse-traceback = []
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 bitflags = { workspace = true }
 indoc = "2.0.0"

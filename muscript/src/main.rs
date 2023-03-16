@@ -1,260 +1,167 @@
-use std::{collections::HashMap, ffi::OsStr, path::PathBuf, rc::Rc};
+mod input;
 
-use anyhow::{anyhow, Context};
-use clap::{Parser, Subcommand};
+use std::{
+    collections::HashSet,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
+
+use anyhow::{bail, Context};
+use clap::Parser;
+use muscript_analysis::{Environment, Package};
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticConfig, Severity},
-    source::{SourceFile, SourceFileId, SourceFileSet},
+    errors::DiagnosticConfig,
+    source::{SourceFile, SourceFileSet},
 };
-use muscript_syntax::{
-    self, cst,
-    lexis::{
-        preprocessor::{Definitions, Preprocessor},
-        token::TokenKind,
-        LexicalContext, PeekCaching, TokenStream,
-    },
-    Structured,
-};
-use tracing::{debug, error, info, metadata::LevelFilter, warn};
+use tracing::{debug, error, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, EnvFilter};
 use walkdir::WalkDir;
 
-#[derive(Debug, Clone, Subcommand)]
-pub enum Action {
-    Lex,
-    Parse {
-        /// Parse without printing the AST.
-        #[clap(long)]
-        no_print: bool,
-    },
-}
+use crate::input::Input;
 
 #[derive(Debug, Parser)]
 pub struct Args {
-    /// Directory containing the package sources.
+    /// Directory containing the package sources (one directory above `Classes`).
     ///
-    /// This directory will be walked to look for any .mu files stored within.
+    /// The `Classes` directory within will be walked to find source files to compile.
     package: PathBuf,
 
-    /// The name of the package. This is primarily used for error messages.
-    #[clap(short, long)]
-    package_name: String,
-
-    /// Action to take on the source file set.
-    #[clap(subcommand)]
-    action: Action,
-
-    /// Print out statistical information telling you of how many files were processed and how many
-    /// of them failed.
-    #[clap(short, long)]
-    stats: bool,
+    /// Game source packages. At least `Core` should be provided here.
+    #[clap(short = 'x', long)]
+    external: Vec<PathBuf>,
 
     /// Print debug notes for diagnostics that have them.
     #[clap(long)]
     diagnostics_debug_info: bool,
-
-    /// Only print out the first `N` diagnostics.
-    #[clap(long, name = "n")]
-    diagnostics_limit: Option<usize>,
 }
 
-pub fn muscript(args: Args) -> anyhow::Result<()> {
-    debug!("Looking for source files");
+pub fn fallible_main(args: Args) -> anyhow::Result<()> {
+    debug!("Looking for main package source files");
+    let compiled_sources = list_source_files_in_package(&args.package)?;
+    debug!("{} source files found", compiled_sources.len());
+
+    debug!("Looking for external source files");
+    let mut external_sources = vec![];
+    for (i, external_dir) in args.external.iter().enumerate() {
+        external_sources.extend(
+            list_source_files_in_package(external_dir)?
+                .into_iter()
+                .map(|path| (i, path)),
+        );
+    }
+    debug!("{} external source files found", external_sources.len());
+
+    // This is kind of inefficient right now because we also load files that we aren't particularly
+    // going to use. Thankfully OS-level caching helps alleviate this a bit, but cold compilations
+    // are still quite slow because of this extra step.
+    debug!("Building source file set");
+    let mut source_file_set = SourceFileSet::new();
+
+    debug!("Loading compiled sources");
+    let mut compiled_source_file_ids = HashSet::new();
+    for path in compiled_sources {
+        let source = read_source_file(&path)?;
+        let filename = pretty_file_name(&args.package, &path);
+        compiled_source_file_ids.insert(source_file_set.add(SourceFile::new(
+            filename,
+            path,
+            Rc::from(source),
+        )));
+    }
+
+    debug!("Loading external sources");
+    for (i, path) in external_sources {
+        let external_source_path = &args.external[i];
+        let filename = pretty_file_name(external_source_path, &path);
+        let source = read_source_file(&path)?;
+        source_file_set.add(SourceFile::new(filename, path, Rc::from(source)));
+    }
+
+    debug!("Distilling class names from source file set");
+    let mut input = Input::new(&source_file_set);
+    let mut env = Environment::new();
+    let mut classes_to_compile = vec![];
+    for (source_file_id, source_file) in source_file_set.iter() {
+        match source_file.class_name() {
+            Ok(class_name) => {
+                if compiled_source_file_ids.contains(&source_file_id) {
+                    let class_id = env.allocate_class_id(class_name);
+                    classes_to_compile.push(class_id);
+                }
+                input.add(class_name, source_file_id)
+            }
+            Err(error) => error!("Error with file {}: {:?}", source_file.filename, error),
+        }
+    }
+
+    debug!("Compiling package");
+    let compilation_result = Package::compile(&mut env, &input, &classes_to_compile);
+
+    for diagnostic in env.diagnostics() {
+        _ = diagnostic.emit_to_stderr(
+            &source_file_set,
+            &DiagnosticConfig {
+                show_debug_info: args.diagnostics_debug_info,
+            },
+        );
+    }
+
+    if let Ok(_package) = compilation_result {
+        // TODO: Code generation.
+    } else {
+        error!("Compilation failed, no packages emitted")
+    }
+
+    Ok(())
+}
+
+fn list_source_files_in_package(package: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    let classes_dir = package.join("Classes");
+    if !classes_dir.is_dir() {
+        bail!("{classes_dir:?} is not a directory");
+    }
+
     let mut source_file_paths = vec![];
-    for entry in WalkDir::new(&args.package) {
+    for entry in WalkDir::new(classes_dir) {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() && path.extension() == Some(OsStr::new("uc")) {
             source_file_paths.push(path.to_owned());
         }
     }
-    debug!("{} source files found", source_file_paths.len());
+    Ok(source_file_paths)
+}
 
-    debug!("Building source file set");
-    let dir_prefix = if args.package.is_file() {
-        args.package
-            .parent()
-            .ok_or_else(|| anyhow!("source file must be located in a directory"))?
-            .to_owned()
+fn read_source_file(path: &Path) -> anyhow::Result<String> {
+    let source_bytes =
+        std::fs::read(path).with_context(|| format!("cannot read source file at {path:?}"))?;
+
+    if source_bytes.starts_with(&[0xFE, 0xFF]) {
+        // UTF-16 big-endian
+        let words: Vec<_> = source_bytes
+            .chunks_exact(2)
+            .map(|arr| (arr[0] as u16) << 8 | arr[1] as u16)
+            .collect();
+        String::from_utf16(&words[1..]).context("encoding error in UTF-16 (big-endian) file")
+    } else if source_bytes.starts_with(&[0xFF, 0xFE]) {
+        // UTF-16 little-endian
+        let words: Vec<_> = source_bytes
+            .chunks_exact(2)
+            .map(|arr| (arr[0]) as u16 | (arr[1] as u16) << 8)
+            .collect();
+        String::from_utf16(&words[1..]).context("encoding error in UTF-16 (little-endian) file")
     } else {
-        args.package
-    };
-    let mut source_file_set = SourceFileSet::new();
-    for path in source_file_paths {
-        let source_bytes =
-            std::fs::read(&path).with_context(|| format!("cannot read source file at {path:?}"));
-        let source_bytes = match source_bytes {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                error!("{error:?}");
-                continue;
-            }
-        };
-
-        let source = if source_bytes.starts_with(&[0xFE, 0xFF]) {
-            // UTF-16 big-endian
-            let words: Vec<_> = source_bytes
-                .chunks_exact(2)
-                .map(|arr| (arr[0] as u16) << 8 | arr[1] as u16)
-                .collect();
-            String::from_utf16(&words[1..]).context("encoding error in UTF-16 (big-endian) file")
-        } else if source_bytes.starts_with(&[0xFF, 0xFE]) {
-            // UTF-16 little-endian
-            let words: Vec<_> = source_bytes
-                .chunks_exact(2)
-                .map(|arr| (arr[0]) as u16 | (arr[1] as u16) << 8)
-                .collect();
-            String::from_utf16(&words[1..]).context("encoding error in UTF-16 (little-endian) file")
-        } else {
-            // UTF-8
-            String::from_utf8(source_bytes).context("encoding error in UTF-8 file")
-        };
-
-        match source {
-            Ok(source) => {
-                let pretty_file_name = path
-                    .strip_prefix(&dir_prefix)?
-                    .to_string_lossy()
-                    .into_owned();
-                source_file_set.add(SourceFile::new(
-                    args.package_name.clone(),
-                    pretty_file_name,
-                    Rc::from(source),
-                ));
-            }
-            Err(error) => error!("{error:?}"),
-        }
+        // UTF-8
+        String::from_utf8(source_bytes).context("encoding error in UTF-8 file")
     }
-
-    debug!("Performing action");
-    let mut stats = perform_action(
-        args.action,
-        &source_file_set,
-        &Definitions {
-            map: HashMap::from_iter([]),
-        },
-    )?;
-    if !stats.diagnostics.is_empty() {
-        stats
-            .diagnostics
-            .sort_by_key(|diagnostic| diagnostic.severity);
-        eprintln!();
-        info!("Finished with the following diagnostics:");
-        eprintln!();
-        let limit = args.diagnostics_limit.unwrap_or(10);
-        let mut count: usize = 0;
-        for diagnostic in stats.diagnostics {
-            diagnostic.emit_to_stderr(
-                &source_file_set,
-                &DiagnosticConfig {
-                    show_debug_info: args.diagnostics_debug_info,
-                },
-            )?;
-            count += 1;
-            if count >= limit {
-                warn!("Only the first {limit} diagnostics are displayed; the limit can be set with `--diagnostics-limit=N`");
-                break;
-            }
-        }
-    }
-    if args.stats {
-        let num_successful = stats.num_processed - stats.num_failed;
-        let success_rate = num_successful as f64 / stats.num_processed as f64;
-        eprintln!();
-        info!(
-            "Stats: {num_successful}/{} ({:.02}%) successful",
-            stats.num_processed,
-            success_rate * 100.0
-        );
-    }
-
-    Ok(())
 }
 
-struct Stats {
-    num_processed: usize,
-    num_failed: usize,
-    diagnostics: Vec<Diagnostic>,
-}
-
-fn perform_action(
-    action: Action,
-    source_file_set: &SourceFileSet,
-    definitions: &Definitions,
-) -> anyhow::Result<Stats> {
-    let mut num_failed = 0;
-    let mut diagnostics = vec![];
-    for (id, file) in source_file_set.iter() {
-        debug!("Processing: {}", file.filename);
-        match perform_action_on_source_file(&action, id, file, definitions) {
-            Ok(()) => (),
-            Err(mut diagnosis) => {
-                diagnostics.append(&mut diagnosis);
-                num_failed += diagnostics
-                    .iter()
-                    .any(|diagnostic| diagnostic.severity >= Severity::Error)
-                    as usize;
-            }
-        }
-    }
-    Ok(Stats {
-        num_failed,
-        num_processed: source_file_set.len(),
-        diagnostics,
-    })
-}
-
-fn perform_action_on_source_file(
-    action: &Action,
-    id: SourceFileId,
-    file: &SourceFile,
-    definitions: &Definitions,
-) -> Result<(), Vec<Diagnostic>> {
-    match action {
-        Action::Lex => {
-            let mut definitions = definitions.clone();
-            let mut diagnostics = vec![];
-            let mut tokens = Preprocessor::new(
-                id,
-                Rc::clone(&file.source),
-                &mut definitions,
-                &mut diagnostics,
-            );
-            loop {
-                let token = tokens.next(LexicalContext::Default)?;
-                println!("{token:?} {:?}", &file.source[token.span.to_usize_range()]);
-                if token.kind == TokenKind::EndOfFile {
-                    break;
-                }
-            }
-        }
-        Action::Parse { no_print } => {
-            let mut definitions = definitions.clone();
-            let mut preproc_diagnostics = vec![];
-            let tokens = PeekCaching::new(Preprocessor::new(
-                id,
-                Rc::clone(&file.source),
-                &mut definitions,
-                &mut preproc_diagnostics,
-            ));
-            let mut parser_diagnostics = vec![];
-            let mut parser = muscript_syntax::Parser::new(
-                id,
-                &file.source,
-                Structured::new(tokens),
-                &mut parser_diagnostics,
-            );
-            let file = parser.parse::<cst::File>();
-            preproc_diagnostics.append(&mut parser_diagnostics);
-            if !preproc_diagnostics.is_empty() {
-                return Err(preproc_diagnostics);
-            }
-            if !no_print {
-                println!("{file:#?}");
-            }
-        }
-    }
-    Ok(())
+fn pretty_file_name(package_root: &Path, source_file: &Path) -> String {
+    let path = source_file
+        .strip_prefix(package_root)
+        .expect("source_file must start with package_root");
+    path.to_string_lossy().into_owned()
 }
 
 fn main() {
@@ -274,7 +181,7 @@ fn main() {
 
     let args = Args::parse();
 
-    match muscript(args) {
+    match fallible_main(args) {
         Ok(_) => (),
         Err(error) => error!("{error:?}"),
     }

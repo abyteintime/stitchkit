@@ -10,5 +10,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 walkdir = { workspace = true }
 
+muscript-analysis = { workspace = true }
 muscript-foundation = { workspace = true }
 muscript-syntax = { workspace = true }

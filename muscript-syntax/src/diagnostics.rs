@@ -1,7 +1,3 @@
-mod sink;
-
-pub use sink::*;
-
 pub mod labels {
     use muscript_foundation::{errors::Label, source::Span};
 

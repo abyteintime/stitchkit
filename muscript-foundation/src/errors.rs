@@ -3,12 +3,16 @@
 //! The error reporting in MuScript is largely inspired by the Rust compiler, though arguably it's a
 //! lot simpler.
 
+mod sink;
+
 use codespan_reporting::{
     term,
     term::termcolor::{ColorChoice, StandardStream},
 };
 
 use crate::source::{SourceFileId, SourceFileSet, Span};
+
+pub use sink::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LabelStyle {

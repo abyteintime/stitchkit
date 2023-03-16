@@ -1,6 +1,8 @@
-use muscript_foundation::errors::Diagnostic;
 use tracing::warn;
 
+use crate::errors::Diagnostic;
+
+/// Diagnostic sink - anything that can collect diagnostics for later display.
 pub trait DiagnosticSink {
     fn emit(&mut self, diagnostic: Diagnostic);
 }
@@ -27,4 +29,13 @@ impl DiagnosticSink for Option<Diagnostic> {
             }
         });
     }
+}
+
+pub fn pipe_all_diagnostics_into<I>(sink: &mut dyn DiagnosticSink, source: I)
+where
+    I: IntoIterator<Item = Diagnostic>,
+{
+    source
+        .into_iter()
+        .for_each(|diagnostic| sink.emit(diagnostic))
 }

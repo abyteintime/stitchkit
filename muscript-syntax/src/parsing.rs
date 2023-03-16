@@ -1,16 +1,13 @@
 mod recovery;
 
 use muscript_foundation::{
-    errors::{Diagnostic, Label, Note, NoteKind},
+    errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     source::{SourceFileId, Span},
 };
 
-use crate::{
-    diagnostics::DiagnosticSink,
-    lexis::{
-        token::{SingleToken, Token},
-        Channel, LexError, LexicalContext, TokenStream,
-    },
+use crate::lexis::{
+    token::{SingleToken, Token},
+    Channel, LexError, LexicalContext, TokenStream,
 };
 
 pub use recovery::*;

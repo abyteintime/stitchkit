@@ -1,8 +1,14 @@
 //! Types for representing source code.
 
-use std::{fmt, ops::Range, rc::Rc};
+use std::{
+    fmt,
+    ops::Range,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use codespan_reporting::files::Files;
+use thiserror::Error;
 
 /// Represents a span of characters within the source code.
 ///
@@ -67,24 +73,41 @@ pub trait Spanned {
 /// Represents a single source file.
 #[derive(Debug, Clone)]
 pub struct SourceFile {
-    /// The Unreal package this source file belongs to.
-    pub package: String,
-    /// The source file's name.
+    /// The source file's pretty name.
     pub filename: String,
+    /// The full path to the source file.
+    pub full_path: PathBuf,
     /// The source code.
     pub source: Rc<str>,
+
     line_starts: Vec<usize>,
 }
 
 impl SourceFile {
     /// Creates a new [`SourceFile`].
-    pub fn new(package: String, filename: String, source: Rc<str>) -> Self {
+    pub fn new(filename: String, full_path: PathBuf, source: Rc<str>) -> Self {
         Self {
-            package,
             filename,
+            full_path,
             line_starts: codespan_reporting::files::line_starts(&source).collect(),
             source,
         }
+    }
+
+    /// Returns the name of the class this source file declares, or [`Err`] if the filename does not
+    /// contain a class name or contains invalid UTF-8 characters.
+    pub fn class_name(&self) -> Result<&str, ClassNameError<'_>> {
+        let stem = self
+            .full_path
+            .file_stem()
+            .ok_or(ClassNameError::InvalidUtf8(&self.full_path))?;
+        let stem = stem
+            .to_str()
+            .ok_or(ClassNameError::InvalidUtf8(&self.full_path))?;
+        Ok(stem
+            .split_once('.')
+            .map(|(name, _part)| name)
+            .unwrap_or(stem))
     }
 
     fn line_start(&self, line_index: usize) -> Result<usize, codespan_reporting::files::Error> {
@@ -105,6 +128,14 @@ impl SourceFile {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ClassNameError<'a> {
+    #[error("source file path {0:?} does not contain a file name")]
+    NoFilename(&'a Path),
+    #[error("source file path {0:?} contains invalid UTF-8")]
+    InvalidUtf8(&'a Path),
+}
+
 /// A set of source files needed to compile a single package.
 #[derive(Debug, Clone, Default)]
 pub struct SourceFileSet {
@@ -112,7 +143,7 @@ pub struct SourceFileSet {
 }
 
 /// Index of a source file inside of a [`SourceFileSet`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SourceFileId(usize);
 
 impl SourceFileSet {
@@ -126,6 +157,10 @@ impl SourceFileSet {
         let id = SourceFileId(self.source_files.len());
         self.source_files.push(file);
         id
+    }
+
+    pub fn get(&self, file: SourceFileId) -> &SourceFile {
+        &self.source_files[file.0]
     }
 
     pub fn len(&self) -> usize {

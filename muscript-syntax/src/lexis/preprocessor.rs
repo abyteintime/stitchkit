@@ -2,13 +2,11 @@ use std::{cmp::Ordering, collections::HashMap, rc::Rc};
 
 use indoc::indoc;
 use muscript_foundation::{
-    errors::{Diagnostic, Label},
+    errors::{Diagnostic, DiagnosticSink, Label},
+    ident::CaseInsensitive,
     source::{SourceFileId, Span},
 };
 use tracing::{trace, trace_span};
-use unicase::UniCase;
-
-use crate::diagnostics::DiagnosticSink;
 
 use super::{
     token::{Token, TokenKind},
@@ -19,7 +17,7 @@ use super::{
 /// symbols such as `FINAL_RELEASE`.
 #[derive(Debug, Clone, Default)]
 pub struct Definitions {
-    pub map: HashMap<UniCase<String>, Definition>,
+    pub map: HashMap<CaseInsensitive<String>, Definition>,
 }
 
 /// A single preprocessor definition.
@@ -260,7 +258,7 @@ impl<'a> Preprocessor<'a> {
         );
 
         if let Some(_old) = self.definitions.map.insert(
-            UniCase::from(String::from(macro_name)),
+            CaseInsensitive::new(String::from(macro_name)),
             Definition {
                 source_file,
                 span: Span::from(start..end),
@@ -296,7 +294,7 @@ impl<'a> Preprocessor<'a> {
         })?;
 
         let macro_name = macro_name.span.get_input(&self.lexer().input);
-        let macro_name = UniCase::new(String::from(macro_name));
+        let macro_name = CaseInsensitive::new(macro_name.to_owned());
         if self.definitions.map.remove(&macro_name).is_none() {
             // TODO: Warning when a macro that is never defined is undefined?
         }
@@ -520,8 +518,10 @@ impl<'a> Preprocessor<'a> {
         })?;
 
         let macro_name = macro_name.span.get_input(&self.lexer().input);
-        let macro_name = UniCase::new(String::from(macro_name));
-        let is_defined = self.definitions.map.contains_key(&macro_name);
+        let is_defined = self
+            .definitions
+            .map
+            .contains_key(CaseInsensitive::new_ref(macro_name));
         let result = if not { !is_defined } else { is_defined };
 
         // NOTE: This behavior is _very_ different from what UPP does, however game code does not
@@ -535,12 +535,11 @@ impl<'a> Preprocessor<'a> {
     }
 
     fn get_definition(&self, name: &str) -> Option<&Definition> {
-        let name = UniCase::new(String::from(name));
         self.current_expansion()
             .arguments
             .map
-            .get(&name)
-            .or_else(|| self.definitions.map.get(&name))
+            .get(CaseInsensitive::new_ref(name))
+            .or_else(|| self.definitions.map.get(CaseInsensitive::new_ref(name)))
     }
 
     fn parse_user_macro(&mut self, invocation_span: Span) -> Result<PreprocessResult, LexError> {
@@ -659,7 +658,7 @@ impl<'a> Preprocessor<'a> {
                             .enumerate()
                             .map(|(i, parameter_definition)| {
                                 (
-                                    UniCase::new(
+                                    CaseInsensitive::new(
                                         definition.parameters.as_ref().unwrap()[i].clone(),
                                     ),
                                     parameter_definition,

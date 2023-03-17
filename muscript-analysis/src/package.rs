@@ -1,32 +1,32 @@
 use std::collections::HashMap;
 
-use crate::{
-    class::Class,
-    environment::{ClassId, Environment},
-    source::CompilerInput,
-    CompileError,
-};
+use crate::{class::UntypedClassPartition, environment::ClassId, CompileError, Compiler};
 
+#[derive(Debug, Clone)]
 pub struct Package {
-    pub classes: HashMap<ClassId, Class>,
+    pub classes: HashMap<ClassId, Vec<UntypedClassPartition>>,
 }
 
 impl Package {
     /// Compiles a package from the given set of classes.
     pub fn compile(
-        env: &mut Environment,
-        sources: &dyn CompilerInput,
-        classes: &[ClassId],
+        compiler: &mut Compiler<'_>,
+        class_ids: &[ClassId],
     ) -> Result<Self, CompileError> {
-        for &class in classes {
-            // Need to convert to an owned string here, because otherwise we get a mutable and
-            // immutable borrow at the same time. This shouldn't be that terrible for performance
-            // though, since compared to the amount of computation we do later it's a small thing.
-            let class_name = env.class_name(class).to_owned();
-            let class_csts = sources.class_sources(&class_name, env);
-            dbg!(class_csts);
+        let mut classes = HashMap::new();
+        let mut error = false;
+        for &class_id in class_ids {
+            if let Some(untyped_class_partitions) = compiler.untyped_class_partitions(class_id) {
+                classes.insert(class_id, untyped_class_partitions.to_owned());
+            } else {
+                error = true;
+            }
         }
 
-        Err(CompileError) // TODO
+        if error {
+            Err(CompileError)
+        } else {
+            Ok(Self { classes })
+        }
     }
 }

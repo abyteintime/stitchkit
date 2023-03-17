@@ -1,4 +1,4 @@
-use muscript_foundation::errors::DiagnosticSink;
+use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
 use muscript_syntax::cst;
 
 /// External source providing source code for classes.
@@ -13,5 +13,5 @@ pub trait CompilerInput {
         &self,
         class_name: &str,
         diagnostics: &mut dyn DiagnosticSink,
-    ) -> Option<Vec<cst::File>>;
+    ) -> Option<Vec<(SourceFileId, cst::File)>>;
 }

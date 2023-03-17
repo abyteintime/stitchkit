@@ -45,7 +45,7 @@ impl<'a> CompilerInput for Input<'a> {
         &self,
         class_name: &str,
         diagnostics: &mut dyn DiagnosticSink,
-    ) -> Option<Vec<cst::File>> {
+    ) -> Option<Vec<(SourceFileId, cst::File)>> {
         self.class_sources
             .get(CaseInsensitive::new_ref(class_name))
             .map(|source_file_ids| {
@@ -69,10 +69,10 @@ impl<'a> CompilerInput for Input<'a> {
                             Structured::new(preprocessor),
                             &mut parser_diagnostics,
                         );
-                        let file = parser.parse::<cst::File>();
+                        let result = parser.parse::<cst::File>();
                         pipe_all_diagnostics_into(diagnostics, preprocessor_diagnostics);
                         pipe_all_diagnostics_into(diagnostics, parser_diagnostics);
-                        file
+                        result.map(|file| (id, file))
                     })
                     .collect()
             })

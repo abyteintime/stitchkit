@@ -1,7 +1,7 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 
 use crate::{
-    cst::Extends,
+    cst::{Extends, KSimulated},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
@@ -17,6 +17,7 @@ keyword! {
 
 #[derive(Debug, Clone)]
 pub struct ItemState {
+    pub simulated: Option<KSimulated>,
     pub auto: Option<KAuto>,
     pub state: KState,
     pub editor: Option<VarEditor>,
@@ -55,6 +56,7 @@ impl Parse for ItemState {
             error.parse
         })?;
         Ok(Self {
+            simulated: None, // filled in during analysis - partitioning
             auto,
             state,
             editor,

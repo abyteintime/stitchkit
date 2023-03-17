@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use clap::Parser;
-use muscript_analysis::{Environment, Package};
+use muscript_analysis::{Compiler, Environment, Package};
 use muscript_foundation::{
     errors::DiagnosticConfig,
     source::{SourceFile, SourceFileSet},
@@ -96,7 +96,14 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     }
 
     debug!("Compiling package");
-    let compilation_result = Package::compile(&mut env, &input, &classes_to_compile);
+    let compilation_result = Package::compile(
+        &mut Compiler {
+            sources: &source_file_set,
+            env: &mut env,
+            input: &input,
+        },
+        &classes_to_compile,
+    );
 
     for diagnostic in env.diagnostics() {
         _ = diagnostic.emit_to_stderr(
@@ -107,8 +114,9 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         );
     }
 
-    if let Ok(_package) = compilation_result {
+    if let Ok(package) = compilation_result {
         // TODO: Code generation.
+        dbg!(package);
     } else {
         error!("Compilation failed, no packages emitted")
     }

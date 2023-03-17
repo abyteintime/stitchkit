@@ -2,6 +2,7 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::Spanned,
 };
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{CppBlob, Extends},
@@ -15,14 +16,14 @@ use super::Item;
 
 keyword!(KStruct = "struct");
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ItemStruct {
     pub def: StructDef,
     // UX thing: MuScript considers the semicolon after `}` optional.
     pub semi: Option<Semi>,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct StructDef {
     pub kstruct: KStruct,
     pub specifiers: Vec<StructSpecifier>,
@@ -69,7 +70,7 @@ impl Parse for StructDef {
     }
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "specifier_error")]
 pub enum StructSpecifier {
     #[parse(keyword = "export")]
@@ -96,6 +97,5 @@ fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diag
         token.span,
         "this specifier is not recognized",
     ))
-    // TODO: After we have most specifiers, list notable ones here.
-    // .with_note("note: notable variable specifiers include [what?]")
+    .with_note("note: notable struct specifiers include `immutable` and `transient`")
 }

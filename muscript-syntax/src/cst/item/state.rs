@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Extends, KSimulated},
@@ -15,7 +16,7 @@ keyword! {
     KIgnores = "ignores",
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct ItemState {
     pub simulated: Option<KSimulated>,
     pub auto: Option<KAuto>,
@@ -29,7 +30,7 @@ pub struct ItemState {
     pub close: RightBrace,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Ignores {
     pub ignores: KIgnores,
     pub events: Vec<Ident>,

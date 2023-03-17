@@ -1,9 +1,11 @@
+use muscript_syntax_derive::Spanned;
+
 use crate::{
     lexis::token::{Ident, Token, TokenKind},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct Path {
     pub components: Vec<Ident>,
 }

@@ -6,6 +6,7 @@ use muscript_foundation::{
     errors::{Diagnostic, Label, Note, NoteKind},
     source::{Span, Spanned},
 };
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::{
@@ -21,7 +22,7 @@ use crate::{
 
 pub use lit::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub enum Expr {
     Lit(Lit),
     Ident(Ident),
@@ -96,22 +97,21 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Spanned)]
 pub struct InfixOperator {
     pub token: Token,
     pub assign: Option<Assign>,
 }
 
 /// Optional function argument.
-#[derive(Debug, Clone)]
-pub struct Arg(Option<Expr>);
-
-impl Spanned for InfixOperator {
-    fn span(&self) -> Span {
-        self.assign
-            .map(|assign| assign.span.join(&self.token.span))
-            .unwrap_or(self.token.span)
-    }
+#[derive(Debug, Clone, Spanned)]
+pub enum Arg {
+    Provided(Expr),
+    Omitted(
+        /// A span for error reporting, so that there's always a valid span to base
+        /// error messages upon.
+        Span,
+    ),
 }
 
 // Expression parsing is not implemented using regular recursive descent because of two reasons:
@@ -408,9 +408,9 @@ impl Parse for Arg {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let token = parser.peek_token()?;
         if !matches!(token.kind, TokenKind::Comma | TokenKind::RightParen) {
-            Ok(Self(Some(parser.parse()?)))
+            Ok(Arg::Provided(parser.parse()?))
         } else {
-            Ok(Self(None))
+            Ok(Arg::Omitted(Span::from(token.span.start..token.span.start)))
         }
     }
 }

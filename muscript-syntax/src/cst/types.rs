@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::token::{Greater, Ident, Less, Token},
@@ -8,7 +9,7 @@ use crate::{
 
 use super::{CppBlob, EnumDef, Path, StructDef};
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "type_or_def_error")]
 pub enum TypeOrDef {
     StructDef(StructDef),
@@ -17,7 +18,7 @@ pub enum TypeOrDef {
 }
 //
 /// Some variable specifiers are attached to types within the engine source.
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "specifier_error")]
 pub enum TypeSpecifier {
     #[parse(keyword = "const")]
@@ -28,7 +29,7 @@ pub enum TypeSpecifier {
     Transient(Ident),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct Type {
     pub specifiers: Vec<TypeSpecifier>,
     pub path: Path,
@@ -36,7 +37,7 @@ pub struct Type {
     pub cpptemplate: Option<CppBlob>,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Generic {
     pub less: Less,
     pub args: Vec<Type>,

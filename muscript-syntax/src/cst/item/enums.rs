@@ -1,4 +1,5 @@
 use muscript_foundation::errors::Diagnostic;
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::Meta,
@@ -10,13 +11,13 @@ use crate::{
 
 keyword!(KEnum = "enum");
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ItemEnum {
     pub def: EnumDef,
     pub semi: Option<Semi>,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct EnumDef {
     pub kenum: KEnum,
     pub name: Ident,
@@ -25,7 +26,7 @@ pub struct EnumDef {
     pub close: RightBrace,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct EnumVariant {
     pub name: Ident,
     pub meta: Option<Meta>,

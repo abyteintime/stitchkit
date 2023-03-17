@@ -1,5 +1,6 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::notes,
@@ -13,69 +14,69 @@ use crate::{
 
 use super::Path;
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct DefaultPropertiesBlock {
     pub open: LeftBrace,
     pub properties: Vec<DefaultProperty>,
     pub close: RightBrace,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "default_property_error")]
 pub enum DefaultProperty {
     Subobject(Subobject),
     Value(Value),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct Value {
     pub key: Key,
     pub action: ValueAction,
     pub semi: Option<Semi>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct Key {
     pub ident: Ident,
     pub index: Option<Index>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "index_error")]
 pub enum Index {
     Parens(LeftParen, IndexLit, RightParen),
     Brackets(LeftBracket, IndexLit, RightBracket),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "index_lit_error")]
 pub enum IndexLit {
     Num(IntLit),
     Enum(Path),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "value_action_error")]
 pub enum ValueAction {
     Assign(Assign, Lit),
     Call(Dot, Ident, Option<CallArg>),
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct CallArg {
     pub open: LeftParen,
     pub expr: Option<Lit>,
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "num_lit_error")]
 pub enum NumLit {
     Int(IntLit),
     Float(FloatLit),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "lit_error")]
 pub enum Lit {
     FailedExp(FailedExp),
@@ -92,7 +93,7 @@ pub enum Lit {
 /// This was required in vanilla UnrealScript in order for the `defaultproperties` parser to ignore
 /// newlines within compound literals, but MuScript does not have such limitations; this exists
 /// solely for compatibility purposes.
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "braced_compound_error")]
 pub enum BracedCompound {
     Braced(LeftBrace, Compound, RightBrace),
@@ -103,14 +104,14 @@ pub enum BracedCompound {
 ///
 /// At the parsing stage they can be mixed freely, but semantic analysis rejects listings where
 /// both appear at the same time.
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Compound {
     pub open: LeftParen,
     pub elements: Vec<CompoundElement>,
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub enum CompoundElement {
     Lit(Lit),
     Field(Key, Assign, Lit),
@@ -122,7 +123,7 @@ keyword! {
     KObject = "object",
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Subobject {
     pub begin: KBegin,
     pub object1: KObject,

@@ -1,10 +1,12 @@
+use muscript_syntax_derive::Spanned;
+
 use crate::{
     cst::{Expr, KConst},
     lexis::token::{Assign, Ident, Semi},
     Parse, PredictiveParse,
 };
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ItemConst {
     pub kconst: KConst,
     // TODO: Alter the error here somehow to say "constant name expected"

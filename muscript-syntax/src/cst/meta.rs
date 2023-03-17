@@ -2,6 +2,7 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::Span,
 };
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::{labels, notes},
@@ -10,14 +11,14 @@ use crate::{
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Meta {
     pub open: Less,
     pub pairs: Vec<MetaValue>,
     pub close: Greater,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub enum MetaValue {
     Switch(Ident),
     Pair(Ident, Assign, Span),

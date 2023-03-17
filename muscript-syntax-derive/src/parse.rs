@@ -1,7 +1,9 @@
 use darling::FromAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{spanned::Spanned, Index, Item, ItemEnum, ItemStruct, LitStr, Path};
+use syn::{spanned::Spanned, Item, ItemEnum, ItemStruct, LitStr, Path};
+
+use crate::common::field_name;
 
 pub fn derive_parse_impl(item: Item) -> syn::Result<TokenStream> {
     match item {
@@ -80,12 +82,8 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
                         Err(e) => return Err(e),
                     }
                 }};
-                if let Some(field_name) = &field.ident {
-                    quote! { #field_name: #do_parse, }
-                } else {
-                    let index = Index::from(i);
-                    quote! { #index: #do_parse, }
-                }
+                let field_name = field_name(i, field);
+                quote! { #field_name: #do_parse, }
             })
             .collect();
         let construct = quote! { #type_name::#variant_name { #constructor_fields } };

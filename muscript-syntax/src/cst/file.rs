@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::notes, lexis::token::EndOfFile, list::TerminatedListErrorKind, Parse, ParseError,
@@ -7,7 +8,7 @@ use crate::{
 
 use super::{Class, Item};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct File {
     pub class: Class,
     pub items: Vec<Item>,

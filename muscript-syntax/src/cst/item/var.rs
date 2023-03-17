@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{CppBlob, Expr, Meta, TypeOrDef, TypeSpecifier},
@@ -10,7 +11,7 @@ use crate::{
 
 keyword!(KVar = "var");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct ItemVar {
     pub var: KVar,
     pub editor: Option<VarEditor>,
@@ -20,14 +21,14 @@ pub struct ItemVar {
     pub semi: Semi,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct VarEditor {
     pub open: LeftParen,
     pub categories: Vec<Ident>,
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "specifier_error")]
 pub enum VarSpecifier {
     #[parse(keyword = "bitwise")]
@@ -158,11 +159,10 @@ fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diag
         token.span,
         "this specifier is not recognized",
     ))
-    // TODO: After we have most specifiers, list notable ones here.
-    // .with_note("note: notable variable specifiers include [what?]")
+    .with_note("note: notable variable specifiers include `const` and `transient`")
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct VarDef {
     pub name: Ident,
     pub array: Option<VarArray>,
@@ -170,7 +170,7 @@ pub struct VarDef {
     pub cpptype: Option<CppBlob>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct VarArray {
     pub open: LeftBracket,
     pub size: Expr,

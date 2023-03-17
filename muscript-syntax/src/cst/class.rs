@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::{labels, notes},
@@ -17,7 +18,7 @@ keyword! {
     KWithin = "within",
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "class_kind_error")]
 pub enum ClassKind {
     Class(KClass),
@@ -25,7 +26,7 @@ pub enum ClassKind {
     Interface(KInterface),
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Class {
     pub class: ClassKind,
     pub name: Ident,
@@ -35,19 +36,19 @@ pub struct Class {
     pub semi: Semi,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct Extends {
     pub extends: KExtends,
     pub parent_class: Path,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct Within {
     pub within: KWithin,
     pub outer_class: Ident,
 }
 
-#[derive(Debug, Clone, Parse)]
+#[derive(Debug, Clone, Parse, Spanned)]
 #[parse(error = "specifier_error")]
 pub enum ClassSpecifier {
     #[parse(keyword = "abstract")]

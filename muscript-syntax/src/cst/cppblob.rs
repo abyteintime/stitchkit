@@ -1,11 +1,12 @@
 use muscript_foundation::source::Span;
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::token::{LeftBrace, RightBrace},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct CppBlob {
     pub open: LeftBrace,
     pub blob: Span,

@@ -1,5 +1,6 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Block, Expr, KConst, Path, Type},
@@ -11,7 +12,7 @@ use crate::{
 
 use super::VarArray;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct ItemFunction {
     pub pre_specifiers: Vec<FunctionSpecifier>,
     pub function: FunctionKind,
@@ -23,7 +24,7 @@ pub struct ItemFunction {
     pub body: Body,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "function_specifier_error")]
 pub enum FunctionSpecifier {
     #[parse(keyword = "client")]
@@ -72,14 +73,14 @@ pub enum FunctionSpecifier {
     Virtual(Ident),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ParenInt {
     pub left: LeftParen,
     pub number: IntLit,
     pub right: RightParen,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "kind_error")]
 pub enum FunctionKind {
     #[parse(keyword = "function")]
@@ -96,14 +97,14 @@ pub enum FunctionKind {
     PostOperator(Ident),
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Params {
     pub open: LeftParen,
     pub params: Vec<Param>,
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct Param {
     pub specifiers: Vec<ParamSpecifier>,
     pub ty: Type,
@@ -112,7 +113,7 @@ pub struct Param {
     pub default: Option<ParamDefault>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "param_specifier_error")]
 pub enum ParamSpecifier {
     #[parse(keyword = "coerce")]
@@ -129,13 +130,13 @@ pub enum ParamSpecifier {
     Skip(Ident),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ParamDefault {
     pub equals: Assign,
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "body_error")]
 pub enum Body {
     Stub(Semi),

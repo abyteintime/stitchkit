@@ -1,4 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Expr, Precedence},
@@ -24,14 +25,14 @@ keyword! {
     KContinue = "continue",
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ParenExpr {
     pub open: LeftParen,
     pub cond: Expr,
     pub close: RightParen,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtIf {
     pub kif: KIf,
     pub cond: ParenExpr,
@@ -39,20 +40,20 @@ pub struct StmtIf {
     pub false_branch: Option<Else>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct Else {
     pub kelse: KElse,
     pub then: Box<Stmt>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtWhile {
     pub kwhile: KWhile,
     pub cond: ParenExpr,
     pub body: Box<Stmt>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtDo {
     pub kdo: KDo,
     pub block: Block,
@@ -60,7 +61,7 @@ pub struct StmtDo {
     pub cond: ParenExpr,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtFor {
     pub kfor: KFor,
 
@@ -75,34 +76,34 @@ pub struct StmtFor {
     pub body: Box<Stmt>,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct StmtForEach {
     pub foreach: KForEach,
     pub iterator: Expr,
     pub stmt: Box<Stmt>,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtSwitch {
     pub switch: KSwitch,
     pub value: ParenExpr,
     pub block: Block,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtCase {
     pub case: KCase,
     pub cond: Expr,
     pub colon: Colon,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtReturn {
     pub kreturn: KReturn,
     pub value: ReturnValue,
 }
 
-#[derive(Debug, Clone, Parse)]
+#[derive(Debug, Clone, Parse, Spanned)]
 #[parse(error = "_return_value_error")]
 pub enum ReturnValue {
     Nothing(Semi),
@@ -111,13 +112,13 @@ pub enum ReturnValue {
     Something(Expr, Semi),
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtBreak {
     pub kreturn: KBreak,
     pub semi: Semi,
 }
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct StmtContinue {
     pub kreturn: KContinue,
     pub semi: Semi,

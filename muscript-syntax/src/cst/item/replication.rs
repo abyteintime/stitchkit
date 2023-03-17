@@ -1,3 +1,5 @@
+use muscript_syntax_derive::Spanned;
+
 use crate::{
     cst::{KIf, ParenExpr},
     lexis::token::{Ident, LeftBrace, RightBrace, Semi},
@@ -7,7 +9,7 @@ use crate::{
 
 keyword!(KReplication = "replication");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct ItemReplication {
     pub replication: KReplication,
     pub open: LeftBrace,
@@ -15,7 +17,7 @@ pub struct ItemReplication {
     pub close: RightBrace,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct RepCondition {
     pub kif: KIf,
     pub cond: ParenExpr,

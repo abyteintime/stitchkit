@@ -2,7 +2,7 @@
 
 use std::{
     fmt,
-    ops::Range,
+    ops::{Deref, Range},
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -21,6 +21,8 @@ pub struct Span {
 }
 
 impl Span {
+    pub const EMPTY: Self = Self { start: 0, end: 0 };
+
     /// Converts the span to a [`Range`].
     pub fn to_range(self) -> Range<u32> {
         Range::from(self)
@@ -32,9 +34,15 @@ impl Span {
 
     /// Joins two spans together, forming one big span that includes both `self` and `other`.
     pub fn join(&self, other: &Span) -> Span {
-        Span {
-            start: self.start.min(other.start),
-            end: self.end.max(other.end),
+        if *self == Self::EMPTY {
+            *other
+        } else if *other == Self::EMPTY {
+            *self
+        } else {
+            Span {
+                start: self.start.min(other.start),
+                end: self.end.max(other.end),
+            }
         }
     }
 
@@ -68,6 +76,42 @@ impl fmt::Debug for Span {
 /// Implemented by all types that have a source code span attached.
 pub trait Spanned {
     fn span(&self) -> Span;
+}
+
+impl Spanned for Span {
+    fn span(&self) -> Span {
+        *self
+    }
+}
+
+impl<T> Spanned for Option<T>
+where
+    T: Spanned,
+{
+    fn span(&self) -> Span {
+        self.as_ref().map(|x| x.span()).unwrap_or(Span::EMPTY)
+    }
+}
+
+impl<T> Spanned for Box<T>
+where
+    T: Spanned,
+{
+    fn span(&self) -> Span {
+        self.deref().span()
+    }
+}
+
+impl<T> Spanned for Vec<T>
+where
+    T: Spanned,
+{
+    fn span(&self) -> Span {
+        self.first()
+            .zip(self.last())
+            .map(|(first, last)| first.span().join(&last.span()))
+            .unwrap_or(Span::EMPTY)
+    }
 }
 
 /// Represents a single source file.

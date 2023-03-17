@@ -10,6 +10,7 @@ mod structs;
 mod var;
 
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::token::{Semi, Token},
@@ -29,7 +30,7 @@ pub use var::*;
 
 use super::Stmt;
 
-#[derive(Debug, Clone, Parse)]
+#[derive(Debug, Clone, Parse, Spanned)]
 #[parse(error = "_item_error")]
 pub enum Item {
     Empty(Semi),

@@ -1,5 +1,6 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::token::{FloatLit, IntLit, NameLit, StringLit, Token},
@@ -10,7 +11,7 @@ keyword!(KNone = "none");
 keyword!(KTrue = "true");
 keyword!(KFalse = "false");
 
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "bool_lit_error")]
 pub enum BoolLit {
     True(KTrue),
@@ -20,7 +21,7 @@ pub enum BoolLit {
 // NOTE: If you want to parse a literal, you actually probably want to use `Expr` instead.
 // This lets the user enjoy full expression syntax, as you can const-evaluate the expression
 // during semantic analysis. Also, negation `-` is not part of number literals, so beware!
-#[derive(Debug, Clone, Parse, PredictiveParse)]
+#[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "lit_error")]
 pub enum Lit {
     None(KNone),

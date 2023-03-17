@@ -1,3 +1,5 @@
+use muscript_syntax_derive::Spanned;
+
 use crate::{
     cst::{Type, VarDef},
     diagnostics,
@@ -7,7 +9,7 @@ use crate::{
 
 keyword!(KLocal = "local");
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct StmtLocal {
     pub local: KLocal,
     pub ty: Type,

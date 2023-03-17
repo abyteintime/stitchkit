@@ -2,6 +2,7 @@ mod control_flow;
 mod local;
 
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::token::{LeftBrace, RightBrace, Semi, Token},
@@ -14,7 +15,7 @@ pub use local::*;
 
 use super::{Expr, Precedence};
 
-#[derive(Debug, Clone, Parse)]
+#[derive(Debug, Clone, Parse, Spanned)]
 #[parse(error = "_stmt_error")]
 pub enum Stmt {
     Empty(Semi),
@@ -38,13 +39,13 @@ pub enum Stmt {
     Expr(StmtExpr),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Spanned)]
 pub struct StmtExpr {
     pub expr: Expr,
     pub semi: Option<Semi>,
 }
 
-#[derive(Debug, Clone, PredictiveParse)]
+#[derive(Debug, Clone, PredictiveParse, Spanned)]
 pub struct Block {
     pub open: LeftBrace,
     pub stmts: Vec<Stmt>,

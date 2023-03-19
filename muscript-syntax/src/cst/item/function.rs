@@ -15,7 +15,7 @@ use super::VarArray;
 #[derive(Debug, Clone, Spanned)]
 pub struct ItemFunction {
     pub pre_specifiers: Vec<FunctionSpecifier>,
-    pub function: FunctionKind,
+    pub kind: FunctionKind,
     pub post_specifiers: Vec<FunctionSpecifier>,
     pub return_ty: Option<Type>,
     pub name: Ident,
@@ -201,14 +201,15 @@ impl Parse for ItemFunction {
                         )
                         .with_label(Label::primary(operator.span, "operator expected here"))
                         .with_note(indoc!(
-                            r#"note: overloadable operators include:
-                                     `+` `-` `*` `/` `%` `**`
-                                     `$` `@`
-                                     `<<` `>>` `>>>` `~` `&` `|` `^`
-                                     `!` `==` `!=` `~=` `<` `>` `<=` `>=`
-                                     `&&` `||` `^^`
-                                     `++` `--`
-                                     and identifiers
+                            r#"
+                                note: overloadable operators include:
+                                      `+` `-` `*` `/` `%` `**`
+                                      `$` `@`
+                                      `<<` `>>` `>>>` `~` `&` `|` `^`
+                                      `!` `==` `!=` `~=` `<` `>` `<=` `>=`
+                                      `&&` `||` `^^`
+                                      `++` `--`
+                                      and identifiers
                             "#
                         )),
                     )
@@ -240,7 +241,7 @@ impl Parse for ItemFunction {
         let body = parser.parse()?;
         Ok(Self {
             pre_specifiers,
-            function,
+            kind: function,
             post_specifiers,
             return_ty,
             name,

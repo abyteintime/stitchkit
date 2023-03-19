@@ -86,7 +86,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         match source_file.class_name() {
             Ok(class_name) => {
                 if compiled_source_file_ids.contains(&source_file_id) {
-                    let class_id = env.allocate_class_id(class_name);
+                    let class_id = env.get_or_create_class(class_name);
                     classes_to_compile.push(class_id);
                 }
                 input.add(class_name, source_file_id)

@@ -1,10 +1,13 @@
+use muscript_foundation::source::SourceFileSet;
+
 pub mod class;
 mod environment;
+pub mod function;
 mod package;
 mod source;
+pub mod type_system;
 
 pub use environment::*;
-use muscript_foundation::source::SourceFileSet;
 pub use package::*;
 pub use source::*;
 

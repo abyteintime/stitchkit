@@ -13,7 +13,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 bitflags = { workspace = true }
-indoc = "2.0.0"
+indoc = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 

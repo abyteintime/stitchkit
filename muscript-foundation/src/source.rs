@@ -223,6 +223,10 @@ impl SourceFileSet {
             .enumerate()
             .map(|(index, file)| (SourceFileId(index), file))
     }
+
+    pub fn source(&self, file: SourceFileId, spanned: &impl Spanned) -> &str {
+        spanned.span().get_input(&self.get(file).source)
+    }
 }
 
 impl<'f> Files<'f> for SourceFileSet {

@@ -1,6 +1,6 @@
 use crate::lexis::token::Ident;
 
-use super::{ItemConst, ItemEnum, ItemFunction, ItemState, ItemStruct};
+use super::{EnumDef, ItemConst, ItemEnum, ItemFunction, ItemState, ItemStruct, StructDef};
 
 pub trait NamedItem {
     fn name(&self) -> Ident;
@@ -23,5 +23,7 @@ macro_rules! impl_named_item {
 impl_named_item!(ItemConst => |item| item.name);
 impl_named_item!(ItemFunction => |item| item.name);
 impl_named_item!(ItemStruct => |item| item.def.name);
+impl_named_item!(StructDef => |def| def.name);
 impl_named_item!(ItemEnum => |item| item.def.name);
+impl_named_item!(EnumDef => |def| def.name);
 impl_named_item!(ItemState => |item| item.name);

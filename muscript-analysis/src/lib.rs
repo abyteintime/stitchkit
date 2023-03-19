@@ -1,6 +1,7 @@
 use muscript_foundation::source::SourceFileSet;
 
 pub mod class;
+mod diagnostics;
 mod environment;
 pub mod function;
 mod package;

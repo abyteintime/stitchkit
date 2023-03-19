@@ -96,7 +96,7 @@ pub enum VarSpecifier {
     #[parse(keyword = "repnotify")]
     RepNotify(Ident),
     #[parse(keyword = "serialize")]
-    Serailize(Ident),
+    Serialize(Ident),
     #[parse(keyword = "serializetext")]
     SerializeText(Ident),
     Type(TypeSpecifier),

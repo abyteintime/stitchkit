@@ -8,12 +8,12 @@ use muscript_foundation::{
     source::{SourceFileId, SourceFileSet, Span, Spanned},
 };
 use muscript_syntax::{
-    cst::{self, NamedItem, VarDef},
+    cst::{self, NamedItem, TypeOrDef, VarDef},
     lexis::token,
     Spanned,
 };
 
-use crate::function::mangling::mangled_function_name;
+use crate::{diagnostics::notes, function::mangling::mangled_function_name};
 
 /// Partitions a class into its individual pieces, but without type information.
 ///
@@ -50,7 +50,7 @@ pub struct ItemSingleVar {
     pub var: cst::KVar,
     pub editor: Option<cst::VarEditor>,
     pub specifiers: Vec<cst::VarSpecifier>,
-    pub ty: cst::TypeOrDef,
+    pub ty: cst::Type,
     pub variable: VarDef,
     pub semi: token::Semi,
 }
@@ -61,11 +61,10 @@ pub enum VarCst {
     Var(ItemSingleVar),
 }
 
-// What an oxymoron, innit.
 #[derive(Debug, Clone)]
 pub enum TypeCst {
-    Struct(cst::ItemStruct),
-    Enum(cst::ItemEnum),
+    Struct(cst::StructDef),
+    Enum(cst::EnumDef),
     // Not sure if states belong to the same namespace; AFAIK they're only ever referred to by name
     // (as in name literal) but needs verification.
 }
@@ -100,7 +99,28 @@ impl UntypedClassPartition {
                             .with_note("note: semicolons are only required after `var` and `const` declarations")
                     );
                 }
-                cst::Item::Var(item_var) => {
+                cst::Item::Var(mut item_var) => {
+                    match Self::lower_inline_type_def(&mut item_var.ty) {
+                        Some(InlineTypeDef::Enum(enum_def)) => {
+                            Self::add_to_scope(
+                                diagnostics,
+                                sources,
+                                source_file_id,
+                                &mut types,
+                                TypeCst::Enum(enum_def),
+                            );
+                        }
+                        Some(InlineTypeDef::Struct(struct_def)) => {
+                            Self::add_to_scope(
+                                diagnostics,
+                                sources,
+                                source_file_id,
+                                &mut types,
+                                TypeCst::Struct(struct_def),
+                            );
+                        }
+                        None => (),
+                    }
                     for var in ItemSingleVar::lower(item_var) {
                         Self::add_to_scope(
                             diagnostics,
@@ -140,7 +160,7 @@ impl UntypedClassPartition {
                         sources,
                         source_file_id,
                         &mut types,
-                        TypeCst::Struct(item_struct),
+                        TypeCst::Struct(item_struct.def),
                     );
                 }
                 cst::Item::Enum(item_enum) => {
@@ -149,7 +169,7 @@ impl UntypedClassPartition {
                         sources,
                         source_file_id,
                         &mut types,
-                        TypeCst::Enum(item_enum),
+                        TypeCst::Enum(item_enum.def),
                     );
                 }
                 cst::Item::State(item_state) => {
@@ -181,7 +201,7 @@ impl UntypedClassPartition {
                 cst::Item::CppText(item_cpp_text) => diagnostics.emit(
                     Diagnostic::warning(source_file_id, "`cpptext` item is ignored")
                         .with_label(Label::primary(item_cpp_text.cpptext.span, ""))
-                        .with_note("note: MuScript does not support exporting C++ headers"),
+                        .with_note(notes::CPP_UNSUPPORTED),
                 ),
                 cst::Item::StructCppText(item_struct_cpp_text) => diagnostics.emit(
                     Diagnostic::error(source_file_id, "`structcpptext` may only appear in structs")
@@ -237,7 +257,7 @@ impl UntypedClassPartition {
         I: NamedItem,
     {
         Self::add_to_scope_with_name(diagnostics, sources, source_file_id, scope, item, |item| {
-            sources.source(source_file_id, &item.name()).to_owned()
+            sources.span(source_file_id, &item.name()).to_owned()
         })
     }
 
@@ -323,6 +343,28 @@ impl UntypedClassPartition {
     }
 }
 
+enum InlineTypeDef {
+    Struct(cst::StructDef),
+    Enum(cst::EnumDef),
+}
+
+impl UntypedClassPartition {
+    fn lower_inline_type_def(out_ty: &mut TypeOrDef) -> Option<InlineTypeDef> {
+        let ty = TypeOrDef::Type(cst::Type {
+            specifiers: vec![],
+            path: out_ty.path(),
+            generic: None,
+            cpptemplate: None,
+        });
+        let type_or_def = std::mem::replace(out_ty, ty);
+        match type_or_def {
+            cst::TypeOrDef::StructDef(struct_def) => Some(InlineTypeDef::Struct(struct_def)),
+            cst::TypeOrDef::EnumDef(enum_def) => Some(InlineTypeDef::Enum(enum_def)),
+            cst::TypeOrDef::Type(_) => None,
+        }
+    }
+}
+
 impl ItemSingleVar {
     fn lower(mut var: cst::ItemVar) -> impl Iterator<Item = Self> {
         let variables = std::mem::take(&mut var.variables);
@@ -330,7 +372,10 @@ impl ItemSingleVar {
             var: var.var,
             editor: var.editor.clone(),
             specifiers: var.specifiers.clone(),
-            ty: var.ty.clone(),
+            ty: match var.ty.clone() {
+                TypeOrDef::Type(ty) => ty,
+                _ => unreachable!("var type should have been lowered by lower_inline_type_def"),
+            },
             variable: single,
             semi: var.semi,
         })

@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
+    ops::Deref,
 };
 
 use ref_cast::RefCast;
@@ -91,6 +92,14 @@ impl AsRef<str> for CaseInsensitive<String> {
 
 impl AsRef<str> for CaseInsensitive<str> {
     fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<T> Deref for CaseInsensitive<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }

@@ -16,7 +16,7 @@ pub enum TypeOrDef {
     EnumDef(EnumDef),
     Type(Type),
 }
-//
+
 /// Some variable specifiers are attached to types within the engine source.
 #[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 #[parse(error = "specifier_error")]
@@ -86,6 +86,16 @@ impl Parse for Generic {
             args,
             greater,
         })
+    }
+}
+
+impl TypeOrDef {
+    pub fn path(&self) -> Path {
+        match self {
+            TypeOrDef::StructDef(def) => Path::from(def.name),
+            TypeOrDef::EnumDef(def) => Path::from(def.name),
+            TypeOrDef::Type(ty) => ty.path.clone(),
+        }
     }
 }
 

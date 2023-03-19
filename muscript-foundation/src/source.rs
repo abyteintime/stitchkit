@@ -224,7 +224,11 @@ impl SourceFileSet {
             .map(|(index, file)| (SourceFileId(index), file))
     }
 
-    pub fn source(&self, file: SourceFileId, spanned: &impl Spanned) -> &str {
+    pub fn source(&self, file: SourceFileId) -> &str {
+        &self.get(file).source
+    }
+
+    pub fn span(&self, file: SourceFileId, spanned: &impl Spanned) -> &str {
         spanned.span().get_input(&self.get(file).source)
     }
 }

@@ -46,7 +46,9 @@ impl Environment {
             vars: vec![],
         };
 
+        env.register_type(Type::Error);
         // NOTE: Order matters here! The TypeIds must match exactly those returned by Primitive::id.
+        env.register_type(Type::Primitive(Primitive::Bool));
         env.register_type(Type::Primitive(Primitive::Byte));
         env.register_type(Type::Primitive(Primitive::Int));
         env.register_type(Type::Primitive(Primitive::Float));
@@ -80,22 +82,22 @@ impl Environment {
         }
     }
 
-    pub fn class_name(&self, id: ClassId) -> &str {
+    pub fn class_name(&self, class_id: ClassId) -> &str {
         self.class_names_by_id
-            .get(id.0 as usize)
+            .get(class_id.0 as usize)
             .map(|x| x.as_ref())
             .expect("invalid class ID passed to class_name")
     }
 
-    pub fn class_namespace(&self, id: ClassId) -> &ClassNamespace {
+    pub fn class_namespace(&self, class_id: ClassId) -> &ClassNamespace {
         self.class_namespaces_by_id
-            .get(id.0 as usize)
+            .get(class_id.0 as usize)
             .expect("invalid class ID passed to class_namespace")
     }
 
-    pub fn class_namespace_mut(&mut self, id: ClassId) -> &mut ClassNamespace {
+    pub fn class_namespace_mut(&mut self, class_id: ClassId) -> &mut ClassNamespace {
         self.class_namespaces_by_id
-            .get_mut(id.0 as usize)
+            .get_mut(class_id.0 as usize)
             .expect("invalid class ID passed to class_namespace_mut")
     }
 }
@@ -173,14 +175,19 @@ impl<'a> Compiler<'a> {
     }
 }
 
+impl TypeId {
+    pub const ERROR: Self = Self(0);
+}
+
 impl Primitive {
     pub fn id(&self) -> TypeId {
         match self {
-            Primitive::Byte => TypeId(0),
-            Primitive::Int => TypeId(1),
-            Primitive::Float => TypeId(2),
-            Primitive::String => TypeId(3),
-            Primitive::Name => TypeId(4),
+            Primitive::Bool => TypeId(1),
+            Primitive::Byte => TypeId(2),
+            Primitive::Int => TypeId(3),
+            Primitive::Float => TypeId(4),
+            Primitive::String => TypeId(5),
+            Primitive::Name => TypeId(6),
         }
     }
 }

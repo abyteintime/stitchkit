@@ -1,15 +1,22 @@
+pub mod lookup;
+
+use std::fmt;
+
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label},
-    source::{SourceFileId, Spanned},
+    ident::CaseInsensitive,
+    source::{SourceFileId, SourceFileSet},
 };
 use muscript_syntax::cst;
 
-use crate::{Compiler, TypeId};
+use crate::{ClassId, TypeId};
 
 #[derive(Debug, Clone)]
 pub enum Type {
     Error,
     Primitive(Primitive),
+    Array(TypeId),
+    Object(ClassId),
+    Class(ClassId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -20,6 +27,12 @@ pub enum Primitive {
     Float,
     String,
     Name,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TypeName {
+    name: CaseInsensitive<String>,
+    generic_arguments: Vec<TypeName>,
 }
 
 impl Primitive {
@@ -36,54 +49,57 @@ impl Primitive {
     }
 }
 
-impl<'a> Compiler<'a> {
-    pub fn type_id(&mut self, source_file_id: SourceFileId, ty: &cst::Type) -> TypeId {
-        match &ty.path.components[..] {
-            [] => unreachable!("paths must have at least one component"),
-            [type_name_ident] => {
-                let type_name = self.sources.span(source_file_id, type_name_ident);
-                if let Some(type_id) = Primitive::from_name(type_name) {
-                    self.expect_no_generics(source_file_id, ty);
-                    return type_id;
-                }
-            }
-            [_class_name, _type_name] => {
-                self.env.emit(
-                    Diagnostic::bug(
-                        source_file_id,
-                        "referring to types declared in a different class's scope is not yet implemented"
-                    ).with_label(Label::primary(ty.path.span(), "")),
-                );
-                return TypeId::ERROR;
-            }
-            _ => (),
+impl TypeName {
+    pub fn concrete(name: impl Into<String>) -> Self {
+        Self {
+            name: CaseInsensitive::new(name.into()),
+            generic_arguments: vec![],
         }
-
-        // TODO: Emit a more helpful diagnostic pointing out possible typos.
-        self.env.emit(
-            Diagnostic::error(
-                source_file_id,
-                format!(
-                    "cannot find type `{}` in this scope",
-                    ty.path.pretty_print(self.sources.source(source_file_id))
-                ),
-            )
-            .with_label(Label::primary(ty.path.span(), "")),
-        );
-        TypeId::ERROR
     }
 
-    fn expect_no_generics(&mut self, source_file_id: SourceFileId, ty: &cst::Type) {
-        if let Some(generic) = &ty.generic {
-            self.env.emit(
-                Diagnostic::error(
-                    source_file_id,
-                    "use of generic arguments on non-generic type",
-                )
-                .with_label(Label::primary(generic.span(), ""))
-                .with_label(Label::secondary(ty.path.span(), "this type is not generic"))
-                .with_note("note: generics may only be used on built-in types `Class` and `Array`"),
-            );
+    pub fn generic(name: impl Into<String>, args: Vec<Self>) -> Self {
+        Self {
+            generic_arguments: args,
+            ..Self::concrete(name)
         }
+    }
+
+    pub fn from_cst(sources: &SourceFileSet, source_file_id: SourceFileId, ty: &cst::Type) -> Self {
+        Self {
+            name: CaseInsensitive::new(sources.span(source_file_id, &ty.path).to_owned()),
+            generic_arguments: ty
+                .generic
+                .iter()
+                .flat_map(|generic| {
+                    generic
+                        .args
+                        .iter()
+                        .map(|ty| Self::from_cst(sources, source_file_id, ty))
+                })
+                .collect(),
+        }
+    }
+}
+
+impl fmt::Display for TypeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)?;
+        if !self.generic_arguments.is_empty() {
+            f.write_str("<")?;
+            for (i, argument) in self.generic_arguments.iter().enumerate() {
+                if i != 0 {
+                    f.write_str(", ")?;
+                }
+                fmt::Display::fmt(argument, f)?;
+            }
+            f.write_str(">")?;
+        }
+        Ok(())
+    }
+}
+
+impl From<&str> for TypeName {
+    fn from(value: &str) -> Self {
+        Self::concrete(value)
     }
 }

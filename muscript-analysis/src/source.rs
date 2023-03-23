@@ -3,6 +3,9 @@ use muscript_syntax::cst;
 
 /// External source providing source code for classes.
 pub trait CompilerInput {
+    /// Returns whether a class with the given name exists.
+    fn class_exists(&self, class_name: &str) -> bool;
+
     /// Returns the parsed sources of a class. May be empty if any errors occur.
     ///
     /// In case `None` is returned, a class with the given name does not exist.

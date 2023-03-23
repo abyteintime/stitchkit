@@ -353,7 +353,11 @@ impl UntypedClassPartition {
         let ty = TypeOrDef::Type(cst::Type {
             specifiers: vec![],
             path: out_ty.path(),
-            generic: None,
+            generic: if let TypeOrDef::Type(ty) = out_ty {
+                ty.generic.take()
+            } else {
+                None
+            },
             cpptemplate: None,
         });
         let type_or_def = std::mem::replace(out_ty, ty);

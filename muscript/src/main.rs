@@ -34,6 +34,10 @@ pub struct Args {
     /// Print debug notes for diagnostics that have them.
     #[clap(long)]
     diagnostics_debug_info: bool,
+
+    /// Print the analyzed package.
+    #[clap(long)]
+    dump_analysis_output: bool,
 }
 
 pub fn fallible_main(args: Args) -> anyhow::Result<()> {
@@ -116,7 +120,10 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
 
     if let Ok(package) = compilation_result {
         // TODO: Code generation.
-        dbg!(package);
+        if args.dump_analysis_output {
+            println!("{env:#?}");
+            println!("{package:#?}");
+        }
     } else {
         error!("Compilation failed, no packages emitted")
     }

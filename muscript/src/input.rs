@@ -41,6 +41,11 @@ impl<'a> Input<'a> {
 }
 
 impl<'a> CompilerInput for Input<'a> {
+    fn class_exists(&self, class_name: &str) -> bool {
+        self.class_sources
+            .contains_key(CaseInsensitive::new_ref(class_name))
+    }
+
     fn class_sources(
         &self,
         class_name: &str,

@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use muscript_foundation::{
     errors::{pipe_all_diagnostics_into, Diagnostic, DiagnosticSink},
     ident::CaseInsensitive,
+    source::SourceFileId,
 };
+use muscript_syntax::cst;
 
 use crate::{
     class::{ClassNamespace, UntypedClassPartition, Var},
-    type_system::{Primitive, Type},
+    type_system::{lookup::TypeSource, Primitive, Type, TypeName},
     Compiler,
 };
 
@@ -32,6 +34,10 @@ pub struct Environment {
 
     types: Vec<Type>,
     vars: Vec<Var>,
+
+    global_type_ids_by_name: HashMap<TypeName, TypeId>,
+    scoped_type_ids_by_name: HashMap<(ClassId, TypeName), TypeId>,
+    type_names_by_id: Vec<TypeName>,
 }
 
 impl Environment {
@@ -44,16 +50,11 @@ impl Environment {
             untyped_class_partitions: HashMap::new(),
             types: vec![],
             vars: vec![],
+            global_type_ids_by_name: HashMap::new(),
+            scoped_type_ids_by_name: HashMap::new(),
+            type_names_by_id: vec![],
         };
-
-        env.register_type(Type::Error);
-        // NOTE: Order matters here! The TypeIds must match exactly those returned by Primitive::id.
-        env.register_type(Type::Primitive(Primitive::Bool));
-        env.register_type(Type::Primitive(Primitive::Byte));
-        env.register_type(Type::Primitive(Primitive::Int));
-        env.register_type(Type::Primitive(Primitive::Float));
-        env.register_type(Type::Primitive(Primitive::String));
-        env.register_type(Type::Primitive(Primitive::Name));
+        env.register_fundamental_types();
         env
     }
 
@@ -82,6 +83,12 @@ impl Environment {
         }
     }
 
+    pub fn get_class(&self, class_name: &str) -> Option<ClassId> {
+        self.class_ids_by_name
+            .get(CaseInsensitive::new_ref(class_name))
+            .copied()
+    }
+
     pub fn class_name(&self, class_id: ClassId) -> &str {
         self.class_names_by_id
             .get(class_id.0 as usize)
@@ -102,14 +109,12 @@ impl Environment {
     }
 }
 
-/// # Miscellaneous registries
-///
-/// These are lumped into one category because they don't provide any extra functionality beyond
-/// registering and obtaining their elements.
+/// # Type registry
 impl Environment {
-    pub fn register_type(&mut self, ty: Type) -> TypeId {
+    pub fn register_type(&mut self, name: impl Into<TypeName>, ty: Type) -> TypeId {
         let id = TypeId(self.types.len() as u32);
         self.types.push(ty);
+        self.type_names_by_id.push(name.into());
         id
     }
 
@@ -117,6 +122,13 @@ impl Environment {
         &self.types[id.0 as usize]
     }
 
+    pub fn type_name(&self, id: TypeId) -> &TypeName {
+        &self.type_names_by_id[id.0 as usize]
+    }
+}
+
+/// # Variable registry
+impl Environment {
     pub fn register_var(&mut self, var: Var) -> VarId {
         let id = VarId(self.vars.len() as u32);
         self.vars.push(var);
@@ -175,8 +187,37 @@ impl<'a> Compiler<'a> {
     }
 }
 
+impl Environment {
+    fn register_fundamental_types(&mut self) {
+        // NOTE: Order matters here! The TypeIds and ClassIds must match exactly those defined
+        // in the impls below.
+        self.register_type("error type", Type::Error);
+
+        self.register_type("Bool", Type::Primitive(Primitive::Bool));
+        self.register_type("Byte", Type::Primitive(Primitive::Byte));
+        self.register_type("Int", Type::Primitive(Primitive::Int));
+        self.register_type("Float", Type::Primitive(Primitive::Float));
+        self.register_type("String", Type::Primitive(Primitive::String));
+        self.register_type("Name", Type::Primitive(Primitive::Name));
+
+        let object_class = self.get_or_create_class("Object");
+        self.register_type("Object", Type::Object(object_class));
+    }
+}
+
 impl TypeId {
     pub const ERROR: Self = Self(0);
+    pub const BOOL: Self = Self(1);
+    pub const BYTE: Self = Self(2);
+    pub const INT: Self = Self(3);
+    pub const FLOAT: Self = Self(4);
+    pub const STRING: Self = Self(5);
+    pub const NAME: Self = Self(6);
+    pub const OBJECT: Self = Self(7);
+}
+
+impl ClassId {
+    pub const OBJECT: Self = Self(0);
 }
 
 impl Primitive {
@@ -188,6 +229,54 @@ impl Primitive {
             Primitive::Float => TypeId(4),
             Primitive::String => TypeId(5),
             Primitive::Name => TypeId(6),
+        }
+    }
+}
+
+impl<'a> Compiler<'a> {
+    pub fn type_id(
+        &mut self,
+        source_file_id: SourceFileId,
+        scope: ClassId,
+        ty: &cst::Type,
+    ) -> TypeId {
+        let (_source, type_id) = self.type_id_with_source(source_file_id, scope, ty);
+        type_id
+    }
+
+    pub fn type_id_with_source(
+        &mut self,
+        source_file_id: SourceFileId,
+        scope: ClassId,
+        ty: &cst::Type,
+    ) -> (TypeSource, TypeId) {
+        let type_name = TypeName::from_cst(self.sources, source_file_id, ty);
+        if let Some(&type_id) = self
+            .env
+            .scoped_type_ids_by_name
+            .get(&(scope, type_name.clone()))
+        {
+            (TypeSource::Scoped, type_id)
+        } else if let Some(&type_id) = self.env.global_type_ids_by_name.get(&type_name) {
+            (TypeSource::Global, type_id)
+        } else {
+            #[allow(deprecated)]
+            let (source, type_id) = self.find_type_id(source_file_id, scope, ty);
+            // Only cache the result if the type is correct; in case of erroneous type references
+            // we don't want to stop emitting errors at the first one.
+            if type_id != TypeId::ERROR {
+                match source {
+                    TypeSource::Global => {
+                        self.env.global_type_ids_by_name.insert(type_name, type_id);
+                    }
+                    TypeSource::Scoped => {
+                        self.env
+                            .scoped_type_ids_by_name
+                            .insert((scope, type_name), type_id);
+                    }
+                }
+            }
+            (source, type_id)
         }
     }
 }

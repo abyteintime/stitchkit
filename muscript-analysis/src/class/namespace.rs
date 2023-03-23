@@ -37,7 +37,7 @@ impl<'a> Compiler<'a> {
                                     source_file_id,
                                     &item_var.specifiers,
                                 ),
-                                ty: self.type_id(source_file_id, &item_var.ty),
+                                ty: self.type_id(source_file_id, class_id, &item_var.ty),
                             },
                         },
                     };

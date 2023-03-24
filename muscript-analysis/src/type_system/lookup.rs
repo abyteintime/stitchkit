@@ -4,7 +4,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{cst, lexis::token::Ident};
 
-use crate::{ClassId, Compiler, TypeId};
+use crate::{partition::UntypedClassPartition, ClassId, Compiler, TypeId};
 
 use super::{Primitive, Type, TypeName};
 
@@ -181,6 +181,26 @@ impl<'a> Compiler<'a> {
         )
     }
 
+    fn generics_not_allowed(
+        &mut self,
+        source_file_id: SourceFileId,
+        ty: &cst::Type,
+        generic: &cst::Generic,
+        type_name: &str,
+    ) {
+        self.env.emit(
+            Diagnostic::error(source_file_id, "only `Array` and `Class` may use generics")
+                .with_label(Label::primary(generic.span(), ""))
+                .with_note((
+                    "help: remove the generic parameters",
+                    ReplacementSuggestion {
+                        span: ty.span(),
+                        replacement: type_name.to_string(),
+                    },
+                )),
+        )
+    }
+
     fn find_global_type(
         &mut self,
         source_file_id: SourceFileId,
@@ -191,17 +211,7 @@ impl<'a> Compiler<'a> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
 
         if let Some(generic) = generic {
-            self.env.emit(
-                Diagnostic::error(source_file_id, "only `Array` and `Class` may use generics")
-                    .with_label(Label::primary(generic.span(), ""))
-                    .with_note((
-                        "help: remove the generic parameters",
-                        ReplacementSuggestion {
-                            span: ty.span(),
-                            replacement: type_name.to_string(),
-                        },
-                    )),
-            )
+            self.generics_not_allowed(source_file_id, ty, generic, type_name);
         }
 
         if self.input.class_exists(type_name) {
@@ -211,6 +221,84 @@ impl<'a> Compiler<'a> {
                 .env
                 .register_type(TypeName::concrete(type_name), Type::Object(class_id));
             Some(type_id)
+        } else {
+            None
+        }
+    }
+
+    fn find_type_in_scope(
+        &mut self,
+        source_file_id: SourceFileId,
+        scope: ClassId,
+        ty: &cst::Type,
+        type_name_ident: Ident,
+        generic: &Option<cst::Generic>,
+    ) -> Option<TypeId> {
+        let type_name = self.sources.span(source_file_id, &type_name_ident);
+
+        if let Some(generic) = generic {
+            self.generics_not_allowed(source_file_id, ty, generic, type_name);
+        }
+
+        let mut current_scope = scope;
+        loop {
+            if let Some(next_scope) = self.super_class_id(current_scope) {
+                current_scope = next_scope;
+            } else {
+                break;
+            }
+        }
+        None
+    }
+
+    /// Obtain the super class of the given class, or `None` if it has no super class declared.
+    pub fn super_class_type(&mut self, class_id: ClassId) -> Option<(SourceFileId, Ident, TypeId)> {
+        if let Some(partitions) = self.untyped_class_partitions(class_id) {
+            // TODO: This can get weird if there is more than one partition declaring an `extends`
+            // clause, and the `extends` clauses are different.
+            if let Some(partition) = partitions
+                .iter()
+                .find(|partition| partition.extends.is_some())
+            {
+                let &UntypedClassPartition {
+                    source_file_id,
+                    extends,
+                    ..
+                } = partition;
+                let ty = self.type_id(
+                    source_file_id,
+                    class_id,
+                    &cst::Type {
+                        specifiers: vec![],
+                        path: cst::Path::new(vec![extends.unwrap()]),
+                        generic: None,
+                        cpptemplate: None,
+                    },
+                );
+                return (ty != TypeId::ERROR).then_some((source_file_id, extends.unwrap(), ty));
+            }
+        }
+        None
+    }
+
+    pub fn super_class_id(&mut self, class_id: ClassId) -> Option<ClassId> {
+        if let Some((source_file_id, super_class_ident, super_class)) =
+            self.super_class_type(class_id)
+        {
+            if let &Type::Object(class_id) = self.env.get_type(super_class) {
+                Some(class_id)
+            } else {
+                self.env.emit(
+                    Diagnostic::error(
+                        source_file_id,
+                        format!("`{}` is not a class type", self.env.type_name(super_class)),
+                    )
+                    .with_label(Label::primary(super_class_ident.span, ""))
+                    // TODO: Augment this error with the kind of type that was actually provided.
+                    .with_note("note: classes can only extend other classes"),
+                );
+                None
+            }
         } else {
             None
         }

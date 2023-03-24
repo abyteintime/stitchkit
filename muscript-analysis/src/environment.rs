@@ -8,7 +8,8 @@ use muscript_foundation::{
 use muscript_syntax::cst;
 
 use crate::{
-    class::{ClassNamespace, UntypedClassPartition, Var},
+    class::{ClassNamespace, Var},
+    partition::UntypedClassPartition,
     type_system::{lookup::TypeSource, Primitive, Type, TypeName},
     Compiler,
 };

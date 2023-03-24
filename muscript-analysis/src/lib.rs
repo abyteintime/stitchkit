@@ -5,6 +5,7 @@ mod diagnostics;
 mod environment;
 pub mod function;
 mod package;
+pub mod partition;
 mod source;
 pub mod type_system;
 

@@ -2,11 +2,9 @@ use bitflags::bitflags;
 use muscript_syntax::lexis::token::Ident;
 
 mod namespace;
-mod untyped;
 mod var;
 
 pub use namespace::*;
-pub use untyped::*;
 pub use var::*;
 
 #[derive(Debug, Clone)]

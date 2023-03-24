@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use muscript_foundation::ident::CaseInsensitive;
 use muscript_syntax::cst::NamedItem;
 
-use crate::{ClassId, Compiler, VarId};
+use crate::{
+    partition::{UntypedClassPartitionsExt, VarCst},
+    ClassId, Compiler, VarId,
+};
 
-use super::{UntypedClassPartitionsExt, Var, VarCst, VarFlags, VarKind};
+use super::{Var, VarFlags, VarKind};
 
 #[derive(Debug, Default)]
 pub struct ClassNamespace {

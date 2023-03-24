@@ -1,10 +1,14 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
+    ident::CaseInsensitive,
     source::{SourceFileId, Spanned},
 };
 use muscript_syntax::{cst, lexis::token::Ident};
 
-use crate::{partition::UntypedClassPartition, ClassId, Compiler, TypeId};
+use crate::{
+    partition::{TypeCst, UntypedClassPartition},
+    ClassId, Compiler, TypeId,
+};
 
 use super::{Primitive, Type, TypeName};
 
@@ -35,13 +39,16 @@ impl<'a> Compiler<'a> {
                 } else if type_name.eq_ignore_ascii_case("Array") {
                     return self.array_type(source_file_id, scope, ty);
                 } else if type_name.eq_ignore_ascii_case("Class") {
-                    // Classes are always globally scoped.
                     return (
                         TypeSource::Global,
                         self.class_type(source_file_id, scope, ty),
                     );
                 } else if let Some(type_id) =
-                    self.find_global_type(source_file_id, ty, *type_name_ident, &ty.generic)
+                    self.find_type_in_current_scope(source_file_id, scope, ty, *type_name_ident)
+                {
+                    return (TypeSource::Scoped, type_id);
+                } else if let Some(type_id) =
+                    self.find_global_type(source_file_id, ty, *type_name_ident)
                 {
                     return (TypeSource::Global, type_id);
                 }
@@ -206,11 +213,10 @@ impl<'a> Compiler<'a> {
         source_file_id: SourceFileId,
         ty: &cst::Type,
         type_name_ident: Ident,
-        generic: &Option<cst::Generic>,
     ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
 
-        if let Some(generic) = generic {
+        if let Some(generic) = &ty.generic {
             self.generics_not_allowed(source_file_id, ty, generic, type_name);
         }
 
@@ -226,27 +232,46 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn find_type_in_scope(
+    fn find_type_in_current_scope(
         &mut self,
         source_file_id: SourceFileId,
         scope: ClassId,
         ty: &cst::Type,
         type_name_ident: Ident,
-        generic: &Option<cst::Generic>,
     ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
 
-        if let Some(generic) = generic {
+        if let Some(generic) = &ty.generic {
             self.generics_not_allowed(source_file_id, ty, generic, type_name);
         }
 
-        let mut current_scope = scope;
-        loop {
-            if let Some(next_scope) = self.super_class_id(current_scope) {
-                current_scope = next_scope;
-            } else {
-                break;
+        if let Some(partitions) = self.untyped_class_partitions(scope) {
+            let ty = partitions
+                .iter()
+                .find_map(|partition| partition.types.get(CaseInsensitive::new_ref(type_name)))
+                .map(|type_cst| match type_cst {
+                    TypeCst::Struct(_) => Type::Struct { outer: scope },
+                    TypeCst::Enum(_) => Type::Enum { outer: scope },
+                });
+            if let Some(ty) = ty {
+                return Some(self.env.register_type(TypeName::concrete(type_name), ty));
             }
+        }
+
+        if let Some(next_scope) = self.super_class_id(scope) {
+            // NOTE: We need to do a tail call here back to type_id, for memoization to work
+            // correctly. Given these two classes:
+            //
+            //     class Foo extends Object;
+            //     struct Example {}
+            //     var Example Boo;
+            //
+            //     class Bar extends Foo;
+            //     var Example Far;
+            //
+            // We do not want to reregister `Example` both for `Foo` and `Bar`, rather we want to
+            // reuse an already existing TypeId.
+            return Some(self.type_id(source_file_id, next_scope, ty));
         }
         None
     }

@@ -14,9 +14,21 @@ use crate::{ClassId, TypeId};
 pub enum Type {
     Error,
     Primitive(Primitive),
+    /// `Array<T>`
     Array(TypeId),
+    /// `T`
     Object(ClassId),
+    /// `class<T>`
     Class(ClassId),
+    /// Structs and enums don't actually store any metadata here, since they're processed already
+    /// as part of the class partition. You can use type_name to retrieve their CST, fields, etc.
+    /// from their outer class.
+    Struct {
+        outer: ClassId,
+    },
+    Enum {
+        outer: ClassId,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

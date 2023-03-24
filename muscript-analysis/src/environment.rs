@@ -6,6 +6,7 @@ use muscript_foundation::{
     source::SourceFileId,
 };
 use muscript_syntax::cst;
+use tracing::trace;
 
 use crate::{
     class::{ClassNamespace, Var},
@@ -112,10 +113,11 @@ impl Environment {
 
 /// # Type registry
 impl Environment {
-    pub fn register_type(&mut self, name: impl Into<TypeName>, ty: Type) -> TypeId {
+    pub fn register_type(&mut self, name: TypeName, ty: Type) -> TypeId {
         let id = TypeId(self.types.len() as u32);
+        trace!(%name, ?id, "registering type");
         self.types.push(ty);
-        self.type_names_by_id.push(name.into());
+        self.type_names_by_id.push(name);
         id
     }
 
@@ -189,20 +191,26 @@ impl<'a> Compiler<'a> {
 }
 
 impl Environment {
+    fn register_magic_type(&mut self, name: &str, ty: Type) {
+        let type_id = self.register_type(TypeName::concrete(name), ty);
+        self.global_type_ids_by_name
+            .insert(TypeName::concrete(name), type_id);
+    }
+
     fn register_fundamental_types(&mut self) {
         // NOTE: Order matters here! The TypeIds and ClassIds must match exactly those defined
         // in the impls below.
-        self.register_type("error type", Type::Error);
+        self.register_magic_type("error type", Type::Error);
 
-        self.register_type("Bool", Type::Primitive(Primitive::Bool));
-        self.register_type("Byte", Type::Primitive(Primitive::Byte));
-        self.register_type("Int", Type::Primitive(Primitive::Int));
-        self.register_type("Float", Type::Primitive(Primitive::Float));
-        self.register_type("String", Type::Primitive(Primitive::String));
-        self.register_type("Name", Type::Primitive(Primitive::Name));
+        self.register_magic_type("Bool", Type::Primitive(Primitive::Bool));
+        self.register_magic_type("Byte", Type::Primitive(Primitive::Byte));
+        self.register_magic_type("Int", Type::Primitive(Primitive::Int));
+        self.register_magic_type("Float", Type::Primitive(Primitive::Float));
+        self.register_magic_type("String", Type::Primitive(Primitive::String));
+        self.register_magic_type("Name", Type::Primitive(Primitive::Name));
 
         let object_class = self.get_or_create_class("Object");
-        self.register_type("Object", Type::Object(object_class));
+        self.register_magic_type("Object", Type::Object(object_class));
     }
 }
 

@@ -280,6 +280,7 @@ dependencies = [
  "indoc",
  "muscript-foundation",
  "muscript-syntax",
+ "tracing",
 ]
 
 [[package]]

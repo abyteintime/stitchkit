@@ -294,6 +294,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "muscript-ir"
+version = "0.1.0"
+
+[[package]]
 name = "muscript-syntax"
 version = "0.1.0"
 dependencies = [

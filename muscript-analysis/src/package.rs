@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use muscript_foundation::errors::pipe_all_diagnostics_into;
+
 use crate::{environment::ClassId, CompileError, Compiler, VarId};
 
 #[derive(Debug, Clone)]
@@ -26,6 +28,16 @@ impl Package {
                     vars: compiler.class_vars(class_id),
                 },
             );
+
+            let mut support_diagnostics = vec![];
+            for partition in compiler
+                .untyped_class_partitions(class_id)
+                .into_iter()
+                .flatten()
+            {
+                partition.check_item_support(&mut support_diagnostics);
+            }
+            pipe_all_diagnostics_into(compiler.env, support_diagnostics);
         }
 
         Ok(Self { classes })

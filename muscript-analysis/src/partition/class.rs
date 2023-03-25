@@ -1,4 +1,5 @@
 mod coherence;
+mod support;
 
 use indexmap::IndexMap;
 use indoc::indoc;

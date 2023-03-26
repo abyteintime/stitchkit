@@ -4,6 +4,7 @@ pub mod class;
 mod diagnostics;
 mod environment;
 pub mod function;
+pub mod ir;
 mod package;
 pub mod partition;
 mod source;

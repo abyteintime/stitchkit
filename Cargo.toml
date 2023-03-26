@@ -10,7 +10,6 @@ members = [
     "muscript",
     "muscript-analysis",
     "muscript-foundation",
-    "muscript-ir",
     "muscript-syntax",
     "muscript-syntax-derive",
 ]

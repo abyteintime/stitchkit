@@ -202,6 +202,8 @@ impl Environment {
         // in the impls below.
         self.register_magic_type("error type", Type::Error);
 
+        self.register_magic_type("Void", Type::Void);
+
         self.register_magic_type("Bool", Type::Primitive(Primitive::Bool));
         self.register_magic_type("Byte", Type::Primitive(Primitive::Byte));
         self.register_magic_type("Int", Type::Primitive(Primitive::Int));
@@ -216,13 +218,14 @@ impl Environment {
 
 impl TypeId {
     pub const ERROR: Self = Self(0);
-    pub const BOOL: Self = Self(1);
-    pub const BYTE: Self = Self(2);
-    pub const INT: Self = Self(3);
-    pub const FLOAT: Self = Self(4);
-    pub const STRING: Self = Self(5);
-    pub const NAME: Self = Self(6);
-    pub const OBJECT: Self = Self(7);
+    pub const VOID: Self = Self(1);
+    pub const BOOL: Self = Self(2);
+    pub const BYTE: Self = Self(3);
+    pub const INT: Self = Self(4);
+    pub const FLOAT: Self = Self(5);
+    pub const STRING: Self = Self(6);
+    pub const NAME: Self = Self(7);
+    pub const OBJECT: Self = Self(8);
 }
 
 impl ClassId {
@@ -232,12 +235,12 @@ impl ClassId {
 impl Primitive {
     pub fn id(&self) -> TypeId {
         match self {
-            Primitive::Bool => TypeId(1),
-            Primitive::Byte => TypeId(2),
-            Primitive::Int => TypeId(3),
-            Primitive::Float => TypeId(4),
-            Primitive::String => TypeId(5),
-            Primitive::Name => TypeId(6),
+            Primitive::Bool => TypeId::BOOL,
+            Primitive::Byte => TypeId::BYTE,
+            Primitive::Int => TypeId::INT,
+            Primitive::Float => TypeId::FLOAT,
+            Primitive::String => TypeId::STRING,
+            Primitive::Name => TypeId::NAME,
         }
     }
 }

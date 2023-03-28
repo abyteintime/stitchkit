@@ -1,6 +1,8 @@
 mod coherence;
 mod support;
 
+use std::rc::Rc;
+
 use indexmap::IndexMap;
 use indoc::indoc;
 use muscript_foundation::{
@@ -37,7 +39,7 @@ pub struct UntypedClassPartition {
     // because we don't want our error messages to jump around the file. Instead we want them to go
     // strictly from top to bottom.
     pub vars: IndexMap<CaseInsensitive<String>, VarCst>,
-    pub functions: IndexMap<CaseInsensitive<String>, cst::ItemFunction>,
+    pub functions: IndexMap<CaseInsensitive<String>, Rc<cst::ItemFunction>>,
     pub types: IndexMap<CaseInsensitive<String>, TypeCst>,
     pub states: IndexMap<CaseInsensitive<String>, cst::ItemState>,
 
@@ -148,7 +150,7 @@ impl UntypedClassPartition {
                         sources,
                         source_file_id,
                         &mut functions,
-                        item_function,
+                        Rc::new(item_function),
                         |item_function| {
                             mangled_function_name(sources, source_file_id, item_function)
                                 .into_owned()
@@ -413,6 +415,8 @@ impl NamedItem for TypeCst {
 
 pub trait UntypedClassPartitionsExt {
     fn find_var(&self, name: &str) -> Option<(SourceFileId, &VarCst)>;
+
+    fn find_function(&self, name: &str) -> Option<(SourceFileId, &cst::ItemFunction)>;
 }
 
 impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
@@ -420,6 +424,15 @@ impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
         self.iter().find_map(|partition| {
             partition
                 .vars
+                .get(CaseInsensitive::new_ref(name))
+                .map(|cst| (partition.source_file_id, cst))
+        })
+    }
+
+    fn find_function(&self, name: &str) -> Option<(SourceFileId, &cst::ItemFunction)> {
+        self.iter().find_map(|partition| {
+            partition
+                .functions
                 .get(CaseInsensitive::new_ref(name))
                 .map(|cst| (partition.source_file_id, cst))
         })

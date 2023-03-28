@@ -10,6 +10,7 @@ use tracing::trace;
 
 use crate::{
     class::{ClassNamespace, Var},
+    function::Function,
     partition::UntypedClassPartition,
     type_system::{lookup::TypeSource, Primitive, Type, TypeName},
     Compiler,
@@ -24,6 +25,9 @@ pub struct TypeId(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VarId(u32);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FunctionId(u32);
+
 #[derive(Debug, Default)]
 pub struct Environment {
     pub diagnostics: Vec<Diagnostic>,
@@ -36,6 +40,7 @@ pub struct Environment {
 
     types: Vec<Type>,
     vars: Vec<Var>,
+    functions: Vec<Function>,
 
     global_type_ids_by_name: HashMap<TypeName, TypeId>,
     scoped_type_ids_by_name: HashMap<(ClassId, TypeName), TypeId>,
@@ -52,6 +57,7 @@ impl Environment {
             untyped_class_partitions: HashMap::new(),
             types: vec![],
             vars: vec![],
+            functions: vec![],
             global_type_ids_by_name: HashMap::new(),
             scoped_type_ids_by_name: HashMap::new(),
             type_names_by_id: vec![],
@@ -140,6 +146,15 @@ impl Environment {
 
     pub fn get_var(&self, id: VarId) -> &Var {
         &self.vars[id.0 as usize]
+    }
+}
+
+/// # Function registry
+impl Environment {
+    pub fn register_function(&mut self, function: Function) -> FunctionId {
+        let id = FunctionId(self.functions.len() as u32);
+        self.functions.push(function);
+        id
     }
 }
 
@@ -245,6 +260,7 @@ impl Primitive {
     }
 }
 
+/// # Memoized type lookups
 impl<'a> Compiler<'a> {
     pub fn type_id(
         &mut self,

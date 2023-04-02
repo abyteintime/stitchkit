@@ -233,6 +233,7 @@ pub struct TokenKindMismatch {
 
 #[macro_use]
 mod keyword;
+mod parsing;
 
 pub use keyword::*;
 

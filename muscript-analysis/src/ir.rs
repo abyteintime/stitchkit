@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use muscript_foundation::source::Span;
 
-use crate::{TypeId, VarId};
+use crate::VarId;
 
 pub use basic_block::*;
 pub use insn::*;
@@ -14,11 +14,8 @@ pub use insn::*;
 /// Represents the IR of a chunk (a function, or some other unit of execution.)
 #[derive(Clone)]
 pub struct Ir {
-    pub return_ty: TypeId,
     /// Local variables declared in the chunk.
     pub locals: Vec<VarId>,
-    /// The first `param_count` locals are treated as the chunk's parameters.
-    pub param_count: u16,
 
     pub nodes: Vec<Node>,
     /// The first basic block in the function is treated as its entry point. Further blocks must

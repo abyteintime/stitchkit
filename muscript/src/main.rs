@@ -9,7 +9,11 @@ use std::{
 
 use anyhow::{bail, Context};
 use clap::Parser;
-use muscript_analysis::{function::Function, ir::dump::DumpIr, Compiler, Environment, Package};
+use muscript_analysis::{
+    function::Function,
+    ir::dump::{DumpFunction, DumpIr},
+    Compiler, Environment, Package,
+};
 use muscript_foundation::{
     errors::DiagnosticConfig,
     source::{SourceFile, SourceFileSet},
@@ -133,15 +137,14 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
                     env.class_name(class_id)
                 );
                 for &function_id in &class.functions {
-                    let Function {
-                        mangled_name, ir, ..
-                    } = env.get_function(function_id);
+                    let function = env.get_function(function_id);
                     println!(
-                        "\n{mangled_name} {:?}",
-                        DumpIr {
+                        "\n{} {:?}",
+                        function.mangled_name,
+                        DumpFunction {
                             sources: &source_file_set,
                             env: &env,
-                            ir,
+                            function,
                         }
                     );
                 }

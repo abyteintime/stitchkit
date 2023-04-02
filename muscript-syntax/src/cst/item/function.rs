@@ -31,6 +31,8 @@ pub enum FunctionSpecifier {
     Client(Ident),
     #[parse(keyword = "coerce")]
     Coerce(Ident),
+    #[parse(keyword = "const")]
+    Const(Ident),
     #[parse(keyword = "editoronly")]
     EditorOnly(Ident),
     #[parse(keyword = "exec")]

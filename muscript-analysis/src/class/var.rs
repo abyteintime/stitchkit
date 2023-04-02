@@ -151,13 +151,10 @@ impl VarFlags {
                         | cst::VarSpecifier::Protected(_, _)
                         | cst::VarSpecifier::ProtectedWrite(_, _)
                         | cst::VarSpecifier::Public(_, _) => {
-                            diagnostic = diagnostic.with_note(indoc! {"
-                                note: MuScript does not consider access modifiers at the moment;
-                                      all items are treated as `public`
-                            "})
+                            diagnostic = diagnostic.with_note(notes::ACCESS_UNSUPPORTED);
                         }
                         cst::VarSpecifier::Type(cst::TypeSpecifier::Native(_)) => {
-                            diagnostic = diagnostic.with_note(notes::CPP_UNSUPPORTED)
+                            diagnostic = diagnostic.with_note(notes::CPP_UNSUPPORTED);
                         }
 
                         _ => (),

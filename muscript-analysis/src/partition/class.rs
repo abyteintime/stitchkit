@@ -1,8 +1,6 @@
 mod coherence;
 mod support;
 
-use std::rc::Rc;
-
 use indexmap::IndexMap;
 use indoc::indoc;
 use muscript_foundation::{
@@ -15,6 +13,7 @@ use muscript_syntax::{
     lexis::token,
     Spanned,
 };
+use tracing::trace;
 
 use crate::{diagnostics::notes, function::mangling::mangled_function_name};
 
@@ -39,7 +38,7 @@ pub struct UntypedClassPartition {
     // because we don't want our error messages to jump around the file. Instead we want them to go
     // strictly from top to bottom.
     pub vars: IndexMap<CaseInsensitive<String>, VarCst>,
-    pub functions: IndexMap<CaseInsensitive<String>, Rc<cst::ItemFunction>>,
+    pub functions: IndexMap<CaseInsensitive<String>, Box<cst::ItemFunction>>,
     pub types: IndexMap<CaseInsensitive<String>, TypeCst>,
     pub states: IndexMap<CaseInsensitive<String>, cst::ItemState>,
 
@@ -82,6 +81,11 @@ impl UntypedClassPartition {
     ) -> Self {
         let source = &sources.get(source_file_id).source;
         let class = file.class;
+        trace!(
+            "creating UntypedClassPartition {:?} extends {:?}",
+            sources.span(source_file_id, &class.name),
+            sources.span(source_file_id, &class.extends)
+        );
 
         let mut vars = IndexMap::new();
         let mut functions = IndexMap::new();
@@ -150,7 +154,7 @@ impl UntypedClassPartition {
                         sources,
                         source_file_id,
                         &mut functions,
-                        Rc::new(item_function),
+                        Box::new(item_function),
                         |item_function| {
                             mangled_function_name(sources, source_file_id, item_function)
                                 .into_owned()
@@ -230,12 +234,12 @@ impl UntypedClassPartition {
             name: class.name,
             extends: class.extends.map(|x| {
                 let path = &x.parent_class.components;
-                if x.parent_class.components.len() > 1 {
+                if path.len() > 1 {
                     diagnostics.emit(
                         Diagnostic::error(source_file_id, "parent class cannot be a path")
                             .with_label(Label::primary(path[1].span, ""))
                             .with_note("help: paths `A.B` are used to refer to items declared within classes, not classes themselves")
-                            .with_note(format!("note: from now on assuming you meant to use `{}` as the parent class", path[0].span.get_input(source)))
+                            .with_note(format!("note: assuming you meant to use `{}` as the parent class", path[0].span.get_input(source)))
                     )
                 }
                 path[0]
@@ -416,7 +420,7 @@ impl NamedItem for TypeCst {
 pub trait UntypedClassPartitionsExt {
     fn find_var(&self, name: &str) -> Option<(SourceFileId, &VarCst)>;
 
-    fn find_function(&self, name: &str) -> Option<(SourceFileId, &cst::ItemFunction)>;
+    fn index_of_partition_with_function(&self, name: &str) -> Option<usize>;
 }
 
 impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
@@ -429,12 +433,11 @@ impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
         })
     }
 
-    fn find_function(&self, name: &str) -> Option<(SourceFileId, &cst::ItemFunction)> {
-        self.iter().find_map(|partition| {
+    fn index_of_partition_with_function(&self, name: &str) -> Option<usize> {
+        self.iter().position(|partition| {
             partition
                 .functions
-                .get(CaseInsensitive::new_ref(name))
-                .map(|cst| (partition.source_file_id, cst))
+                .contains_key(CaseInsensitive::new_ref(name))
         })
     }
 }

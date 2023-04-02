@@ -23,15 +23,6 @@ impl UntypedClassPartition {
             );
         }
 
-        for function in self.functions.values() {
-            diagnostics.emit(
-                Diagnostic::error(
-                    source_file_id,
-                    "functions are not yet supported by the compiler",
-                )
-                .with_label(Label::primary(function.span(), "")),
-            );
-        }
         for state in self.states.values() {
             diagnostics.emit(
                 Diagnostic::error(

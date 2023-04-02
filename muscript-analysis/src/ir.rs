@@ -1,4 +1,5 @@
 mod basic_block;
+pub mod dump;
 mod insn;
 
 use std::borrow::Cow;
@@ -20,6 +21,8 @@ pub struct Ir {
     pub param_count: u16,
 
     pub nodes: Vec<Node>,
+    /// The first basic block in the function is treated as its entry point. Further blocks must
+    /// be reached via this block.
     pub basic_blocks: Vec<BasicBlock>,
 }
 

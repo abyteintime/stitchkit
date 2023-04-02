@@ -4,6 +4,7 @@ use muscript_foundation::{
     source::{SourceFileId, Spanned},
 };
 use muscript_syntax::{cst, lexis::token::Ident};
+use tracing::{trace, trace_span};
 
 use crate::{
     partition::{TypeCst, UntypedClassPartition},
@@ -240,6 +241,7 @@ impl<'a> Compiler<'a> {
         type_name_ident: Ident,
     ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
+        trace!(scope = self.env.class_name(scope), %type_name, "find_type_in_current_scope");
 
         if let Some(generic) = &ty.generic {
             self.generics_not_allowed(source_file_id, ty, generic, type_name);
@@ -259,6 +261,7 @@ impl<'a> Compiler<'a> {
         }
 
         if let Some(next_scope) = self.super_class_id(scope) {
+            trace!(?scope, ?next_scope, "Recurring upwards to super scope");
             // NOTE: We need to do a tail call here back to type_id, for memoization to work
             // correctly. Given these two classes:
             //
@@ -277,7 +280,8 @@ impl<'a> Compiler<'a> {
     }
 
     /// Obtain the super class of the given class, or `None` if it has no super class declared.
-    pub fn super_class_type(&mut self, class_id: ClassId) -> Option<(SourceFileId, Ident, TypeId)> {
+    pub fn super_class_id(&mut self, class_id: ClassId) -> Option<ClassId> {
+        let _span = trace_span!("super_class_type", ?class_id).entered();
         if let Some(partitions) = self.untyped_class_partitions(class_id) {
             // TODO: This can get weird if there is more than one partition declaring an `extends`
             // clause, and the `extends` clauses are different.
@@ -290,42 +294,9 @@ impl<'a> Compiler<'a> {
                     extends,
                     ..
                 } = partition;
-                let ty = self.type_id(
-                    source_file_id,
-                    class_id,
-                    &cst::Type {
-                        specifiers: vec![],
-                        path: cst::Path::new(vec![extends.unwrap()]),
-                        generic: None,
-                        cpptemplate: None,
-                    },
-                );
-                return (ty != TypeId::ERROR).then_some((source_file_id, extends.unwrap(), ty));
+                return self.lookup_class(source_file_id, extends.unwrap());
             }
         }
         None
-    }
-
-    pub fn super_class_id(&mut self, class_id: ClassId) -> Option<ClassId> {
-        if let Some((source_file_id, super_class_ident, super_class)) =
-            self.super_class_type(class_id)
-        {
-            if let &Type::Object(class_id) = self.env.get_type(super_class) {
-                Some(class_id)
-            } else {
-                self.env.emit(
-                    Diagnostic::error(
-                        source_file_id,
-                        format!("`{}` is not a class type", self.env.type_name(super_class)),
-                    )
-                    .with_label(Label::primary(super_class_ident.span, ""))
-                    // TODO: Augment this error with the kind of type that was actually provided.
-                    .with_note("note: classes can only extend other classes"),
-                );
-                None
-            }
-        } else {
-            None
-        }
     }
 }

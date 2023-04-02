@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use clap::Parser;
-use muscript_analysis::{Compiler, Environment, Package};
+use muscript_analysis::{function::Function, ir::dump::DumpIr, Compiler, Environment, Package};
 use muscript_foundation::{
     errors::DiagnosticConfig,
     source::{SourceFile, SourceFileSet},
@@ -38,6 +38,10 @@ pub struct Args {
     /// Print the analyzed package.
     #[clap(long)]
     dump_analysis_output: bool,
+
+    /// Print function IRs.
+    #[clap(long)]
+    dump_ir: bool,
 }
 
 pub fn fallible_main(args: Args) -> anyhow::Result<()> {
@@ -100,14 +104,12 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     }
 
     debug!("Compiling package");
-    let compilation_result = Package::compile(
-        &mut Compiler {
-            sources: &source_file_set,
-            env: &mut env,
-            input: &input,
-        },
-        &classes_to_compile,
-    );
+    let compiler = &mut Compiler {
+        sources: &source_file_set,
+        env: &mut env,
+        input: &input,
+    };
+    let compilation_result = Package::compile(compiler, &classes_to_compile);
 
     for diagnostic in env.diagnostics() {
         _ = diagnostic.emit_to_stderr(
@@ -123,6 +125,27 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         if args.dump_analysis_output {
             println!("{env:#?}");
             println!("{package:#?}");
+        }
+        if args.dump_ir {
+            for (&class_id, class) in &package.classes {
+                println!(
+                    "\n{}\n----------------------------------------------------------------",
+                    env.class_name(class_id)
+                );
+                for &function_id in &class.functions {
+                    let Function {
+                        mangled_name, ir, ..
+                    } = env.get_function(function_id);
+                    println!(
+                        "\n{mangled_name} {:?}",
+                        DumpIr {
+                            sources: &source_file_set,
+                            env: &env,
+                            ir,
+                        }
+                    );
+                }
+            }
         }
     } else {
         error!("Compilation failed, no packages emitted")

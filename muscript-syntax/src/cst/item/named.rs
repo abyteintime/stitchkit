@@ -27,3 +27,12 @@ impl_named_item!(StructDef => |def| def.name);
 impl_named_item!(ItemEnum => |item| item.def.name);
 impl_named_item!(EnumDef => |def| def.name);
 impl_named_item!(ItemState => |item| item.name);
+
+impl<T> NamedItem for Box<T>
+where
+    T: NamedItem,
+{
+    fn name(&self) -> Ident {
+        (**self).name()
+    }
+}

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use muscript_foundation::{
-    errors::{pipe_all_diagnostics_into, Diagnostic, DiagnosticSink},
+    errors::{pipe_all_diagnostics_into, Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
     source::SourceFileId,
 };
-use muscript_syntax::cst;
+use muscript_syntax::{cst, lexis::token::Ident};
 use tracing::trace;
 
 use crate::{
@@ -117,6 +117,25 @@ impl Environment {
     }
 }
 
+/// # Class registry
+impl<'a> Compiler<'a> {
+    /// Look up a class ID from an identifier.
+    ///
+    /// Returns `None` and emits a diagnostic if the class cannot be found.
+    pub fn lookup_class(&mut self, source_file_id: SourceFileId, ident: Ident) -> Option<ClassId> {
+        let name = self.sources.span(source_file_id, &ident);
+        if self.input.class_exists(name) {
+            Some(self.env.get_or_create_class(name))
+        } else {
+            self.env.emit(
+                Diagnostic::error(source_file_id, format!("class `{name}` does not exist"))
+                    .with_label(Label::primary(ident.span, "")),
+            );
+            None
+        }
+    }
+}
+
 /// # Type registry
 impl Environment {
     pub fn register_type(&mut self, name: TypeName, ty: Type) -> TypeId {
@@ -155,6 +174,10 @@ impl Environment {
         let id = FunctionId(self.functions.len() as u32);
         self.functions.push(function);
         id
+    }
+
+    pub fn get_function(&self, id: FunctionId) -> &Function {
+        &self.functions[id.0 as usize]
     }
 }
 
@@ -202,6 +225,23 @@ impl<'a> Compiler<'a> {
             .get(&class_id)
             .and_then(|x| x.as_ref())
             .map(|x| x.as_slice())
+    }
+
+    /// Returns the set of untyped partitions for stealing purposes.
+    ///
+    /// As the name suggests, you should generally avoid using this. When using this, you're
+    /// pledging that you will put back whatever you stole out of the untyped class partitions
+    /// in unaltered form after you're done with it.
+    pub fn untyped_class_partitions_for_theft(
+        &mut self,
+        class_id: ClassId,
+    ) -> Option<&mut [UntypedClassPartition]> {
+        _ = self.untyped_class_partitions(class_id);
+        self.env
+            .untyped_class_partitions
+            .get_mut(&class_id)
+            .and_then(|x| x.as_mut())
+            .map(|x| x.as_mut_slice())
     }
 }
 

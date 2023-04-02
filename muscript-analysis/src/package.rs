@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use muscript_foundation::errors::pipe_all_diagnostics_into;
 
-use crate::{environment::ClassId, CompileError, Compiler, VarId};
+use crate::{environment::ClassId, CompileError, Compiler, FunctionId, VarId};
 
 #[derive(Debug, Clone)]
 pub struct Package {
@@ -12,6 +12,7 @@ pub struct Package {
 #[derive(Debug, Clone)]
 pub struct PackagedClass {
     pub vars: Vec<VarId>,
+    pub functions: Vec<FunctionId>,
 }
 
 impl Package {
@@ -26,6 +27,7 @@ impl Package {
                 class_id,
                 PackagedClass {
                     vars: compiler.class_vars(class_id),
+                    functions: compiler.class_functions(class_id),
                 },
             );
 

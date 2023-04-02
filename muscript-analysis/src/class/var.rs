@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     source::{SourceFileId, SourceFileSet, Spanned},

@@ -9,11 +9,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use clap::Parser;
-use muscript_analysis::{
-    function::Function,
-    ir::dump::{DumpFunction, DumpIr},
-    Compiler, Environment, Package,
-};
+use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, Package};
 use muscript_foundation::{
     errors::DiagnosticConfig,
     source::{SourceFile, SourceFileSet},

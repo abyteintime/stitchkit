@@ -10,10 +10,15 @@ use crate::{
     class::{Var, VarFlags, VarKind},
     diagnostics::notes,
     ir::Ir,
-    ClassId, Compiler, FunctionId, TypeId,
+    ClassId, Compiler, FunctionId, TypeId, VarId,
 };
 
+use self::builder::FunctionBuilder;
+
+mod builder;
+mod expr;
 pub mod mangling;
+mod stmt;
 
 #[derive(Clone)]
 pub struct Function {
@@ -22,7 +27,7 @@ pub struct Function {
     pub ir: Ir,
 
     pub return_ty: TypeId,
-    pub params: Vec<ParamFlags>,
+    pub params: Vec<Param>,
 
     pub flags: FunctionFlags,
     pub implementation: FunctionImplementation,
@@ -51,6 +56,12 @@ bitflags! {
         // - `noexport`, `noexportheader`, `const`, and `virtual`, because we don't support
         //   emitting C++ headers.
     }
+}
+
+#[derive(Clone)]
+pub struct Param {
+    pub var: VarId,
+    pub flags: ParamFlags,
 }
 
 bitflags! {
@@ -102,7 +113,6 @@ impl<'a> Compiler<'a> {
             .map(|ty| self.type_id(source_file_id, class_id, ty))
             .unwrap_or(TypeId::VOID);
 
-        let mut locals = vec![];
         let mut params = vec![];
         for param in &cst.params.params {
             let (var_flags, param_flags) = flags_from_param_specifiers(&param.specifiers);
@@ -117,25 +127,45 @@ impl<'a> Compiler<'a> {
                     flags: var_flags,
                 },
             });
-            locals.push(param_var);
-            params.push(param_flags);
+            params.push(Param {
+                var: param_var,
+                flags: param_flags,
+            });
         }
 
         unsupported_post_specifiers(self.env, source_file_id, &cst.post_specifiers);
 
-        self.env.register_function(Function {
+        let mut ir_builder = Ir::builder();
+        for param in &params {
+            ir_builder.add_local(param.var);
+        }
+
+        let mut builder = FunctionBuilder {
             source_file_id,
-            mangled_name: name.to_owned(),
-            ir: Ir {
-                locals,
-                nodes: vec![],
-                basic_blocks: vec![],
-            },
+            class_id,
+            flags,
             return_ty,
             params,
-            flags,
-            implementation,
-        })
+            ir: ir_builder,
+        };
+        match &cst.body {
+            cst::Body::Stub(semi) => {
+                if !matches!(
+                    &implementation,
+                    FunctionImplementation::Native | FunctionImplementation::Opcode(_)
+                ) {
+                    self.env.emit(
+                        Diagnostic::error(source_file_id, "function body expected")
+                            .with_label(Label::primary(semi.span, ""))
+                            .with_note("note: functions can only be stubbed out when they're in interfaces, or when they're `native`"),
+                    )
+                }
+            }
+            cst::Body::Impl(block) => self.stmt_block(&mut builder, block),
+        }
+
+        self.env
+            .register_function(builder.into_function(name.to_owned(), implementation))
     }
 }
 

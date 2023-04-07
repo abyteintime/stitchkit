@@ -1,8 +1,9 @@
-use super::NodeId;
+use super::RegisterId;
 
 /// [`Value`] represents an instruction that produces a value.
 #[derive(Clone)]
 pub enum Value {
+    Void,
     Bool(bool),
     Int(i32),
     Float(f32),
@@ -18,14 +19,19 @@ pub enum Value {
 #[derive(Clone)]
 pub enum Sink {
     /// Evaluates the value from the given register effectfully and discards its result.
-    Discard(NodeId),
+    Discard(RegisterId),
 }
 
 /// [`Terminator`] represents an instruction which ends the execution of a basic block.
 ///
 /// Every basic block must end with a [`Terminator`]; this ensures the control flow forms an easily
 /// digestible graph. Like [`Sink`]s, [`Terminator`]s do not produce any meaningful result.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum Terminator {
-    Return,
+    #[default]
+    Unreachable,
+    /// Return a value from the function.
+    ///
+    /// If a function is to return nothing (`void`), use this in conjunction with [`Value::Void`].
+    Return(RegisterId),
 }

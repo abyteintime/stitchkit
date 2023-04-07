@@ -12,7 +12,7 @@ pub use basic_block::*;
 pub use insn::*;
 
 /// Represents the IR of a chunk (a function, or some other unit of execution.)
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Ir {
     /// Local variables declared in the chunk.
     pub locals: Vec<VarId>,
@@ -23,9 +23,14 @@ pub struct Ir {
     pub basic_blocks: Vec<BasicBlock>,
 }
 
-/// Unique ID of a [`Node`] within a function.
+/// Unique ID of a [`Node`] within an [`Ir`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);
+
+/// Unique ID of a [`Register`] [`Node`] within an [`Ir`]. This can be thought of as a more
+/// specialized version of [`NodeId`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RegisterId(u32);
 
 /// Represents an execution node inside of a function.
 ///
@@ -67,4 +72,83 @@ pub struct Register {
     /// it be somewhat meaningful to the end user.
     pub name: Cow<'static, str>,
     pub value: Value,
+}
+
+/// Unique ID of a [`BasicBlock`] within an [`Ir`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BasicBlockId(u32);
+
+impl Ir {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_local(&mut self, var_id: VarId) {
+        self.locals.push(var_id);
+    }
+
+    #[must_use]
+    pub fn create_node(&mut self, node: Node) -> NodeId {
+        let id = NodeId(self.nodes.len() as u32);
+        self.nodes.push(node);
+        id
+    }
+
+    #[must_use]
+    pub fn create_register(
+        &mut self,
+        span: Span,
+        name: impl Into<Cow<'static, str>>,
+        value: Value,
+    ) -> RegisterId {
+        RegisterId(
+            self.create_node(Node {
+                kind: NodeKind::Register(Register {
+                    name: name.into(),
+                    value,
+                }),
+                span,
+            })
+            .0,
+        )
+    }
+
+    #[must_use]
+    pub fn create_sink(&mut self, span: Span, sink: Sink) -> NodeId {
+        self.create_node(Node {
+            kind: NodeKind::Sink(sink),
+            span,
+        })
+    }
+
+    #[must_use]
+    pub fn create_basic_block(&mut self, basic_block: BasicBlock) -> BasicBlockId {
+        let id = BasicBlockId(self.basic_blocks.len() as u32);
+        self.basic_blocks.push(basic_block);
+        id
+    }
+
+    pub fn basic_block(&self, basic_block_id: BasicBlockId) -> &BasicBlock {
+        &self.basic_blocks[basic_block_id.0 as usize]
+    }
+
+    pub fn basic_block_mut(&mut self, basic_block_id: BasicBlockId) -> &mut BasicBlock {
+        &mut self.basic_blocks[basic_block_id.0 as usize]
+    }
+
+    pub fn node(&self, node_id: NodeId) -> &Node {
+        &self.nodes[node_id.0 as usize]
+    }
+}
+
+impl NodeId {
+    pub fn to_u32(&self) -> u32 {
+        self.0
+    }
+}
+
+impl From<RegisterId> for NodeId {
+    fn from(value: RegisterId) -> Self {
+        NodeId(value.0)
+    }
 }

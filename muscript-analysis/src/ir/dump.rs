@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write as _};
 
 use bitflags::BitFlags;
 use muscript_foundation::source::SourceFileSet;
@@ -9,7 +9,7 @@ use crate::{
     Environment, VarId,
 };
 
-use super::Ir;
+use super::{Ir, NodeId, NodeKind, Register, RegisterId, Sink, Terminator, Value};
 
 fn local(
     env: &Environment,
@@ -30,11 +30,71 @@ pub struct DumpIr<'a> {
     pub ir: &'a Ir,
 }
 
-impl<'a> DumpIr<'a> {}
+impl<'a> DumpIr<'a> {
+    fn register_id(&self, f: &mut Formatter<'_>, register_id: RegisterId) -> fmt::Result {
+        let i = NodeId::from(register_id).to_u32();
+        let node = self.ir.node(register_id.into());
+        match &node.kind {
+            NodeKind::Register(register) => {
+                write!(f, "%{}_{i}", register.name)?;
+            }
+            NodeKind::Sink(_) => unreachable!(),
+        }
+        Ok(())
+    }
+
+    fn register(&self, f: &mut Formatter<'_>, node_id: NodeId, register: &Register) -> fmt::Result {
+        let i = node_id.to_u32();
+        write!(f, "%{}_{i} = ", register.name)?;
+        match &register.value {
+            Value::Void => f.write_str("void")?,
+            Value::Bool(value) => write!(f, "{value}")?,
+            Value::Int(x) => write!(f, "int {x}")?,
+            Value::Float(x) => write!(f, "float {x}")?,
+        }
+        Ok(())
+    }
+
+    fn sink(&self, f: &mut Formatter<'_>, sink: &Sink) -> fmt::Result {
+        match sink {
+            Sink::Discard(register_id) => {
+                f.write_str("discard ")?;
+                self.register_id(f, *register_id)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn terminator(&self, f: &mut Formatter<'_>, terminator: &Terminator) -> fmt::Result {
+        match terminator {
+            Terminator::Unreachable => f.write_str("unreachable")?,
+            Terminator::Return(register_id) => {
+                f.write_str("return ")?;
+                self.register_id(f, *register_id)?;
+            }
+        }
+        Ok(())
+    }
+}
 
 impl<'a> Debug for DumpIr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("{\n")?;
+        for (i, basic_block) in self.ir.basic_blocks.iter().enumerate() {
+            writeln!(f, "{}_{i}:", basic_block.label)?;
+            for &node_id in &basic_block.flow {
+                f.write_str("    ")?;
+                let node = self.ir.node(node_id);
+                match &node.kind {
+                    NodeKind::Register(register) => self.register(f, node_id, register)?,
+                    NodeKind::Sink(sink) => self.sink(f, sink)?,
+                }
+                writeln!(f)?;
+            }
+            f.write_str("    ")?;
+            self.terminator(f, &basic_block.terminator)?;
+            writeln!(f)?;
+        }
         f.write_str("}")?;
 
         Ok(())
@@ -50,13 +110,13 @@ pub struct DumpFunction<'a> {
 impl<'a> Debug for DumpFunction<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", self.env.type_name(self.function.return_ty))?;
-        for (i, &flags) in self.function.params.iter().enumerate() {
+        for (i, param) in self.function.params.iter().enumerate() {
             if i != 0 {
                 f.write_str(", ")?;
             }
             local(self.env, self.sources, f, self.function.ir.locals[i])?;
-            if !flags.is_empty() {
-                write!(f, " {flags}")?;
+            if !param.flags.is_empty() {
+                write!(f, " {}", param.flags)?;
             }
         }
         f.write_str(") ")?;

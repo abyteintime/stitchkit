@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::ir::Terminator;
 
 use super::NodeId;
@@ -7,6 +9,17 @@ use super::NodeId;
 /// [`Node`]: super::Node
 #[derive(Clone)]
 pub struct BasicBlock {
+    pub label: Cow<'static, str>,
     pub flow: Vec<NodeId>,
     pub terminator: Terminator,
+}
+
+impl BasicBlock {
+    pub fn new(label: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            label: label.into(),
+            flow: vec![],
+            terminator: Terminator::default(),
+        }
+    }
 }

@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Display, Formatter, Write as _};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use bitflags::BitFlags;
 use muscript_foundation::source::SourceFileSet;

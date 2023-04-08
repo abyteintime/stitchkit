@@ -6,7 +6,7 @@ use muscript_foundation::source::SourceFileSet;
 use crate::{
     class::VarKind,
     function::{Function, FunctionFlags, FunctionImplementation, ParamFlags},
-    Environment, VarId,
+    Environment, FunctionId, VarId,
 };
 
 use super::{Ir, NodeId, NodeKind, Register, RegisterId, Sink, Terminator, Value};
@@ -43,6 +43,12 @@ impl<'a> DumpIr<'a> {
         Ok(())
     }
 
+    fn function_id(&self, f: &mut Formatter<'_>, function_id: FunctionId) -> fmt::Result {
+        let function = self.env.get_function(function_id);
+        let class_name = self.env.class_name(function.class);
+        write!(f, "{class_name}.{}", function.mangled_name)
+    }
+
     fn register(&self, f: &mut Formatter<'_>, node_id: NodeId, register: &Register) -> fmt::Result {
         let i = node_id.to_u32();
         write!(
@@ -53,10 +59,25 @@ impl<'a> DumpIr<'a> {
         )?;
         match &register.value {
             Value::Void => f.write_str("void")?,
-            Value::None => f.write_str("none")?,
+
             Value::Bool(value) => write!(f, "{value}")?,
             Value::Int(x) => write!(f, "int {x}")?,
             Value::Float(x) => write!(f, "float {x}")?,
+
+            Value::None => f.write_str("none")?,
+
+            Value::CallFinal { function, args } => {
+                f.write_str("call final ")?;
+                self.function_id(f, *function)?;
+                f.write_str(" (")?;
+                for (i, register) in args.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+                    self.register_id(f, *register)?;
+                }
+                f.write_str(")")?;
+            }
         }
         Ok(())
     }

@@ -48,8 +48,8 @@ pub enum Primitive {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeName {
-    name: CaseInsensitive<String>,
-    generic_arguments: Vec<TypeName>,
+    pub name: CaseInsensitive<String>,
+    pub generic_arguments: Vec<TypeName>,
 }
 
 impl Primitive {

@@ -11,6 +11,7 @@ use crate::{
 
 use super::builder::FunctionBuilder;
 
+mod call;
 mod conversion;
 mod lit;
 
@@ -50,6 +51,9 @@ impl<'a> Compiler<'a> {
     ) -> RegisterId {
         match expr {
             cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
+            cst::Expr::Prefix { operator, right } => {
+                self.expr_prefix(builder, context, operator.clone(), right)
+            }
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id, "unsupported expression")

@@ -32,6 +32,7 @@ impl FunctionBuilder {
     ) -> Function {
         Function {
             source_file_id: self.source_file_id,
+            class: self.class_id,
             mangled_name,
             ir: self.ir.into_ir(),
             return_ty: self.return_ty,

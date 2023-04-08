@@ -23,6 +23,7 @@ mod stmt;
 #[derive(Clone)]
 pub struct Function {
     pub source_file_id: SourceFileId,
+    pub class: ClassId,
     pub mangled_name: String,
     pub ir: Ir,
 

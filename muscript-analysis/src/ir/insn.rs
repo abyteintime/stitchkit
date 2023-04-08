@@ -1,13 +1,25 @@
+use crate::FunctionId;
+
 use super::RegisterId;
 
 /// [`Value`] represents an instruction that produces a value.
 #[derive(Clone)]
 pub enum Value {
     Void,
-    None,
+
+    // Primitives
     Bool(bool),
     Int(i32),
     Float(f32),
+
+    // Objects
+    None,
+
+    // Calls
+    CallFinal {
+        function: FunctionId,
+        args: Vec<RegisterId>,
+    },
 }
 
 /// [`Sink`] represents a side-effectful instruction that does not produce a meaningful result.

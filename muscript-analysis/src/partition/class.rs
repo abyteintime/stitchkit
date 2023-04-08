@@ -15,7 +15,7 @@ use muscript_syntax::{
 };
 use tracing::trace;
 
-use crate::{diagnostics::notes, function::mangling::mangled_function_name};
+use crate::{diagnostics::notes, function::mangling::cst_level::mangled_function_name};
 
 /// Partitions a class into its individual pieces, but without type information.
 ///

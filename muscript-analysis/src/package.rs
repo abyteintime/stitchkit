@@ -23,17 +23,12 @@ impl Package {
     ) -> Result<Self, CompileError> {
         let mut classes = HashMap::new();
         for &class_id in class_ids {
+            let vars = compiler.class_vars(class_id);
             let functions = compiler.class_functions(class_id);
             for &function in &functions {
                 let _ir = compiler.function_ir(function);
             }
-            classes.insert(
-                class_id,
-                PackagedClass {
-                    vars: compiler.class_vars(class_id),
-                    functions,
-                },
-            );
+            classes.insert(class_id, PackagedClass { vars, functions });
 
             let mut support_diagnostics = vec![];
             for partition in compiler

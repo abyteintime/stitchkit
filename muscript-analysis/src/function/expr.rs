@@ -11,6 +11,9 @@ use crate::{
 
 use super::builder::FunctionBuilder;
 
+mod conversion;
+mod lit;
+
 #[derive(Debug, Clone)]
 pub struct ExprContext {
     pub expected_type: ExpectedType,
@@ -29,6 +32,13 @@ impl ExpectedType {
             ExpectedType::Any => TypeId::VOID,
         }
     }
+
+    fn is_exactly(&self, id: TypeId) -> bool {
+        match self {
+            ExpectedType::Matching(type_id) => *type_id == id,
+            ExpectedType::Any => false,
+        }
+    }
 }
 
 impl<'a> Compiler<'a> {
@@ -37,18 +47,21 @@ impl<'a> Compiler<'a> {
         builder: &mut FunctionBuilder,
         context: ExprContext,
         expr: &cst::Expr,
-    ) -> (TypeId, RegisterId) {
+    ) -> RegisterId {
         match expr {
+            cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id, "unsupported expression")
                         .with_label(Label::primary(expr.span(), ""))
                         .with_note("note: MuScript is still unfinished; you can help contribute at <https://github.com/abyteintime/stitchkit>")
                 );
-                let void = builder
-                    .ir
-                    .append_register(expr.span(), "unsupported", Value::Void);
-                (context.expected_type.to_type_id(), void)
+                builder.ir.append_register(
+                    expr.span(),
+                    "unsupported",
+                    context.expected_type.to_type_id(),
+                    Value::Void,
+                )
             }
         }
     }

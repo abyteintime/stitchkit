@@ -11,6 +11,8 @@ use super::{
     expr::{ExpectedType, ExprContext},
 };
 
+mod ret;
+
 impl<'a> Compiler<'a> {
     pub fn stmt(&mut self, builder: &mut FunctionBuilder, stmt: &cst::Stmt) {
         match stmt {
@@ -20,6 +22,7 @@ impl<'a> Compiler<'a> {
             ),
             cst::Stmt::Expr(expr) => self.stmt_expr(builder, expr),
             cst::Stmt::Block(block) => self.stmt_block(builder, block),
+            cst::Stmt::Return(ret) => self.stmt_return(builder, ret),
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id, "unsupported statement")
@@ -31,7 +34,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn stmt_expr(&mut self, builder: &mut FunctionBuilder, stmt: &cst::StmtExpr) {
-        let (_type_id, register_id) = self.expr(
+        let register_id = self.expr(
             builder,
             ExprContext {
                 expected_type: ExpectedType::Any,

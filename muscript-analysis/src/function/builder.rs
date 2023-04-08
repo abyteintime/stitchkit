@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use muscript_foundation::source::{SourceFileId, Span};
 
@@ -12,6 +12,7 @@ use super::{Function, FunctionFlags, FunctionImplementation, Param};
 pub struct FunctionBuilder {
     pub(super) source_file_id: SourceFileId,
     pub(super) class_id: ClassId,
+    pub(super) function_keyword_span: Span,
     pub(super) flags: FunctionFlags,
     pub(super) return_ty: TypeId,
     pub(super) params: Vec<Param>,
@@ -75,9 +76,10 @@ impl IrBuilder {
         &mut self,
         span: Span,
         name: impl Into<Cow<'static, str>>,
+        ty: TypeId,
         value: Value,
     ) -> RegisterId {
-        let register_id = self.ir.create_register(span, name.into(), value);
+        let register_id = self.ir.create_register(span, name.into(), ty, value);
         self.ir
             .basic_block_mut(self.cursor())
             .flow
@@ -97,5 +99,13 @@ impl IrBuilder {
 
     pub fn into_ir(self) -> Ir {
         self.ir
+    }
+}
+
+impl Deref for IrBuilder {
+    type Target = Ir;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ir
     }
 }

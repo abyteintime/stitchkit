@@ -143,6 +143,7 @@ impl<'a> Compiler<'a> {
         let mut builder = FunctionBuilder {
             source_file_id,
             class_id,
+            function_keyword_span: cst.kind.span(),
             flags,
             return_ty,
             params,
@@ -161,7 +162,9 @@ impl<'a> Compiler<'a> {
                     )
                 }
             }
-            cst::Body::Impl(block) => self.stmt_block(&mut builder, block),
+            cst::Body::Impl(block) => {
+                self.stmt_block(&mut builder, block);
+            }
         }
 
         self.env

@@ -45,9 +45,15 @@ impl<'a> DumpIr<'a> {
 
     fn register(&self, f: &mut Formatter<'_>, node_id: NodeId, register: &Register) -> fmt::Result {
         let i = node_id.to_u32();
-        write!(f, "%{}_{i} = ", register.name)?;
+        write!(
+            f,
+            "%{}_{i}: {} = ",
+            register.name,
+            self.env.type_name(register.ty),
+        )?;
         match &register.value {
             Value::Void => f.write_str("void")?,
+            Value::None => f.write_str("none")?,
             Value::Bool(value) => write!(f, "{value}")?,
             Value::Int(x) => write!(f, "int {x}")?,
             Value::Float(x) => write!(f, "float {x}")?,

@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use muscript_foundation::source::Span;
 
-use crate::VarId;
+use crate::{TypeId, VarId};
 
 pub use basic_block::*;
 pub use insn::*;
@@ -71,6 +71,7 @@ pub struct Register {
     /// This name is also used when lowering reused registers into variables, so it's best to have
     /// it be somewhat meaningful to the end user.
     pub name: Cow<'static, str>,
+    pub ty: TypeId,
     pub value: Value,
 }
 
@@ -99,12 +100,14 @@ impl Ir {
         &mut self,
         span: Span,
         name: impl Into<Cow<'static, str>>,
+        ty: TypeId,
         value: Value,
     ) -> RegisterId {
         RegisterId(
             self.create_node(Node {
                 kind: NodeKind::Register(Register {
                     name: name.into(),
+                    ty,
                     value,
                 }),
                 span,
@@ -138,6 +141,13 @@ impl Ir {
 
     pub fn node(&self, node_id: NodeId) -> &Node {
         &self.nodes[node_id.0 as usize]
+    }
+
+    pub fn register(&self, register_id: RegisterId) -> &Register {
+        match &self.node(register_id.into()).kind {
+            NodeKind::Register(register) => register,
+            NodeKind::Sink(_) => unreachable!("RegisterId must point to a register"),
+        }
     }
 }
 

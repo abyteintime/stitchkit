@@ -4,6 +4,7 @@ use super::RegisterId;
 #[derive(Clone)]
 pub enum Value {
     Void,
+    None,
     Bool(bool),
     Int(i32),
     Float(f32),

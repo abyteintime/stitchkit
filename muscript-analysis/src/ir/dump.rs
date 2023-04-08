@@ -87,6 +87,9 @@ impl<'a> Debug for DumpIr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("{\n")?;
         for (i, basic_block) in self.ir.basic_blocks.iter().enumerate() {
+            if i != 0 {
+                writeln!(f)?;
+            }
             writeln!(f, "{}_{i}:", basic_block.label)?;
             for &node_id in &basic_block.flow {
                 f.write_str("    ")?;

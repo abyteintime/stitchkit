@@ -2,9 +2,10 @@ use bitflags::bitflags;
 use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
+    ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet, Spanned},
 };
-use muscript_syntax::cst;
+use muscript_syntax::{cst, lexis::token::Ident};
 
 use crate::{
     class::{Var, VarFlags, VarKind},
@@ -23,9 +24,9 @@ mod stmt;
 #[derive(Clone)]
 pub struct Function {
     pub source_file_id: SourceFileId,
-    pub class: ClassId,
+    pub class_id: ClassId,
     pub mangled_name: String,
-    pub ir: Ir,
+    pub name_ident: Ident,
 
     pub return_ty: TypeId,
     pub params: Vec<Param>,
@@ -93,8 +94,8 @@ impl std::fmt::Debug for Function {
 }
 
 impl<'a> Compiler<'a> {
-    /// Analyzes a function from CST.
-    pub(crate) fn analyze_function(
+    /// Analyzes a function signature from CST.
+    pub(crate) fn analyze_function_signature(
         &mut self,
         source_file_id: SourceFileId,
         class_id: ClassId,
@@ -136,24 +137,56 @@ impl<'a> Compiler<'a> {
 
         unsupported_post_specifiers(self.env, source_file_id, &cst.post_specifiers);
 
+        self.env.register_function(Function {
+            source_file_id,
+            class_id,
+            mangled_name: name.to_owned(),
+            name_ident: cst.name,
+            return_ty,
+            params,
+            flags,
+            implementation,
+        })
+    }
+
+    pub(crate) fn analyze_function_body(&mut self, function_id: FunctionId) -> Ir {
+        let function = self.env.get_function(function_id);
+        let &Function {
+            source_file_id,
+            class_id,
+            ..
+        } = function;
+        let name = function.mangled_name.clone();
+        let (partition_index, cst) = self
+            .untyped_class_partitions_for_theft(class_id)
+            .into_iter()
+            .flatten()
+            .enumerate()
+            .find_map(|(i, partition)| {
+                partition
+                    .functions
+                    .remove(CaseInsensitive::new_ref(&name))
+                    .map(|cst| (i, cst))
+            })
+            .expect("CSTs should be ready by the time function bodies are analyzed");
+        let function = self.env.get_function(function_id);
+
         let mut ir_builder = Ir::builder();
-        for param in &params {
+        for param in &function.params {
             ir_builder.add_local(param.var);
         }
 
         let mut builder = FunctionBuilder {
-            source_file_id,
-            class_id,
-            function_keyword_span: cst.kind.span(),
-            flags,
-            return_ty,
-            params,
+            source_file_id: function.source_file_id,
+            class_id: function.class_id,
+            function_id,
+            return_ty: function.return_ty,
             ir: ir_builder,
         };
         match &cst.body {
             cst::Body::Stub(semi) => {
                 if !matches!(
-                    &implementation,
+                    &function.implementation,
                     FunctionImplementation::Native | FunctionImplementation::Opcode(_)
                 ) {
                     self.env.emit(
@@ -167,9 +200,13 @@ impl<'a> Compiler<'a> {
                 self.stmt_block(&mut builder, block);
             }
         }
+        let ir = builder.into_ir();
 
-        self.env
-            .register_function(builder.into_function(name.to_owned(), implementation))
+        self.untyped_class_partitions_for_theft(class_id).unwrap()[partition_index]
+            .functions
+            .insert(CaseInsensitive::new(name), cst);
+
+        ir
     }
 }
 

@@ -11,6 +11,7 @@ use tracing::trace;
 use crate::{
     class::{ClassNamespace, Var},
     function::Function,
+    ir::Ir,
     partition::UntypedClassPartition,
     type_system::{lookup::TypeSource, Primitive, Type, TypeName},
     Compiler,
@@ -45,6 +46,8 @@ pub struct Environment {
     global_type_ids_by_name: HashMap<TypeName, TypeId>,
     scoped_type_ids_by_name: HashMap<(ClassId, TypeName), TypeId>,
     type_names_by_id: Vec<TypeName>,
+
+    irs_by_function_id: HashMap<FunctionId, Ir>,
 }
 
 impl Environment {
@@ -61,6 +64,7 @@ impl Environment {
             global_type_ids_by_name: HashMap::new(),
             scoped_type_ids_by_name: HashMap::new(),
             type_names_by_id: vec![],
+            irs_by_function_id: HashMap::new(),
         };
         env.register_fundamental_types();
         env
@@ -114,6 +118,13 @@ impl Environment {
         self.class_namespaces_by_id
             .get_mut(class_id.0 as usize)
             .expect("invalid class ID passed to class_namespace_mut")
+    }
+
+    pub fn untyped_class_partitions(&self, class_id: ClassId) -> Option<&[UntypedClassPartition]> {
+        self.untyped_class_partitions
+            .get(&class_id)
+            .and_then(|x| x.as_ref())
+            .map(|x| x.as_slice())
     }
 }
 
@@ -176,8 +187,12 @@ impl Environment {
         id
     }
 
-    pub fn get_function(&self, id: FunctionId) -> &Function {
-        &self.functions[id.0 as usize]
+    pub fn get_function(&self, function_id: FunctionId) -> &Function {
+        &self.functions[function_id.0 as usize]
+    }
+
+    pub fn get_function_ir(&self, function_id: FunctionId) -> Option<&Ir> {
+        self.irs_by_function_id.get(&function_id)
     }
 }
 
@@ -220,11 +235,7 @@ impl<'a> Compiler<'a> {
                     .insert(class_id, Some(partitions));
             }
         }
-        self.env
-            .untyped_class_partitions
-            .get(&class_id)
-            .and_then(|x| x.as_ref())
-            .map(|x| x.as_slice())
+        self.env.untyped_class_partitions(class_id)
     }
 
     /// Returns the set of untyped partitions for stealing purposes.
@@ -346,5 +357,16 @@ impl<'a> Compiler<'a> {
             }
             (source, type_id)
         }
+    }
+}
+
+/// # Memoized function analysis
+impl<'a> Compiler<'a> {
+    pub fn function_ir(&mut self, function_id: FunctionId) -> &Ir {
+        if self.env.get_function_ir(function_id).is_none() {
+            let ir = self.analyze_function_body(function_id);
+            self.env.irs_by_function_id.insert(function_id, ir);
+        }
+        self.env.get_function_ir(function_id).unwrap()
     }
 }

@@ -4,18 +4,18 @@ use muscript_foundation::source::{SourceFileId, Span};
 
 use crate::{
     ir::{BasicBlock, BasicBlockId, Ir, NodeId, RegisterId, Sink, Terminator, Value},
-    ClassId, TypeId, VarId,
+    ClassId, Environment, FunctionId, TypeId, VarId,
 };
 
-use super::{Function, FunctionFlags, FunctionImplementation, Param};
+use super::Function;
 
 pub struct FunctionBuilder {
     pub(super) source_file_id: SourceFileId,
     pub(super) class_id: ClassId,
-    pub(super) function_keyword_span: Span,
-    pub(super) flags: FunctionFlags,
+    pub(super) function_id: FunctionId,
+
     pub(super) return_ty: TypeId,
-    pub(super) params: Vec<Param>,
+
     pub(super) ir: IrBuilder,
 }
 
@@ -25,21 +25,16 @@ pub struct IrBuilder {
 }
 
 impl FunctionBuilder {
-    pub fn into_function(
-        self,
-        mangled_name: String,
-        implementation: FunctionImplementation,
-    ) -> Function {
-        Function {
-            source_file_id: self.source_file_id,
-            class: self.class_id,
-            mangled_name,
-            ir: self.ir.into_ir(),
-            return_ty: self.return_ty,
-            params: self.params,
-            flags: self.flags,
-            implementation,
-        }
+    pub fn function<'a>(&self, env: &'a Environment) -> &'a Function {
+        env.get_function(self.function_id)
+    }
+
+    pub fn source_file_id(&self) -> SourceFileId {
+        self.source_file_id
+    }
+
+    pub fn into_ir(self) -> Ir {
+        self.ir.into_ir()
     }
 }
 
@@ -65,7 +60,7 @@ impl IrBuilder {
         self.ir.add_local(var_id);
     }
 
-    #[must_use = "basic blocks must be linked to other basic blocks to belong to be reachable"]
+    #[must_use = "basic blocks must be linked to other basic blocks to be reachable"]
     pub fn append_basic_block(&mut self, name: impl Into<Cow<'static, str>>) -> BasicBlockId {
         let basic_block_id = self.ir.create_basic_block(BasicBlock::new(name.into()));
         self.set_cursor(basic_block_id);

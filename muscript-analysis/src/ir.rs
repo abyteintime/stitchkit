@@ -23,6 +23,12 @@ pub struct Ir {
     pub basic_blocks: Vec<BasicBlock>,
 }
 
+impl std::fmt::Debug for Ir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ir").finish_non_exhaustive()
+    }
+}
+
 /// Unique ID of a [`Node`] within an [`Ir`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);

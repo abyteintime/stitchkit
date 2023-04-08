@@ -23,8 +23,12 @@ impl<'a> Compiler<'a> {
                         .expect("index_of_partition_with_function returned Some for a reason");
                     let &mut UntypedClassPartition { source_file_id, .. } = partition;
 
-                    let function_id =
-                        self.analyze_function(source_file_id, class_id, name, &stolen_cst);
+                    let function_id = self.analyze_function_signature(
+                        source_file_id,
+                        class_id,
+                        name,
+                        &stolen_cst,
+                    );
 
                     // As per our "theft" contract (which does not really involve theft - this is a
                     // pacifist run) - give it back.
@@ -79,5 +83,17 @@ impl<'a> Compiler<'a> {
             .iter()
             .filter_map(|name| self.function_in_class(class_id, name))
             .collect()
+    }
+
+    pub fn lookup_function(&mut self, class_id: ClassId, name: &str) -> Option<FunctionId> {
+        // TODO: Speed this up via memoization? Walking the inheritance hierarchy could be
+        // a bit slow.
+        if let Some(function_id) = self.function_in_class(class_id, name) {
+            Some(function_id)
+        } else if let Some(parent_class) = self.super_class_id(class_id) {
+            self.function_in_class(parent_class, name)
+        } else {
+            None
+        }
     }
 }

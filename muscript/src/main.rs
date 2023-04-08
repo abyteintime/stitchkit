@@ -134,6 +134,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
                 );
                 for &function_id in &class.functions {
                     let function = env.get_function(function_id);
+                    let ir = env.get_function_ir(function_id);
                     println!(
                         "\n{} {:?}",
                         function.mangled_name,
@@ -141,6 +142,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
                             sources: &source_file_set,
                             env: &env,
                             function,
+                            ir,
                         }
                     );
                 }

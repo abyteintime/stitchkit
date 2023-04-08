@@ -56,7 +56,7 @@ impl<'a> Compiler<'a> {
             }
             _ => {
                 self.env.emit(
-                    Diagnostic::error(builder.source_file_id, "unsupported expression")
+                    Diagnostic::error(builder.source_file_id(), "unsupported expression")
                         .with_label(Label::primary(expr.span(), ""))
                         .with_note("note: MuScript is still unfinished; you can help contribute at <https://github.com/abyteintime/stitchkit>")
                 );

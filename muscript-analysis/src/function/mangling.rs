@@ -98,7 +98,7 @@ const GENERIC_COMMA: &str = "-c";
 /// Generics `Generic<Int, Float>` are mangled to `Generic-lInt-cFloat-g`, because they do not need
 /// compatibility with vanilla packages, as no operators ever use generic arguments.
 /// `-l` is meant to represent **l**ess-than, `-c` **c**ommas, and `-g` **g**reater-than.
-pub fn mangled_type_name<'a>(type_name: &'a TypeName) -> Cow<'a, str> {
+pub fn mangled_type_name(type_name: &TypeName) -> Cow<'_, str> {
     if !type_name.generic_arguments.is_empty() {
         let mut builder = String::from(type_name.name.as_str());
         builder.push_str(GENERIC_LESS);
@@ -120,6 +120,8 @@ pub fn mangled_type_name<'a>(type_name: &'a TypeName) -> Cow<'a, str> {
 /// CST-level mangling; performed at partitioning time to disambiguate operators.
 pub mod cst_level {
     use super::*;
+
+    // NOTE: Code here is largely a duplicate of the outer module because I'm lazy.
 
     /// Mangles a function's name more or less according to Unreal's own rules.
     ///

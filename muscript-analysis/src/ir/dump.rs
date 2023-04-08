@@ -45,7 +45,7 @@ impl<'a> DumpIr<'a> {
 
     fn function_id(&self, f: &mut Formatter<'_>, function_id: FunctionId) -> fmt::Result {
         let function = self.env.get_function(function_id);
-        let class_name = self.env.class_name(function.class);
+        let class_name = self.env.class_name(function.class_id);
         write!(f, "{class_name}.{}", function.mangled_name)
     }
 
@@ -135,6 +135,7 @@ pub struct DumpFunction<'a> {
     pub sources: &'a SourceFileSet,
     pub env: &'a Environment,
     pub function: &'a Function,
+    pub ir: Option<&'a Ir>,
 }
 
 impl<'a> Debug for DumpFunction<'a> {
@@ -144,7 +145,7 @@ impl<'a> Debug for DumpFunction<'a> {
             if i != 0 {
                 f.write_str(", ")?;
             }
-            local(self.env, self.sources, f, self.function.ir.locals[i])?;
+            local(self.env, self.sources, f, self.function.params[i].var)?;
             if !param.flags.is_empty() {
                 write!(f, " {}", param.flags)?;
             }
@@ -157,12 +158,14 @@ impl<'a> Debug for DumpFunction<'a> {
         }
         writeln!(f, "{}", self.function.flags)?;
 
-        DumpIr {
-            sources: self.sources,
-            env: self.env,
-            ir: &self.function.ir,
+        if let Some(ir) = self.ir {
+            DumpIr {
+                sources: self.sources,
+                env: self.env,
+                ir,
+            }
+            .fmt(f)?;
         }
-        .fmt(f)?;
         Ok(())
     }
 }

@@ -96,6 +96,12 @@ impl<'a> DumpIr<'a> {
                 f.write_str("discard ")?;
                 self.register_id(f, *register_id)?;
             }
+            Sink::Store(lvalue, rvalue) => {
+                f.write_str("store [")?;
+                self.register_id(f, *lvalue)?;
+                f.write_str("], ")?;
+                self.register_id(f, *rvalue)?;
+            }
         }
         Ok(())
     }

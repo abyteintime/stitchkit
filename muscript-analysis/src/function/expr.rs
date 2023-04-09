@@ -12,6 +12,7 @@ use crate::{
 
 use super::builder::FunctionBuilder;
 
+mod assign;
 mod call;
 mod conversion;
 mod ident;
@@ -71,6 +72,12 @@ impl<'a> Compiler<'a> {
                 inner,
                 close: _,
             } => self.expr(builder, context, inner),
+
+            cst::Expr::Assign {
+                lvalue,
+                assign: _,
+                rvalue,
+            } => self.expr_assign(builder, context, lvalue, rvalue),
 
             _ => {
                 self.env.emit(

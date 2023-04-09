@@ -36,6 +36,9 @@ pub enum Value {
 pub enum Sink {
     /// Evaluates the value from the given register effectfully and discards its result.
     Discard(RegisterId),
+
+    /// Stores the provided rvalue in the lvalue produced by the given register.
+    Store(RegisterId, RegisterId),
 }
 
 /// [`Terminator`] represents an instruction which ends the execution of a basic block.

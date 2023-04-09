@@ -18,7 +18,7 @@ pub enum Value {
     // Calls
     CallFinal {
         function: FunctionId,
-        args: Vec<RegisterId>,
+        arguments: Vec<RegisterId>,
     },
 }
 

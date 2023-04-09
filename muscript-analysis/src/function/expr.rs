@@ -52,8 +52,16 @@ impl<'a> Compiler<'a> {
         match expr {
             cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
             cst::Expr::Prefix { operator, right } => {
-                self.expr_prefix(builder, context, operator.clone(), right)
+                self.expr_prefix(builder, context, operator, right)
             }
+            cst::Expr::Postfix { left, operator } => {
+                self.expr_postfix(builder, context, operator, left)
+            }
+            cst::Expr::Binary {
+                left,
+                operator,
+                right,
+            } => self.expr_binary(builder, context, operator, left, right),
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id(), "unsupported expression")

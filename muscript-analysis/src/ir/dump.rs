@@ -66,7 +66,10 @@ impl<'a> DumpIr<'a> {
 
             Value::None => f.write_str("none")?,
 
-            Value::CallFinal { function, args } => {
+            Value::CallFinal {
+                function,
+                arguments: args,
+            } => {
                 f.write_str("call final ")?;
                 self.function_id(f, *function)?;
                 f.write_str(" (")?;

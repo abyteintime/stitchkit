@@ -9,51 +9,24 @@ use crate::type_system::TypeName;
 // NOTE: We'll probably need to devise a more modern plan for this soon™.
 // Right now we keep the old UnrealScript mangling scheme for back-compat reasons.
 
-pub enum Operator<'a> {
-    Prefix {
-        operator: &'a str,
-        parameter_type: &'a TypeName,
-    },
-    Postfix {
-        operator: &'a str,
-        parameter_type: &'a TypeName,
-    },
-    Binary {
-        operator: &'a str,
-        left_type: &'a TypeName,
-        right_type: &'a TypeName,
-    },
+pub struct Operator<'a, I> {
+    pub operator: &'a str,
+    pub argument_types: I,
+    pub is_prefix: bool,
 }
 
-pub fn mangled_operator_function_name(operator: Operator<'_>) -> String {
-    match operator {
-        Operator::Prefix {
-            operator,
-            parameter_type,
-        } => format!(
-            "{}_Pre{}",
-            operator_name(operator),
-            mangled_type_name(parameter_type)
-        ),
-        Operator::Postfix {
-            operator,
-            parameter_type,
-        } => format!(
-            "{}_{}",
-            operator_name(operator),
-            mangled_type_name(parameter_type)
-        ),
-        Operator::Binary {
-            operator,
-            left_type,
-            right_type,
-        } => format!(
-            "{}_{}{}",
-            operator_name(operator),
-            mangled_type_name(left_type),
-            mangled_type_name(right_type)
-        ),
+pub fn mangled_operator_function_name<'a>(
+    operator: Operator<'_, impl Iterator<Item = &'a TypeName>>,
+) -> String {
+    let mut builder = format!(
+        "{}_{}",
+        operator_name(operator.operator),
+        if operator.is_prefix { "Pre" } else { "" }
+    );
+    for argument_type in operator.argument_types {
+        builder.push_str(&mangled_type_name(argument_type))
     }
+    builder
 }
 
 pub fn operator_name(operator: &str) -> String {

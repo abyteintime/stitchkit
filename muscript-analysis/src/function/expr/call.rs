@@ -115,7 +115,7 @@ impl<'a> Compiler<'a> {
         self.expr_operator(builder, context, operator, false, &[left])
     }
 
-    pub(super) fn expr_binary(
+    pub(super) fn expr_infix(
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,

@@ -57,11 +57,11 @@ impl<'a> Compiler<'a> {
             cst::Expr::Postfix { left, operator } => {
                 self.expr_postfix(builder, context, operator, left)
             }
-            cst::Expr::Binary {
+            cst::Expr::Infix {
                 left,
                 operator,
                 right,
-            } => self.expr_binary(builder, context, operator, left, right),
+            } => self.expr_infix(builder, context, operator, left, right),
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id(), "unsupported expression")

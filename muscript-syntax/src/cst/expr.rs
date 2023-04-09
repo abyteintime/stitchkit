@@ -40,7 +40,7 @@ pub enum Expr {
         left: Box<Expr>,
         operator: Token,
     },
-    Binary {
+    Infix {
         left: Box<Expr>,
         operator: InfixOperator,
         right: Box<Expr>,
@@ -244,7 +244,7 @@ impl Expr {
                 operator: op.token,
             },
             _ if op.token.kind.is_overloadable_operator() => {
-                Expr::binary(parser, op, move |op, right| Expr::Binary {
+                Expr::binary(parser, op, move |op, right| Expr::Infix {
                     left: Box::new(left),
                     operator: op,
                     right: Box::new(right),

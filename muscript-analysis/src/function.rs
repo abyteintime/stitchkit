@@ -169,20 +169,16 @@ impl<'a> Compiler<'a> {
                     .map(|cst| (i, cst))
             })
             .expect("CSTs should be ready by the time function bodies are analyzed");
-        let function = self.env.get_function(function_id);
 
-        let mut ir_builder = Ir::builder();
-        for param in &function.params {
-            ir_builder.add_local(param.var);
+        let function = self.env.get_function(function_id);
+        let mut builder = FunctionBuilder::new(function_id, function);
+
+        let params = function.params.clone(); // Hopefully not too horrible
+        for param in params {
+            self.declare_local(&mut builder, param.var);
         }
 
-        let mut builder = FunctionBuilder {
-            source_file_id: function.source_file_id,
-            class_id: function.class_id,
-            function_id,
-            return_ty: function.return_ty,
-            ir: ir_builder,
-        };
+        let function = self.env.get_function(function_id);
         match &cst.body {
             cst::Body::Stub(semi) => {
                 if !matches!(

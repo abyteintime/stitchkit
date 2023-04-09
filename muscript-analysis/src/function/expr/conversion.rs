@@ -14,7 +14,7 @@ impl<'a> Compiler<'a> {
 
         if input_register.ty != expected_ty {
             self.env.emit(
-                Diagnostic::error(builder.source_file_id(), "type mismatch")
+                Diagnostic::error(builder.source_file_id, "type mismatch")
                     .with_label(Label::primary(input_node.span, ""))
                     .with_note(indoc::formatdoc!(
                         "expected `{}`,

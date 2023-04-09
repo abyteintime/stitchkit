@@ -8,4 +8,5 @@ pub mod notes {
         note: MuScript does not consider access modifiers at the moment;
               all items are treated as `public`
     "};
+    pub const WIP: &str = "note: MuScript is still unfinished; you can help contribute at <https://github.com/abyteintime/stitchkit>";
 }

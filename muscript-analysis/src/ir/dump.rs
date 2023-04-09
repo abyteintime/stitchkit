@@ -110,6 +110,16 @@ impl<'a> DumpIr<'a> {
 impl<'a> Debug for DumpIr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("{\n")?;
+
+        for &var in &self.ir.locals {
+            f.write_str("    local ")?;
+            local(self.env, self.sources, f, var)?;
+            writeln!(f)?;
+        }
+        if !self.ir.locals.is_empty() {
+            writeln!(f)?;
+        }
+
         for (i, basic_block) in self.ir.basic_blocks.iter().enumerate() {
             if i != 0 {
                 writeln!(f)?;
@@ -128,6 +138,7 @@ impl<'a> Debug for DumpIr<'a> {
             self.terminator(f, &basic_block.terminator)?;
             writeln!(f)?;
         }
+
         f.write_str("}")?;
 
         Ok(())

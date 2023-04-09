@@ -50,7 +50,7 @@ impl<'a> Compiler<'a> {
         if builder.return_ty == TypeId::VOID && provided_return_value_ty != TypeId::VOID {
             self.env.emit(
                 Diagnostic::error(
-                    builder.source_file_id(),
+                    builder.source_file_id,
                     "function does not return anything, but a return value was provided",
                 )
                 .with_label(Label::primary(ret.value.span(), ""))
@@ -70,7 +70,7 @@ impl<'a> Compiler<'a> {
         } else if builder.return_ty != TypeId::VOID && provided_return_value_ty == TypeId::VOID {
             self.env.emit(
                 Diagnostic::error(
-                    builder.source_file_id(),
+                    builder.source_file_id,
                     format!(
                         "function was declared to return `{}`, but no return value was provided",
                         self.env.type_name(builder.return_ty)

@@ -5,6 +5,7 @@ use muscript_foundation::{
 use muscript_syntax::cst;
 
 use crate::{
+    diagnostics::notes,
     ir::{RegisterId, Value},
     Compiler, TypeId,
 };
@@ -64,9 +65,9 @@ impl<'a> Compiler<'a> {
             } => self.expr_infix(builder, context, operator, left, right),
             _ => {
                 self.env.emit(
-                    Diagnostic::error(builder.source_file_id(), "unsupported expression")
+                    Diagnostic::error(builder.source_file_id, "unsupported expression")
                         .with_label(Label::primary(expr.span(), ""))
-                        .with_note("note: MuScript is still unfinished; you can help contribute at <https://github.com/abyteintime/stitchkit>")
+                        .with_note(notes::WIP),
                 );
                 builder.ir.append_register(
                     expr.span(),

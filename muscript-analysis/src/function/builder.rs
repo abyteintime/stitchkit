@@ -1,6 +1,9 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
-use muscript_foundation::source::{SourceFileId, Span};
+use muscript_foundation::{
+    ident::CaseInsensitive,
+    source::{SourceFileId, Span},
+};
 
 use crate::{
     ir::{BasicBlock, BasicBlockId, Ir, NodeId, RegisterId, Sink, Terminator, Value},
@@ -10,13 +13,19 @@ use crate::{
 use super::Function;
 
 pub struct FunctionBuilder {
-    pub(super) source_file_id: SourceFileId,
-    pub(super) class_id: ClassId,
-    pub(super) function_id: FunctionId,
+    pub source_file_id: SourceFileId,
+    pub class_id: ClassId,
+    pub function_id: FunctionId,
 
-    pub(super) return_ty: TypeId,
+    pub return_ty: TypeId,
+    local_scopes: Vec<LocalScope>,
 
-    pub(super) ir: IrBuilder,
+    pub ir: IrBuilder,
+}
+
+#[derive(Default)]
+pub struct LocalScope {
+    locals: HashMap<CaseInsensitive<String>, VarId>,
 }
 
 pub struct IrBuilder {
@@ -24,17 +33,60 @@ pub struct IrBuilder {
     cursor: BasicBlockId,
 }
 
+/// # Lifecycle
 impl FunctionBuilder {
-    pub fn function<'a>(&self, env: &'a Environment) -> &'a Function {
-        env.get_function(self.function_id)
-    }
-
-    pub fn source_file_id(&self) -> SourceFileId {
-        self.source_file_id
+    pub fn new(function_id: FunctionId, function: &Function) -> Self {
+        Self {
+            source_file_id: function.source_file_id,
+            class_id: function.class_id,
+            function_id,
+            return_ty: function.return_ty,
+            local_scopes: vec![LocalScope::default()],
+            ir: Ir::builder(),
+        }
     }
 
     pub fn into_ir(self) -> Ir {
         self.ir.into_ir()
+    }
+}
+
+/// # Getters
+impl FunctionBuilder {
+    pub fn function<'a>(&self, env: &'a Environment) -> &'a Function {
+        env.get_function(self.function_id)
+    }
+}
+
+/// # Local stack
+impl FunctionBuilder {
+    pub fn push_local_scope(&mut self) {
+        self.local_scopes.push(LocalScope::default());
+    }
+
+    pub fn pop_local_scope(&mut self) {
+        let scope = self.local_scopes.pop();
+        assert!(
+            scope.is_some(),
+            "unbalanced push_local_scope/pop_local_scope calls"
+        );
+    }
+
+    /// If there was a variable declared in the same scope with the same name, returns it.
+    pub fn add_local_to_scope(&mut self, name: &str, var_id: VarId) -> Option<VarId> {
+        self.local_scopes
+            .last_mut()
+            .expect("there must be at least one scope to add variables into")
+            .locals
+            .insert(CaseInsensitive::new(name.to_owned()), var_id)
+    }
+
+    pub fn lookup_local(&self, name: &str) -> Option<VarId> {
+        self.local_scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.locals.get(CaseInsensitive::new_ref(name)))
+            .copied()
     }
 }
 

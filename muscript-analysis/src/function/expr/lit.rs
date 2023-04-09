@@ -16,7 +16,7 @@ impl<'a> Compiler<'a> {
         context: ExprContext,
         lit: &cst::Lit,
     ) -> RegisterId {
-        let input = self.sources.source(builder.source_file_id());
+        let input = self.sources.source(builder.source_file_id);
         match lit {
             cst::Lit::None(_) => todo!(),
             cst::Lit::Bool(b) => builder.ir.append_register(
@@ -35,7 +35,7 @@ impl<'a> Compiler<'a> {
                 } else {
                     TypeId::INT
                 };
-                let i = x.parse(input, self.env, builder.source_file_id());
+                let i = x.parse(input, self.env, builder.source_file_id);
                 builder.ir.append_register(
                     x.span,
                     "lit_int",

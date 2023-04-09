@@ -42,7 +42,7 @@ impl<'a> Compiler<'a> {
         if let Some(function_id) = self.lookup_function(builder.class_id, &operator_function_name) {
             builder.ir.append_register(
                 operator.span(),
-                "prefix",
+                "op",
                 self.env.get_function(function_id).return_ty,
                 Value::CallFinal {
                     function: function_id,
@@ -51,7 +51,12 @@ impl<'a> Compiler<'a> {
             )
         } else {
             let mut error = format!(
-                "no overload of prefix operator `{}` exists for {} of type ",
+                "no overload of {} `{}` exists for {} of type ",
+                if is_prefix {
+                    "prefix operator"
+                } else {
+                    "operator"
+                },
                 operator_str,
                 if arguments.len() > 1 {
                     "arguments"
@@ -72,7 +77,7 @@ impl<'a> Compiler<'a> {
             );
             builder.ir.append_register(
                 operator.span(),
-                "prefix_invalid",
+                "op",
                 context.expected_type.to_type_id(),
                 Value::Void,
             )

@@ -76,6 +76,15 @@ bitflags! {
     }
 }
 
+impl VarKind {
+    pub fn ty(&self) -> TypeId {
+        match self {
+            VarKind::Var { ty, .. } => *ty,
+            VarKind::Const(_) => unimplemented!("consts do not currently undergo type checking"),
+        }
+    }
+}
+
 impl VarFlags {
     pub fn from_cst(
         diagnostics: &mut dyn DiagnosticSink,

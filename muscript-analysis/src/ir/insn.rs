@@ -1,4 +1,4 @@
-use crate::FunctionId;
+use crate::{FunctionId, VarId};
 
 use super::RegisterId;
 
@@ -11,6 +11,9 @@ pub enum Value {
     Bool(bool),
     Int(i32),
     Float(f32),
+
+    // Variables
+    Local(VarId),
 
     // Objects
     None,

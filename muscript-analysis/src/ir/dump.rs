@@ -64,6 +64,11 @@ impl<'a> DumpIr<'a> {
             Value::Int(x) => write!(f, "int {x}")?,
             Value::Float(x) => write!(f, "float {x}")?,
 
+            Value::Local(var_id) => {
+                f.write_str("local ")?;
+                local(self.env, self.sources, f, *var_id)?;
+            }
+
             Value::None => f.write_str("none")?,
 
             Value::CallFinal {

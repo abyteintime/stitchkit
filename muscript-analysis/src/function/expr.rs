@@ -14,6 +14,7 @@ use super::builder::FunctionBuilder;
 
 mod call;
 mod conversion;
+mod ident;
 mod lit;
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,8 @@ impl<'a> Compiler<'a> {
     ) -> RegisterId {
         match expr {
             cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
+            cst::Expr::Ident(ident) => self.expr_ident(builder, context, *ident),
+
             cst::Expr::Prefix { operator, right } => {
                 self.expr_prefix(builder, context, operator, right)
             }
@@ -63,6 +66,12 @@ impl<'a> Compiler<'a> {
                 operator,
                 right,
             } => self.expr_infix(builder, context, operator, left, right),
+            cst::Expr::Paren {
+                open: _,
+                inner,
+                close: _,
+            } => self.expr(builder, context, inner),
+
             _ => {
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id, "unsupported expression")

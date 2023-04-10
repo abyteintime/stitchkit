@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    source::{Span, Spanned},
 };
 use muscript_syntax::{
     cst::{self, InfixOperator},
@@ -25,6 +25,7 @@ impl<'a> Compiler<'a> {
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
+        outer_span: Span,
         operator: &dyn Spanned,
         is_prefix: bool,
         arguments: &[RegisterId],
@@ -41,7 +42,7 @@ impl<'a> Compiler<'a> {
         });
         if let Some(function_id) = self.lookup_function(builder.class_id, &operator_function_name) {
             builder.ir.append_register(
-                operator.span(),
+                outer_span,
                 "op",
                 self.env.get_function(function_id).return_ty,
                 Value::CallFinal {
@@ -88,6 +89,7 @@ impl<'a> Compiler<'a> {
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
+        outer: &cst::Expr,
         operator: &Token,
         right: &cst::Expr,
     ) -> RegisterId {
@@ -100,13 +102,14 @@ impl<'a> Compiler<'a> {
             },
             right,
         );
-        self.expr_operator(builder, context, operator, true, &[right])
+        self.expr_operator(builder, context, outer.span(), operator, true, &[right])
     }
 
     pub(super) fn expr_postfix(
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
+        outer: &cst::Expr,
         operator: &Token,
         left: &cst::Expr,
     ) -> RegisterId {
@@ -117,13 +120,14 @@ impl<'a> Compiler<'a> {
             },
             left,
         );
-        self.expr_operator(builder, context, operator, false, &[left])
+        self.expr_operator(builder, context, outer.span(), operator, false, &[left])
     }
 
     pub(super) fn expr_infix(
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
+        outer: &cst::Expr,
         operator: &InfixOperator,
         left: &cst::Expr,
         right: &cst::Expr,
@@ -142,6 +146,13 @@ impl<'a> Compiler<'a> {
             },
             right,
         );
-        self.expr_operator(builder, context, operator, false, &[left, right])
+        self.expr_operator(
+            builder,
+            context,
+            outer.span(),
+            operator,
+            false,
+            &[left, right],
+        )
     }
 }

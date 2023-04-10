@@ -57,16 +57,16 @@ impl<'a> Compiler<'a> {
             cst::Expr::Ident(ident) => self.expr_ident(builder, context, *ident),
 
             cst::Expr::Prefix { operator, right } => {
-                self.expr_prefix(builder, context, operator, right)
+                self.expr_prefix(builder, context, expr, operator, right)
             }
             cst::Expr::Postfix { left, operator } => {
-                self.expr_postfix(builder, context, operator, left)
+                self.expr_postfix(builder, context, expr, operator, left)
             }
             cst::Expr::Infix {
                 left,
                 operator,
                 right,
-            } => self.expr_infix(builder, context, operator, left, right),
+            } => self.expr_infix(builder, context, expr, operator, left, right),
             cst::Expr::Paren {
                 open: _,
                 inner,

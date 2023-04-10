@@ -61,8 +61,9 @@ impl<'a> DumpIr<'a> {
             Value::Void => f.write_str("void")?,
 
             Value::Bool(value) => write!(f, "{value}")?,
-            Value::Int(x) => write!(f, "int {x}")?,
-            Value::Float(x) => write!(f, "float {x}")?,
+            Value::Int(value) => write!(f, "int {value}")?,
+            Value::Float(value) => write!(f, "float {value}")?,
+            Value::String(value) => write!(f, "string {value:?}")?,
 
             Value::Local(var_id) => {
                 f.write_str("local ")?;

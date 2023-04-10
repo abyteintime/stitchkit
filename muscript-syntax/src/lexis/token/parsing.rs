@@ -2,12 +2,12 @@ use std::num::{IntErrorKind, ParseIntError};
 
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::SourceFileId,
+    source::{SourceFileId, Span},
 };
 
 use crate::diagnostics::notes;
 
-use super::IntLit;
+use super::{FloatLit, IntLit, StringLit};
 
 // NOTE: Currently int parsing is not ideal, because the corner case of -0x80000000 is not handled
 // correctly, as the negative sign is not part of the integer literal.
@@ -64,5 +64,71 @@ impl IntLit {
             diagnostics,
             source_file_id,
         )
+    }
+}
+
+impl FloatLit {
+    pub fn parse(
+        &self,
+        input: &str,
+        diagnostics: &mut dyn DiagnosticSink,
+        source_file_id: SourceFileId,
+    ) -> f32 {
+        let float = self.span.get_input(input);
+        match float.parse() {
+            Ok(f) => f,
+            Err(error) => {
+                diagnostics.emit(
+                    Diagnostic::bug(
+                        source_file_id,
+                        format!("unexpected error when parsing float: {error}"),
+                    )
+                    .with_label(Label::primary(self.span, ""))
+                    .with_note(notes::PARSER_BUG),
+                );
+                0.0
+            }
+        }
+    }
+}
+
+impl StringLit {
+    pub fn parse(
+        &self,
+        input: &str,
+        diagnostics: &mut dyn DiagnosticSink,
+        source_file_id: SourceFileId,
+    ) -> String {
+        let string = self.span.get_input(input);
+        let string = &string[1..string.len() - 1];
+
+        let mut result = String::with_capacity(string.len());
+        let mut iter = string.char_indices();
+        loop {
+            match iter.next() {
+                Some((start, '\\')) => match iter.next() {
+                    Some((_, 'n')) => result.push('\n'),
+                    Some((_, other)) => diagnostics.emit(
+                        Diagnostic::error(
+                            source_file_id,
+                            format!("invalid escape sequence: `\\{other}`"),
+                        )
+                        .with_label(Label::primary(
+                            {
+                                let start = (self.span.start as usize) + start;
+                                let end = (self.span.start as usize) + 1 + other.len_utf8();
+                                Span::from(start as u32..end as u32)
+                            },
+                            "",
+                        )), // TODO: List escape sequences here.
+                            // .with_note("note: supported escape sequences include: "),
+                    ),
+                    None => unreachable!("\\\" is an escape sequence that continues the string"),
+                },
+                Some((_, c)) => result.push(c),
+                None => break,
+            }
+        }
+        result
     }
 }

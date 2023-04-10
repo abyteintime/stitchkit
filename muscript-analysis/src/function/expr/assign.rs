@@ -7,7 +7,7 @@ use crate::{
     Compiler,
 };
 
-use super::ExprContext;
+use super::{ExpectedType, ExprContext};
 
 impl<'a> Compiler<'a> {
     pub(super) fn expr_assign(
@@ -19,8 +19,14 @@ impl<'a> Compiler<'a> {
     ) -> RegisterId {
         // Use the same context for the lvalue, since we know its type must be the same as
         // the rvalue's.
-        let lvalue_register = self.expr(builder, context.clone(), lvalue);
-        let rvalue_register = self.expr(builder, context, rvalue);
+        let lvalue_register = self.expr(builder, context, lvalue);
+        let rvalue_register = self.expr(
+            builder,
+            ExprContext {
+                expected_type: ExpectedType::Matching(builder.ir.register(lvalue_register).ty),
+            },
+            rvalue,
+        );
         let rvalue_register = self.coerce_expr(
             builder,
             rvalue_register,

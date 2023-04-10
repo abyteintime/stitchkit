@@ -11,6 +11,7 @@ pub enum Value {
     Bool(bool),
     Int(i32),
     Float(f32),
+    String(String),
 
     // Variables
     Local(VarId),

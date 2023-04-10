@@ -222,7 +222,7 @@ impl<'a> Compiler<'a> {
             cst::Body::Stub(semi) => {
                 // TODO: Come up with some better rules for this, maybe.
                 // It works but it's very lenient; I'm not sure that we want people stubbing out
-                // implementations willy-nilly on events.
+                // implementations willy-nilly on events. (#3)
                 let can_be_stubbed_out = matches!(
                     &function.implementation,
                     FunctionImplementation::Native | FunctionImplementation::Opcode(_)

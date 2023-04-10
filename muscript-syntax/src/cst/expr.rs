@@ -135,10 +135,7 @@ impl Expr {
             TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
             TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { span: token.span })),
 
-            TokenKind::FailedExp => {
-                // TODO: Error message here.
-                Expr::FailedExp(FailedExp { span: token.span })
-            }
+            TokenKind::FailedExp => Expr::FailedExp(FailedExp { span: token.span }),
 
             TokenKind::Add
             | TokenKind::Sub

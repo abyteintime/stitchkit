@@ -58,7 +58,7 @@ impl<'a> CompilerInput for Input<'a> {
                     .iter()
                     .flat_map(|&id| {
                         let source_file = self.source_file_set.get(id);
-                        // TODO: Let these be specified from the outside.
+                        // TODO: Let these be specified from the outside. (#2)
                         let mut definitions = Definitions::default();
                         let mut preprocessor_diagnostics = vec![];
                         let preprocessor = Preprocessor::new(

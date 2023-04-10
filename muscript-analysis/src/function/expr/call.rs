@@ -18,7 +18,7 @@ use crate::{
     Compiler,
 };
 
-use super::{ExpectedType, ExprContext};
+use super::{void_handling::registers_are_valid, ExpectedType, ExprContext};
 
 impl<'a> Compiler<'a> {
     fn expr_operator(
@@ -51,31 +51,33 @@ impl<'a> Compiler<'a> {
                 },
             )
         } else {
-            let mut error = format!(
-                "no overload of {} `{}` exists for {} of type ",
-                if is_prefix {
-                    "prefix operator"
-                } else {
-                    "operator"
-                },
-                operator_str,
-                if arguments.len() > 1 {
-                    "arguments"
-                } else {
-                    "argument"
-                },
-            );
-            for (i, &register_id) in arguments.iter().enumerate() {
-                if i != 0 {
-                    error.push_str(", ");
+            if registers_are_valid(&builder.ir, arguments) {
+                let mut error = format!(
+                    "no overload of {} `{}` exists for {} of type ",
+                    if is_prefix {
+                        "prefix operator"
+                    } else {
+                        "operator"
+                    },
+                    operator_str,
+                    if arguments.len() > 1 {
+                        "arguments"
+                    } else {
+                        "argument"
+                    },
+                );
+                for (i, &register_id) in arguments.iter().enumerate() {
+                    if i != 0 {
+                        error.push_str(", ");
+                    }
+                    let type_name = self.env.type_name(builder.ir.register(register_id).ty);
+                    _ = write!(error, "`{type_name}`");
                 }
-                let type_name = self.env.type_name(builder.ir.register(register_id).ty);
-                _ = write!(error, "`{type_name}`");
+                self.env.emit(
+                    Diagnostic::error(builder.source_file_id, error)
+                        .with_label(Label::primary(operator.span(), "")),
+                );
             }
-            self.env.emit(
-                Diagnostic::error(builder.source_file_id, error)
-                    .with_label(Label::primary(operator.span(), "")),
-            );
             builder.ir.append_register(
                 operator.span(),
                 "op",

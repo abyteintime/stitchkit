@@ -54,6 +54,8 @@ impl<'a> Compiler<'a> {
         expr: &cst::Expr,
     ) -> RegisterId {
         match expr {
+            cst::Expr::Paren { inner, .. } => self.expr(builder, context, inner),
+
             cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
             cst::Expr::Ident(ident) => self.expr_ident(builder, context, *ident),
 
@@ -68,17 +70,16 @@ impl<'a> Compiler<'a> {
                 operator,
                 right,
             } => self.expr_infix(builder, context, expr, operator, left, right),
-            cst::Expr::Paren {
-                open: _,
-                inner,
-                close: _,
-            } => self.expr(builder, context, inner),
+            cst::Expr::Call {
+                function,
+                args,
+                open,
+                close,
+            } => self.expr_call(builder, context, expr, function, *open, args, *close),
 
-            cst::Expr::Assign {
-                lvalue,
-                assign: _,
-                rvalue,
-            } => self.expr_assign(builder, context, lvalue, rvalue),
+            cst::Expr::Assign { lvalue, rvalue, .. } => {
+                self.expr_assign(builder, context, lvalue, rvalue)
+            }
 
             _ => {
                 self.env.emit(

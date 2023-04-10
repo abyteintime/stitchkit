@@ -6,16 +6,17 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst::{self, InfixOperator},
-    lexis::token::Token,
+    lexis::token::{LeftParen, RightParen, Token},
 };
 
 use crate::{
     function::{
         builder::FunctionBuilder,
         mangling::{mangled_operator_function_name, Operator},
+        ParamFlags,
     },
     ir::{RegisterId, Value},
-    Compiler,
+    Compiler, TypeId,
 };
 
 use super::{void_handling::registers_are_valid, ExpectedType, ExprContext};
@@ -155,6 +156,129 @@ impl<'a> Compiler<'a> {
             operator,
             false,
             &[left, right],
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn expr_call(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        context: ExprContext,
+        outer: &cst::Expr,
+        function: &cst::Expr,
+        open: LeftParen,
+        args: &[cst::Arg],
+        close: RightParen,
+    ) -> RegisterId {
+        if let cst::Expr::Ident(ident) = function {
+            let name = self.sources.span(builder.source_file_id, ident);
+            if let Some(function_id) = self.lookup_function(builder.class_id, name) {
+                let num_params = self.env.get_function(function_id).params.len();
+
+                if args.len() > num_params {
+                    let function = self.env.get_function(function_id);
+                    self.env.emit(
+                        Diagnostic::error(
+                            builder.source_file_id,
+                            format!(
+                                "too many parameters; expected {num_params}, but got {}",
+                                args.len()
+                            ),
+                        )
+                        .with_label(Label::primary(args[num_params].span(), ""))
+                        .with_label(
+                            Label::secondary(function.name_ident.span, "function declared here")
+                                .in_file(function.source_file_id),
+                        ),
+                    );
+                }
+
+                let mut arguments = vec![];
+                for i in 0..num_params {
+                    let param_var = self.env.get_function(function_id).params[i].var;
+                    let param_ty = self.env.get_var(param_var).kind.ty();
+
+                    let omitted = cst::Arg::Omitted(close.span);
+                    let arg = args.get(i).unwrap_or(&omitted);
+                    let arg = match arg {
+                        cst::Arg::Provided(expr) => {
+                            let value = self.expr(
+                                builder,
+                                ExprContext {
+                                    expected_type: ExpectedType::Matching(param_ty),
+                                },
+                                expr,
+                            );
+                            self.coerce_expr(builder, value, param_ty)
+                        }
+                        cst::Arg::Omitted(span) => {
+                            let param = &self.env.get_function(function_id).params[i];
+                            let param_var = self.env.get_var(param_var);
+                            let param_name =
+                                self.sources.span(param_var.source_file_id, &param_var.name);
+                            if !param.flags.contains(ParamFlags::OPTIONAL) {
+                                self.env.emit(
+                                    Diagnostic::error(
+                                        builder.source_file_id,
+                                        format!(
+                                            "required argument `{param_name}` was not provided"
+                                        ),
+                                    )
+                                    .with_label(Label::primary(*span, "argument expected here..."))
+                                    .with_label(
+                                        Label::primary(
+                                            param_var.name.span,
+                                            "...to provide a value for this parameter",
+                                        )
+                                        .in_file(param_var.source_file_id),
+                                    ),
+                                )
+                            }
+                            builder.ir.append_register(
+                                *span,
+                                "omitted_arg",
+                                param_ty,
+                                Value::Default,
+                            )
+                        }
+                    };
+                    arguments.push(arg);
+                }
+                let return_ty = self.env.get_function(function_id).return_ty;
+                return builder.ir.append_register(
+                    outer.span(),
+                    "call",
+                    return_ty,
+                    Value::CallFinal {
+                        function: function_id,
+                        arguments,
+                    },
+                );
+            } else {
+                self.env.emit(
+                    Diagnostic::error(
+                        builder.source_file_id,
+                        format!("function `{name}` could not be found in this scope"),
+                    )
+                    .with_label(Label::primary(ident.span, "")),
+                )
+            }
+        } else {
+            self.env.emit(
+                Diagnostic::error(
+                    builder.source_file_id,
+                    "expression does not resolve to a function",
+                )
+                .with_label(Label::primary(function.span(), "")),
+                // TODO: Examples.
+                // .with_note("note: the left hand side of a function call must be:"),
+            );
+        }
+        builder.ir.append_register(
+            outer.span(),
+            "call_invalid",
+            context.expected_type.to_type_id(),
+            Value::Void,
         )
     }
 }

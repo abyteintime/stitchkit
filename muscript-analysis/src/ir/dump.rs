@@ -87,6 +87,7 @@ impl<'a> DumpIr<'a> {
                 }
                 f.write_str(")")?;
             }
+            Value::Default => f.write_str("default")?,
         }
         Ok(())
     }

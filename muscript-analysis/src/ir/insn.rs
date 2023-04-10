@@ -24,6 +24,7 @@ pub enum Value {
         function: FunctionId,
         arguments: Vec<RegisterId>,
     },
+    Default,
 }
 
 /// [`Sink`] represents a side-effectful instruction that does not produce a meaningful result.

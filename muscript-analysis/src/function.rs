@@ -211,7 +211,8 @@ impl<'a> Compiler<'a> {
         let function = self.env.get_function(function_id);
         let mut builder = FunctionBuilder::new(function_id, function);
 
-        let params = function.params.clone(); // Hopefully not too horrible
+        // Hopefully the clone here is not too horrible on performance.
+        let params = function.params.clone();
         for param in params {
             self.declare_local(&mut builder, param.var);
         }

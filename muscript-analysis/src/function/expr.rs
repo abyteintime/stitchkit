@@ -73,9 +73,9 @@ impl<'a> Compiler<'a> {
             cst::Expr::Call {
                 function,
                 args,
-                open,
                 close,
-            } => self.expr_call(builder, context, expr, function, *open, args, *close),
+                ..
+            } => self.expr_call(builder, context, expr, function, args, *close),
 
             cst::Expr::Assign { lvalue, rvalue, .. } => {
                 self.expr_assign(builder, context, lvalue, rvalue)

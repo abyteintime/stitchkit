@@ -6,7 +6,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst::{self, InfixOperator},
-    lexis::token::{LeftParen, RightParen, Token},
+    lexis::token::{RightParen, Token},
 };
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
         ParamFlags,
     },
     ir::{RegisterId, Value},
-    Compiler, TypeId,
+    Compiler, FunctionId,
 };
 
 use super::{void_handling::registers_are_valid, ExpectedType, ExprContext};
@@ -159,14 +159,12 @@ impl<'a> Compiler<'a> {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn expr_call(
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
         outer: &cst::Expr,
         function: &cst::Expr,
-        open: LeftParen,
         args: &[cst::Arg],
         close: RightParen,
     ) -> RegisterId {
@@ -194,56 +192,13 @@ impl<'a> Compiler<'a> {
                 }
 
                 let mut arguments = vec![];
+                let last_omitted = cst::Arg::Omitted(close.span);
                 for i in 0..num_params {
-                    let param_var = self.env.get_function(function_id).params[i].var;
-                    let param_ty = self.env.get_var(param_var).kind.ty();
-
-                    let omitted = cst::Arg::Omitted(close.span);
-                    let arg = args.get(i).unwrap_or(&omitted);
-                    let arg = match arg {
-                        cst::Arg::Provided(expr) => {
-                            let value = self.expr(
-                                builder,
-                                ExprContext {
-                                    expected_type: ExpectedType::Matching(param_ty),
-                                },
-                                expr,
-                            );
-                            self.coerce_expr(builder, value, param_ty)
-                        }
-                        cst::Arg::Omitted(span) => {
-                            let param = &self.env.get_function(function_id).params[i];
-                            let param_var = self.env.get_var(param_var);
-                            let param_name =
-                                self.sources.span(param_var.source_file_id, &param_var.name);
-                            if !param.flags.contains(ParamFlags::OPTIONAL) {
-                                self.env.emit(
-                                    Diagnostic::error(
-                                        builder.source_file_id,
-                                        format!(
-                                            "required argument `{param_name}` was not provided"
-                                        ),
-                                    )
-                                    .with_label(Label::primary(*span, "argument expected here..."))
-                                    .with_label(
-                                        Label::primary(
-                                            param_var.name.span,
-                                            "...to provide a value for this parameter",
-                                        )
-                                        .in_file(param_var.source_file_id),
-                                    ),
-                                )
-                            }
-                            builder.ir.append_register(
-                                *span,
-                                "omitted_arg",
-                                param_ty,
-                                Value::Default,
-                            )
-                        }
-                    };
+                    let arg = args.get(i).unwrap_or(&last_omitted);
+                    let arg = self.expr_call_arg(builder, function_id, arg, i);
                     arguments.push(arg);
                 }
+
                 let return_ty = self.env.get_function(function_id).return_ty;
                 return builder.ir.append_register(
                     outer.span(),
@@ -280,5 +235,53 @@ impl<'a> Compiler<'a> {
             context.expected_type.to_type_id(),
             Value::Void,
         )
+    }
+
+    fn expr_call_arg(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        function_id: FunctionId,
+        arg: &cst::Arg,
+        param_index: usize,
+    ) -> RegisterId {
+        let param = &self.env.get_function(function_id).params[param_index];
+        let param_var = self.env.get_var(param.var);
+        let param_ty = param_var.kind.ty();
+
+        match arg {
+            cst::Arg::Provided(expr) => {
+                let value = self.expr(
+                    builder,
+                    ExprContext {
+                        expected_type: ExpectedType::Matching(param_ty),
+                    },
+                    expr,
+                );
+                self.coerce_expr(builder, value, param_ty)
+            }
+            cst::Arg::Omitted(span) => {
+                let param = &self.env.get_function(function_id).params[param_index];
+                let param_name = self.sources.span(param_var.source_file_id, &param_var.name);
+                if !param.flags.contains(ParamFlags::OPTIONAL) {
+                    self.env.emit(
+                        Diagnostic::error(
+                            builder.source_file_id,
+                            format!("required argument `{param_name}` was not provided"),
+                        )
+                        .with_label(Label::primary(*span, "argument expected here..."))
+                        .with_label(
+                            Label::primary(
+                                param_var.name.span,
+                                "...to provide a value for this parameter",
+                            )
+                            .in_file(param_var.source_file_id),
+                        ),
+                    )
+                }
+                builder
+                    .ir
+                    .append_register(*span, "omitted_arg", param_ty, Value::Default)
+            }
+        }
     }
 }

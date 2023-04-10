@@ -32,6 +32,7 @@ pub struct Function {
     pub params: Vec<Param>,
 
     pub flags: FunctionFlags,
+    pub kind: FunctionKind,
     pub implementation: FunctionImplementation,
 }
 
@@ -76,11 +77,39 @@ bitflags! {
     }
 }
 
+/// The purpose (or kind) of a function.
+///
+/// Different kinds exhibit different behaviors and call syntaxes; see each kind's documentation.
+/// It is notable that these syntaxes are not interchangeble - you cannot call a prefix operator
+/// using regular function call syntax, even though its name is mangled to a valid identifier
+/// in the resulting archive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionKind {
+    /// Regular functions. Called using normal syntax `Abc(1, 2, 3)`.
+    Function,
+    /// Events. Similar to regular functions, but can be stubbed out. Additionally, only a limited
+    /// set of events is available.
+    Event,
+    /// Delegates. Cannot be called directly; instead, they must be stored inside a variable whose
+    /// type is `delegate<DelegateFunctioName>`, which then can be called using the regular call
+    /// syntax.
+    Delegate,
+    /// Prefix operator. Called like `op A`, where `op` is the operator.
+    PrefixOperator,
+    /// Postfix operator. Called like `A op`, where `op` is the operator.
+    PostfixOperator,
+    /// Infix operator. Called like `A op B`, where `op` is the operator.
+    InfixOperator,
+}
+
 /// How a function is implemented, and how it should be called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FunctionImplementation {
     /// Implemented in UnrealScript. Uses the normal calling convention.
     Script,
+    /// Implemented in UnrealScript, callable in C++. Uses the normal calling convention.
+    /// Event bodies can be stubbed out with `;`, which is the same as just using `{}`.
+    Event,
     /// Implemented in C++. Uses the normal calling convention.
     Native,
     /// Implemented in C++ as an opcode, using the opcode calling convention.
@@ -108,6 +137,14 @@ impl<'a> Compiler<'a> {
             source_file_id,
             &cst.pre_specifiers,
         );
+        let kind = match cst.kind {
+            cst::FunctionKind::Function(_) => FunctionKind::Function,
+            cst::FunctionKind::Event(_) => FunctionKind::Event,
+            cst::FunctionKind::Operator(_, _) => FunctionKind::InfixOperator,
+            cst::FunctionKind::PreOperator(_) => FunctionKind::PrefixOperator,
+            cst::FunctionKind::PostOperator(_) => FunctionKind::PostfixOperator,
+            cst::FunctionKind::Delegate(_) => FunctionKind::Delegate,
+        };
 
         let return_ty = cst
             .return_ty
@@ -145,6 +182,7 @@ impl<'a> Compiler<'a> {
             return_ty,
             params,
             flags,
+            kind,
             implementation,
         })
     }
@@ -181,10 +219,14 @@ impl<'a> Compiler<'a> {
         let function = self.env.get_function(function_id);
         match &cst.body {
             cst::Body::Stub(semi) => {
-                if !matches!(
+                // TODO: Come up with some better rules for this, maybe.
+                // It works but it's very lenient; I'm not sure that we want people stubbing out
+                // implementations willy-nilly on events.
+                let can_be_stubbed_out = matches!(
                     &function.implementation,
                     FunctionImplementation::Native | FunctionImplementation::Opcode(_)
-                ) {
+                ) || function.kind == FunctionKind::Event;
+                if !can_be_stubbed_out {
                     self.env.emit(
                         Diagnostic::error(source_file_id, "function body expected")
                             .with_label(Label::primary(semi.span, ""))

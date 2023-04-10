@@ -179,6 +179,7 @@ impl<'a> Debug for DumpFunction<'a> {
         f.write_str(") ")?;
         match self.function.implementation {
             FunctionImplementation::Script => (),
+            FunctionImplementation::Event => f.write_str("event ")?,
             FunctionImplementation::Native => f.write_str("native ")?,
             FunctionImplementation::Opcode(index) => write!(f, "opcode({index}) ")?,
         }

@@ -31,6 +31,7 @@ impl<'a> Compiler<'a> {
 
             cst::Stmt::If(stmt) => self.stmt_if(builder, stmt),
             cst::Stmt::While(stmt) => self.stmt_while(builder, stmt),
+            cst::Stmt::For(stmt) => self.stmt_for(builder, stmt),
             cst::Stmt::Return(ret) => self.stmt_return(builder, ret),
 
             _ => {

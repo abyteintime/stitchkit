@@ -1,6 +1,7 @@
 # Incompatibilities between MuScript and UnrealScript
 
-MuScript aims to improve on UnrealScript's design by removing features that can be easily misused.
+MuScript aims to improve on UnrealScript's design by removing features that can be easily misused,
+or augmenting existing features with usability improvements.
 
 The following is a listing of intentional incompatibilities between MuScript and vanilla
 UnrealScript.

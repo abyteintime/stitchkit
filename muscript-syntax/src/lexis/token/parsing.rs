@@ -7,7 +7,7 @@ use muscript_foundation::{
 
 use crate::diagnostics::notes;
 
-use super::{FloatLit, IntLit, StringLit};
+use super::{FloatLit, IntLit, NameLit, StringLit};
 
 // NOTE: Currently int parsing is not ideal, because the corner case of -0x80000000 is not handled
 // correctly, as the negative sign is not part of the integer literal.
@@ -130,5 +130,11 @@ impl StringLit {
             }
         }
         result
+    }
+}
+
+impl NameLit {
+    pub fn parse<'a>(&self, input: &'a str) -> &'a str {
+        self.span.get_input(input)
     }
 }

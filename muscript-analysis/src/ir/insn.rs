@@ -12,6 +12,7 @@ pub enum Value {
     Int(i32),
     Float(f32),
     String(String),
+    Name(String),
 
     // Variables
     Local(VarId),

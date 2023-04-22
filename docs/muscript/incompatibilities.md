@@ -159,7 +159,7 @@ b += Byte(1);  // All good now.
 
 ### Conditions
 
-Conditions in `if`, `while`, and `for` statements are not converted to `bool` automatically.
+Conditions in `if`, `while`, and `for` statements are not converted to `Bool` automatically.
 Therefore explicit comparisons are always required.
 
 ```unrealscript

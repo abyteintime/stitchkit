@@ -75,7 +75,7 @@ impl FloatLit {
         source_file_id: SourceFileId,
     ) -> f32 {
         let float = self.span.get_input(input);
-        match float.parse() {
+        match float.strip_suffix('f').unwrap_or(float).parse() {
             Ok(f) => f,
             Err(error) => {
                 diagnostics.emit(

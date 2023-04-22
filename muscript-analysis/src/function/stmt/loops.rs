@@ -107,5 +107,7 @@ impl<'a> Compiler<'a> {
         builder
             .ir
             .set_terminator(Terminator::Goto(for_update_begin));
+
+        builder.ir.set_cursor(past_for);
     }
 }

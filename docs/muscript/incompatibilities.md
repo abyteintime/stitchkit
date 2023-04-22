@@ -103,7 +103,7 @@ The following coercions are done by vanilla UnrealScript, but **not done** by Mu
   the future.
 - Implicit conversions on parameters marked `coerce`. MuScript ignores `coerce` and always requires
   an explicit conversion, since that's less prone to errors and makes performance more predictable
-  (since `string()` conversions are not exactly cheap.)
+  (since `String()` conversions are not exactly cheap.)
 
 MuScript also carries an _expected type_ with each expression, such that it may perform more
 contextual type inference where necessary, thus avoiding the need for some casts around literals.
@@ -111,7 +111,7 @@ For example, this means that despite MuScript's more strict rules around numeric
 following code compiles just fine:
 
 ```unrealscript
-function float Example()
+function Float Example()
 {
     return 1;  // An integer literal! These convert to floats automatically.
 }
@@ -121,7 +121,7 @@ On the other hand, the following code does not compile, since there is no operat
 for `Int / Float`:
 
 ```unrealscript
-function float Reciprocal(float x)
+function Float Reciprocal(Float x)
 {
     return 1 / x;  // Error.
 }
@@ -130,7 +130,7 @@ function float Reciprocal(float x)
 To fix this, you can turn the integer literal into a float literal by adding a decimal point:
 
 ```unrealscript
-function float Reciprocal(float x)
+function Float Reciprocal(Float x)
 {
     return 1.0 / x;  // All good!
 }
@@ -201,6 +201,9 @@ Vanilla UnrealScript is pretty inconsistent when naming things. MuScript aims to
   engine code.)
   - Perhaps the most surprising set of words to be spelled that way is `begin object` and
     `end object`, which is usually written as `Begin Object` and `End Object`.
+- The compiler does its best to preserve the casing of your identifiers, so if you get warned about
+  an unused variable that you named `i` (lowercase), the compiler will not report it to you as `I`
+  (uppercase).
 
 Since MuScript is case-insensitive these are purely cosmetic differences and you're still free to
 choose whichever style you prefer.

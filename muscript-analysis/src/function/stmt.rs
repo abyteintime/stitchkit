@@ -11,7 +11,9 @@ use super::{
     expr::{ExpectedType, ExprContext},
 };
 
+mod cond;
 mod local;
+mod loops;
 mod ret;
 
 impl<'a> Compiler<'a> {
@@ -26,6 +28,7 @@ impl<'a> Compiler<'a> {
 
             cst::Stmt::Local(local) => self.stmt_local(builder, local),
 
+            cst::Stmt::If(stmt) => self.stmt_if(builder, stmt),
             cst::Stmt::Return(ret) => self.stmt_return(builder, ret),
 
             _ => {

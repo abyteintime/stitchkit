@@ -168,3 +168,9 @@ impl From<RegisterId> for NodeId {
         NodeId(value.0)
     }
 }
+
+impl BasicBlockId {
+    pub fn to_u32(&self) -> u32 {
+        self.0
+    }
+}

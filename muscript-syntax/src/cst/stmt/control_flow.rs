@@ -28,7 +28,7 @@ keyword! {
 #[derive(Debug, Clone, Parse, PredictiveParse, Spanned)]
 pub struct ParenExpr {
     pub open: LeftParen,
-    pub cond: Expr,
+    pub expr: Expr,
     pub close: RightParen,
 }
 

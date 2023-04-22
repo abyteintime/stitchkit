@@ -1,6 +1,6 @@
 use crate::{FunctionId, VarId};
 
-use super::RegisterId;
+use super::{BasicBlockId, RegisterId};
 
 /// [`Value`] represents an instruction that produces a value.
 #[derive(Clone)]
@@ -49,8 +49,17 @@ pub enum Sink {
 /// digestible graph. Like [`Sink`]s, [`Terminator`]s do not produce any meaningful result.
 #[derive(Clone, Default)]
 pub enum Terminator {
+    /// Block is unreachable and can be removed during optimization.
     #[default]
     Unreachable,
+    /// Unconditionally go to another block after the current one's done executing.
+    Goto(BasicBlockId),
+    /// Conditionally go to one of two blocks after the current one's done executing.
+    GotoIf {
+        condition: RegisterId,
+        if_true: BasicBlockId,
+        if_false: BasicBlockId,
+    },
     /// Return a value from the function.
     ///
     /// If a function is to return nothing (`void`), use this in conjunction with [`Value::Void`].

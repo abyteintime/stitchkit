@@ -9,7 +9,7 @@ use crate::{
     Environment, FunctionId, VarId,
 };
 
-use super::{Ir, NodeId, NodeKind, Register, RegisterId, Sink, Terminator, Value};
+use super::{BasicBlockId, Ir, NodeId, NodeKind, Register, RegisterId, Sink, Terminator, Value};
 
 fn local(
     env: &Environment,
@@ -41,6 +41,12 @@ impl<'a> DumpIr<'a> {
             NodeKind::Sink(_) => unreachable!(),
         }
         Ok(())
+    }
+
+    fn basic_block_id(&self, f: &mut Formatter<'_>, basic_block_id: BasicBlockId) -> fmt::Result {
+        let i = basic_block_id.to_u32();
+        let block = self.ir.basic_block(basic_block_id);
+        write!(f, ":{}_{i}", block.label)
     }
 
     fn function_id(&self, f: &mut Formatter<'_>, function_id: FunctionId) -> fmt::Result {
@@ -111,6 +117,22 @@ impl<'a> DumpIr<'a> {
     fn terminator(&self, f: &mut Formatter<'_>, terminator: &Terminator) -> fmt::Result {
         match terminator {
             Terminator::Unreachable => f.write_str("unreachable")?,
+            Terminator::Goto(basic_block_id) => {
+                f.write_str("goto ")?;
+                self.basic_block_id(f, *basic_block_id)?;
+            }
+            Terminator::GotoIf {
+                condition,
+                if_true,
+                if_false,
+            } => {
+                f.write_str("if ")?;
+                self.register_id(f, *condition)?;
+                f.write_str(" goto ")?;
+                self.basic_block_id(f, *if_true)?;
+                f.write_str(" else goto ")?;
+                self.basic_block_id(f, *if_false)?;
+            }
             Terminator::Return(register_id) => {
                 f.write_str("return ")?;
                 self.register_id(f, *register_id)?;

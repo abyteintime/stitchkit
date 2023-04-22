@@ -180,6 +180,27 @@ function Good(Object o)
 }
 ```
 
+## Local variables
+
+MuScript allows defining local variables anywhere in a block, not just at the top of the function:
+
+```unrealscript
+function Example()
+{
+    local Int i;
+    i = 1;
+
+    local Float f;
+    f = 2;
+
+    {
+        local Float g;
+    }
+    // g = 3; // Referring to g here is disallowed since we're outside
+              // the block it was declared in.
+}
+```
+
 ## Optimizations
 
 Currently the MuScript compiler is pretty dumb; its internal representation of code is more
@@ -188,8 +209,11 @@ performed on it currently. Therefore at this point you can expect MuScript code 
 with the equivalent UnrealScript code, but the situation will get better with each release, as the
 compiler is taught about common patterns which can be written more optimally.
 
-MuScript will never sacrifice correctness for performance; it's more important that the code does
-what you expect than that it runs fast.
+You can rely on the fact that MuScript will never sacrifice correctness for performance; it's more
+important that the code does what you expect than that it runs fast.
+
+TL;DR: MuScript may generate vastly different bytecode than UnrealScript but it should behave
+the same in the end.
 
 ## Conventions
 

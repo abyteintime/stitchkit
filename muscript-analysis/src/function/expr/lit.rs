@@ -1,16 +1,17 @@
 use muscript_foundation::source::Spanned;
 use muscript_syntax::{
     cst,
-    lexis::token::{FloatLit, IntLit, StringLit},
+    lexis::token::{FloatLit, IntLit, NameLit, StringLit},
 };
 
 use crate::{
     function::builder::FunctionBuilder,
     ir::{RegisterId, Value},
+    type_system::Type,
     Compiler, TypeId,
 };
 
-use super::ExprContext;
+use super::{ExpectedType, ExprContext};
 
 impl<'a> Compiler<'a> {
     pub(super) fn expr_lit(
@@ -24,8 +25,8 @@ impl<'a> Compiler<'a> {
             cst::Lit::Int(lit) => self.expr_lit_int(builder, context, lit),
             cst::Lit::Float(lit) => self.expr_lit_float(builder, lit),
             cst::Lit::String(lit) => self.expr_lit_string(builder, lit),
-            cst::Lit::Name(_) => todo!(),
-            cst::Lit::None(_) => todo!(),
+            cst::Lit::Name(lit) => self.expr_lit_name(builder, lit),
+            cst::Lit::None(lit) => self.expr_lit_none(builder, context, lit),
         }
     }
 
@@ -81,5 +82,36 @@ impl<'a> Compiler<'a> {
         builder
             .ir
             .append_register(lit.span, "lit_string", TypeId::STRING, Value::String(s))
+    }
+
+    fn expr_lit_name(&mut self, builder: &mut FunctionBuilder, lit: &NameLit) -> RegisterId {
+        let input = self.sources.source(builder.source_file_id);
+        let n = lit.parse(input).to_string();
+        builder
+            .ir
+            .append_register(lit.span, "lit_name", TypeId::NAME, Value::Name(n))
+    }
+
+    fn expr_lit_none(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        context: ExprContext,
+        lit: &cst::KNone,
+    ) -> RegisterId {
+        let ty = match context.expected_type {
+            // NOTE: `none` is always an object literal. Therefore we need to ensure the returned
+            // type is either an `Object` subclass, or `Object` itself.
+            ExpectedType::Matching(type_id) => {
+                let ty = self.env.get_type(type_id);
+                match ty {
+                    Type::Object(_) => type_id,
+                    _ => TypeId::OBJECT,
+                }
+            }
+            ExpectedType::Any => TypeId::OBJECT,
+        };
+        builder
+            .ir
+            .append_register(lit.span, "lit_none", ty, Value::None)
     }
 }

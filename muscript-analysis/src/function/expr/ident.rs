@@ -18,10 +18,15 @@ impl<'a> Compiler<'a> {
     ) -> RegisterId {
         let name = self.sources.span(builder.source_file_id, &ident);
         if let Some(var_id) = builder.lookup_local(name) {
-            let ty = self.env.get_var(var_id).kind.ty();
+            let ty = self.env.get_var(var_id).ty;
             builder
                 .ir
                 .append_register(ident.span, name.to_owned(), ty, Value::Local(var_id))
+        } else if let Some(var_id) = self.lookup_class_var(builder.class_id, name) {
+            let ty = self.env.get_var(var_id).ty;
+            builder
+                .ir
+                .append_register(ident.span, name.to_owned(), ty, Value::Field(var_id))
         } else {
             self.env.emit(
                 Diagnostic::error(

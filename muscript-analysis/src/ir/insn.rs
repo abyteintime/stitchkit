@@ -16,9 +16,19 @@ pub enum Value {
 
     // Variables
     Local(VarId),
+    Field(VarId),
 
     // Objects
     None,
+    /// What's known as `self` in UnrealScript; unfortunately we can't use that identifier since
+    /// it's reserved in Rust.
+    This,
+    In {
+        /// The object to use as `self` for `action`. Note that passing `This` here is redundant
+        /// and will be optimized out.
+        context: RegisterId,
+        action: RegisterId,
+    },
 
     // Calls
     CallFinal {

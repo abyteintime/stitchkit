@@ -246,7 +246,7 @@ impl<'a> Compiler<'a> {
     ) -> RegisterId {
         let param = &self.env.get_function(function_id).params[param_index];
         let param_var = self.env.get_var(param.var);
-        let param_ty = param_var.kind.ty();
+        let param_ty = param_var.ty;
 
         match arg {
             cst::Arg::Provided(expr) => {

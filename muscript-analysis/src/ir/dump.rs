@@ -4,7 +4,6 @@ use bitflags::BitFlags;
 use muscript_foundation::source::SourceFileSet;
 
 use crate::{
-    class::VarKind,
     function::{Function, FunctionFlags, FunctionImplementation, ParamFlags},
     Environment, FunctionId, VarId,
 };
@@ -18,10 +17,9 @@ fn local(
     local: VarId,
 ) -> fmt::Result {
     let var = env.get_var(local);
-    let VarKind::Var { ty, .. } = var.kind else { unreachable!("locals must be `var`") };
     let name = sources.span(var.source_file_id, &var.name);
 
-    write!(f, "{} ${name}", env.type_name(ty))
+    write!(f, "{} ${name}", env.type_name(var.ty))
 }
 
 pub struct DumpIr<'a> {
@@ -76,8 +74,19 @@ impl<'a> DumpIr<'a> {
                 f.write_str("local ")?;
                 local(self.env, self.sources, f, *var_id)?;
             }
+            Value::Field(var_id) => {
+                f.write_str("field ")?;
+                local(self.env, self.sources, f, *var_id)?;
+            }
 
             Value::None => f.write_str("none")?,
+            Value::This => f.write_str("this")?,
+            Value::In { context, action } => {
+                f.write_str("in ")?;
+                self.register_id(f, *context)?;
+                f.write_str(" do ")?;
+                self.register_id(f, *action)?;
+            }
 
             Value::CallFinal {
                 function,

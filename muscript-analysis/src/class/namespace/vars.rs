@@ -4,7 +4,7 @@ use muscript_syntax::cst::NamedItem;
 use crate::{
     class::{Var, VarFlags, VarKind},
     partition::{UntypedClassPartitionsExt, VarCst},
-    ClassId, Compiler, VarId,
+    ClassId, Compiler, TypeId, VarId,
 };
 
 /// # Class variables
@@ -40,22 +40,24 @@ impl<'a> Compiler<'a> {
         cst: VarCst,
         class_id: ClassId,
     ) -> VarId {
-        let var = Var {
-            source_file_id,
-            name: cst.name(),
-            kind: match cst {
-                VarCst::Const(item_const) => VarKind::Const(item_const.value),
-                VarCst::Var(item_var) => VarKind::Var {
-                    // NOTE: Process flags first, so that diagnostics are emitted
-                    // from left to right.
-                    flags: VarFlags::from_cst(
-                        self.env,
-                        self.sources,
-                        source_file_id,
-                        &item_var.specifiers,
-                    ),
-                    ty: self.type_id(source_file_id, class_id, &item_var.ty),
-                },
+        let name = cst.name();
+        let var = match cst {
+            VarCst::Const(item_const) => Var {
+                source_file_id,
+                name,
+                ty: TypeId::VOID,
+                kind: VarKind::Const(item_const.value),
+            },
+            VarCst::Var(item_var) => Var {
+                source_file_id,
+                name,
+                ty: self.type_id(source_file_id, class_id, &item_var.ty),
+                kind: VarKind::Var(VarFlags::from_cst(
+                    self.env,
+                    self.sources,
+                    source_file_id,
+                    &item_var.specifiers,
+                )),
             },
         };
         self.env.register_var(var)
@@ -90,5 +92,12 @@ impl<'a> Compiler<'a> {
             .iter()
             .filter_map(|name| self.class_var(class_id, name))
             .collect()
+    }
+
+    pub fn lookup_class_var(&mut self, class_id: ClassId, name: &str) -> Option<VarId> {
+        self.class_var(class_id, name).or_else(|| {
+            self.super_class_id(class_id)
+                .and_then(|class_id| self.lookup_class_var(class_id, name))
+        })
     }
 }

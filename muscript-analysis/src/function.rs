@@ -161,10 +161,8 @@ impl<'a> Compiler<'a> {
             let param_var = self.env.register_var(Var {
                 source_file_id,
                 name: param.name,
-                kind: VarKind::Var {
-                    ty,
-                    flags: var_flags,
-                },
+                ty,
+                kind: VarKind::Var(var_flags),
             });
             params.push(Param {
                 var: param_var,

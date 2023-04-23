@@ -11,15 +11,13 @@ use crate::{diagnostics::notes, TypeId};
 pub struct Var {
     pub source_file_id: SourceFileId,
     pub name: Ident,
+    pub ty: TypeId,
     pub kind: VarKind,
 }
 
 #[derive(Debug, Clone)]
 pub enum VarKind {
-    Var {
-        ty: TypeId,
-        flags: VarFlags,
-    },
+    Var(VarFlags),
 
     /// Consts only store the AST of the expression that's to be inlined. When the const is used,
     /// the expression is evaluated at compile-time using the surrounding context.
@@ -73,15 +71,6 @@ bitflags! {
         //     probably not as useful for writing mods.
         // - notforconsole is omitted because we cannot build for consoles.
         // - native is omitted because exporting headers is not supported.
-    }
-}
-
-impl VarKind {
-    pub fn ty(&self) -> TypeId {
-        match self {
-            VarKind::Var { ty, .. } => *ty,
-            VarKind::Const(_) => unimplemented!("consts do not currently undergo type checking"),
-        }
     }
 }
 

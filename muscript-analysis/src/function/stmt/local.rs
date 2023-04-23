@@ -45,10 +45,8 @@ impl<'a> Compiler<'a> {
             let var_id = self.env.register_var(Var {
                 source_file_id: builder.source_file_id,
                 name: var_def.name,
-                kind: VarKind::Var {
-                    ty,
-                    flags: VarFlags::empty(),
-                },
+                ty,
+                kind: VarKind::Var(VarFlags::empty()),
             });
             builder.ir.add_local(var_id);
             self.declare_local(builder, var_id);

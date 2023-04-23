@@ -9,6 +9,7 @@ pub enum Value {
 
     // Primitives
     Bool(bool),
+    Byte(u8),
     Int(i32),
     Float(f32),
     String(String),

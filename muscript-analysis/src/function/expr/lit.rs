@@ -1,4 +1,7 @@
-use muscript_foundation::source::Spanned;
+use muscript_foundation::{
+    errors::{Diagnostic, DiagnosticSink, Label},
+    source::Spanned,
+};
 use muscript_syntax::{
     cst,
     lexis::token::{FloatLit, IntLit, NameLit, StringLit},
@@ -52,6 +55,8 @@ impl<'a> Compiler<'a> {
         let input = self.sources.source(builder.source_file_id);
         let type_id = if context.expected_type.is_exactly(TypeId::FLOAT) {
             TypeId::FLOAT
+        } else if context.expected_type.is_exactly(TypeId::BYTE) {
+            TypeId::BYTE
         } else {
             TypeId::INT
         };
@@ -62,6 +67,16 @@ impl<'a> Compiler<'a> {
             type_id,
             if type_id == TypeId::FLOAT {
                 Value::Int(i)
+            } else if type_id == TypeId::BYTE {
+                let byte = u8::try_from(i);
+                if byte.is_err() {
+                    self.env.emit(
+                        Diagnostic::error(builder.source_file_id, "byte value out of range")
+                            .with_label(Label::primary(lit.span, ""))
+                            .with_note("note: byte literals must fit in the range 0-255"),
+                    )
+                }
+                Value::Byte(byte.unwrap_or(0))
             } else {
                 Value::Float(i as f32)
             },

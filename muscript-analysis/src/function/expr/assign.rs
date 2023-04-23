@@ -1,10 +1,13 @@
-use muscript_foundation::source::Spanned;
+use muscript_foundation::{
+    errors::{Diagnostic, DiagnosticSink, Label},
+    source::Spanned,
+};
 use muscript_syntax::cst;
 
 use crate::{
     function::builder::FunctionBuilder,
     ir::{RegisterId, Sink},
-    Compiler,
+    Compiler, TypeId,
 };
 
 use super::{ExpectedType, ExprContext};
@@ -17,9 +20,22 @@ impl<'a> Compiler<'a> {
         lvalue: &cst::Expr,
         rvalue: &cst::Expr,
     ) -> RegisterId {
-        // Use the same context for the lvalue, since we know its type must be the same as
-        // the rvalue's.
         let lvalue_register = self.expr(builder, context, lvalue);
+        if builder.ir.register(lvalue_register).ty != TypeId::VOID
+            && !builder.ir.is_place(lvalue_register)
+        {
+            self.env.emit(
+                Diagnostic::error(
+                    builder.source_file_id,
+                    "left-hand side of `=` is not a place that can be assigned to",
+                )
+                .with_label(Label::primary(
+                    lvalue.span(),
+                    "this is not a place in memory",
+                )),
+            )
+        }
+
         let rvalue_register = self.expr(
             builder,
             ExprContext {

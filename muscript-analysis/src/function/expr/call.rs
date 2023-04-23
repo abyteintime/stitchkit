@@ -16,7 +16,7 @@ use crate::{
         ParamFlags,
     },
     ir::{RegisterId, Value},
-    Compiler, FunctionId,
+    Compiler, FunctionId, TypeId,
 };
 
 use super::{void_handling::registers_are_valid, ExpectedType, ExprContext};
@@ -247,6 +247,7 @@ impl<'a> Compiler<'a> {
         let param = &self.env.get_function(function_id).params[param_index];
         let param_var = self.env.get_var(param.var);
         let param_ty = param_var.ty;
+        let param_flags = param.flags;
 
         match arg {
             cst::Arg::Provided(expr) => {
@@ -257,6 +258,19 @@ impl<'a> Compiler<'a> {
                     },
                     expr,
                 );
+                // TODO: Is it okay to pass non-places to `const out`?
+                if builder.ir.register(value).ty != TypeId::VOID
+                    && param_flags.contains(ParamFlags::OUT)
+                    && !builder.ir.is_place(value)
+                {
+                    self.env.emit(
+                        Diagnostic::error(
+                            builder.source_file_id,
+                            "expression passed to `out` parameter must be a place",
+                        )
+                        .with_label(Label::primary(expr.span(), "this is not a place in memory")),
+                    );
+                }
                 self.coerce_expr(builder, value, param_ty)
             }
             cst::Arg::Omitted(span) => {

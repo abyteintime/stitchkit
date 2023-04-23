@@ -92,6 +92,7 @@ impl<'a> Compiler<'a> {
                     .append_register(outer.span(), "struct_dot", TypeId::VOID, Value::Void)
             }
             _ => {
+                // TODO: Also classes to get defaults and constants.
                 self.env.emit(
                     Diagnostic::error(
                         builder.source_file_id,

@@ -34,7 +34,16 @@ impl<'a> Compiler<'a> {
             [] => unreachable!("paths must have at least one component"),
             [type_name_ident] => {
                 let type_name = self.sources.span(source_file_id, type_name_ident);
-                if let Some(type_id) = Primitive::from_name(type_name) {
+
+                if let Some(type_id) =
+                    self.find_type_in_current_scope(source_file_id, scope, ty, *type_name_ident)
+                {
+                    return (TypeSource::Scoped, type_id);
+                } else if let Some(type_id) =
+                    self.find_global_type(source_file_id, ty, *type_name_ident)
+                {
+                    return (TypeSource::Global, type_id);
+                } else if let Some(type_id) = Primitive::from_name(type_name) {
                     self.expect_no_generics(source_file_id, ty);
                     return (TypeSource::Global, type_id);
                 } else if type_name.eq_ignore_ascii_case("Array") {
@@ -44,14 +53,6 @@ impl<'a> Compiler<'a> {
                         TypeSource::Global,
                         self.class_type(source_file_id, scope, ty),
                     );
-                } else if let Some(type_id) =
-                    self.find_type_in_current_scope(source_file_id, scope, ty, *type_name_ident)
-                {
-                    return (TypeSource::Scoped, type_id);
-                } else if let Some(type_id) =
-                    self.find_global_type(source_file_id, ty, *type_name_ident)
-                {
-                    return (TypeSource::Global, type_id);
                 }
             }
             [_class_name, _type_name] => {
@@ -217,16 +218,15 @@ impl<'a> Compiler<'a> {
     ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
 
-        if let Some(generic) = &ty.generic {
-            self.generics_not_allowed(source_file_id, ty, generic, type_name);
-        }
-
         if self.input.class_exists(type_name) {
             // NOTE: Do not process the class here anyhow! Only create a type for it.
             let class_id = self.env.get_or_create_class(type_name);
             let type_id = self
                 .env
                 .register_type(TypeName::concrete(type_name), Type::Object(class_id));
+            if let Some(generic) = &ty.generic {
+                self.generics_not_allowed(source_file_id, ty, generic, type_name);
+            }
             Some(type_id)
         } else {
             None
@@ -240,12 +240,28 @@ impl<'a> Compiler<'a> {
         ty: &cst::Type,
         type_name_ident: Ident,
     ) -> Option<TypeId> {
+        if let Some(type_id) =
+            self.find_type_in_current_scope_inner(source_file_id, scope, ty, type_name_ident)
+        {
+            if let Some(generic) = &ty.generic {
+                let type_name = self.sources.span(source_file_id, &type_name_ident);
+                self.generics_not_allowed(source_file_id, ty, generic, type_name);
+            }
+            Some(type_id)
+        } else {
+            None
+        }
+    }
+
+    fn find_type_in_current_scope_inner(
+        &mut self,
+        source_file_id: SourceFileId,
+        scope: ClassId,
+        ty: &cst::Type,
+        type_name_ident: Ident,
+    ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
         trace!(scope = self.env.class_name(scope), %type_name, "find_type_in_current_scope");
-
-        if let Some(generic) = &ty.generic {
-            self.generics_not_allowed(source_file_id, ty, generic, type_name);
-        }
 
         if let Some(partitions) = self.untyped_class_partitions(scope) {
             let ty = partitions

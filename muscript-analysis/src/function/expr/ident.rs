@@ -27,6 +27,11 @@ impl<'a> Compiler<'a> {
             builder
                 .ir
                 .append_register(ident.span, name.to_owned(), ty, Value::Field(var_id))
+        } else if name.eq_ignore_ascii_case("self") {
+            let ty = self.env.class_type(builder.class_id);
+            builder
+                .ir
+                .append_register(ident.span, "self", ty, Value::This)
         } else {
             self.env.emit(
                 Diagnostic::error(

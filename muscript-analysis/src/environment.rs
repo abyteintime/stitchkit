@@ -164,6 +164,18 @@ impl Environment {
     pub fn type_name(&self, id: TypeId) -> &TypeName {
         &self.type_names_by_id[id.0 as usize]
     }
+
+    pub fn class_type(&mut self, class_id: ClassId) -> TypeId {
+        let class_name = self.class_name(class_id);
+        let type_name = TypeName::concrete(class_name);
+        if let Some(&type_id) = self.global_type_ids_by_name.get(&type_name) {
+            type_id
+        } else {
+            let type_id = self.register_type(type_name.clone(), Type::Object(class_id));
+            self.global_type_ids_by_name.insert(type_name, type_id);
+            type_id
+        }
+    }
 }
 
 /// # Variable registry

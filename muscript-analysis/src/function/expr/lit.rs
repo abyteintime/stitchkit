@@ -73,7 +73,7 @@ impl<'a> Compiler<'a> {
                     self.env.emit(
                         Diagnostic::error(builder.source_file_id, "byte value out of range")
                             .with_label(Label::primary(lit.span, ""))
-                            .with_note("note: byte literals must fit in the range 0-255"),
+                            .with_note("note: byte literals must fit in the range [0, 255]"),
                     )
                 }
                 Value::Byte(byte.unwrap_or(0))

@@ -15,6 +15,7 @@ use super::builder::FunctionBuilder;
 mod assign;
 mod call;
 mod conversion;
+mod dot;
 mod ident;
 mod lit;
 mod void_handling;
@@ -76,6 +77,10 @@ impl<'a> Compiler<'a> {
                 close,
                 ..
             } => self.expr_call(builder, context, expr, function, args, *close),
+
+            cst::Expr::Dot { left, field, .. } => {
+                self.expr_dot(builder, context, expr, left, *field)
+            }
 
             cst::Expr::Assign { lvalue, rvalue, .. } => {
                 self.expr_assign(builder, context, lvalue, rvalue)

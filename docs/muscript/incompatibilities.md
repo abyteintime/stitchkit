@@ -24,7 +24,7 @@ defaultproperties
 }
 ```
 
-The above three cases occur in engine and game code and can be fixed simply by removing the
+The above three cases occur in engine and game code and can be fixed by removing the
 offending token.
 
 On the other hand, MuScript enhances default properties with more consistent syntax. Consider for
@@ -147,6 +147,13 @@ b = 1;   // All good, since given that the variable `b` is of type `Byte`,
          // the type system will expect `Byte` on the right.
 b += 1;  // This is an error: no overload of operator `+=` exists for `Byte`, `Int`
 ```
+
+This is because `=` is implemented using compiler magic, and the compiler is smart enough to use
+the left-hand side's type as a hint on what should be expected on the right-hand side - and in cases
+where there's an integer literal that we know we'd like to be `Byte`, it'll be converted
+automatically. `+=` is not compiler magic but a regular operator just like `+` - therefore
+this type hinting does not apply and the compiler cannot infer that the right-hand side is expected
+to be a `Byte`.
 
 This is something we would like to be able to compile in the future, but is not supported as of now.
 To work around it, specify an explicit type for the literal by using a type cast:

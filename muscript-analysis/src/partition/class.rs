@@ -1,4 +1,5 @@
 mod coherence;
+mod structs;
 mod support;
 
 use indexmap::IndexMap;
@@ -15,7 +16,12 @@ use muscript_syntax::{
 };
 use tracing::trace;
 
-use crate::{diagnostics::notes, function::mangling::cst_level::mangled_function_name};
+use crate::{
+    diagnostics::{self, notes},
+    function::mangling::cst_level::mangled_function_name,
+};
+
+pub use structs::*;
 
 /// Partitions a class into its individual pieces, but without type information.
 ///
@@ -65,7 +71,7 @@ pub enum VarCst {
 
 #[derive(Debug, Clone)]
 pub enum TypeCst {
-    Struct(cst::StructDef),
+    Struct(UntypedStruct),
     Enum(cst::EnumDef),
     // Not sure if states belong to the same namespace; AFAIK they're only ever referred to by name
     // (as in name literal) but needs verification.
@@ -100,11 +106,12 @@ impl UntypedClassPartition {
 
             match item {
                 cst::Item::Empty(semi) => {
-                    diagnostics.emit(
-                        Diagnostic::warning(source_file_id, "unnecessary semicolon `;`")
-                            .with_label(Label::primary(semi.span, ""))
-                            .with_note("note: semicolons are only required after `var` and `const` declarations")
-                    );
+                    diagnostics.emit(diagnostics::unnecessary_semicolon(source_file_id, semi).with_note(
+                        indoc! {"
+                            note: each `var` and `const` declaration needs a single semicolon after it;
+                                  having one anywhere else is redundant
+                        "},
+                    ));
                 }
                 cst::Item::Var(mut item_var) => {
                     match Self::lower_inline_type_def(&mut item_var.ty) {
@@ -118,12 +125,19 @@ impl UntypedClassPartition {
                             );
                         }
                         Some(InlineTypeDef::Struct(struct_def)) => {
+                            let untyped_struct = UntypedStruct::from_cst(
+                                diagnostics,
+                                sources,
+                                source_file_id,
+                                &mut types,
+                                struct_def,
+                            );
                             Self::add_to_scope(
                                 diagnostics,
                                 sources,
                                 source_file_id,
                                 &mut types,
-                                TypeCst::Struct(struct_def),
+                                TypeCst::Struct(untyped_struct),
                             );
                         }
                         None => (),
@@ -162,12 +176,19 @@ impl UntypedClassPartition {
                     );
                 }
                 cst::Item::Struct(item_struct) => {
+                    let untyped_struct = UntypedStruct::from_cst(
+                        diagnostics,
+                        sources,
+                        source_file_id,
+                        &mut types,
+                        item_struct.def,
+                    );
                     Self::add_to_scope(
                         diagnostics,
                         sources,
                         source_file_id,
                         &mut types,
-                        TypeCst::Struct(item_struct.def),
+                        TypeCst::Struct(untyped_struct),
                     );
                 }
                 cst::Item::Enum(item_enum) => {
@@ -207,7 +228,7 @@ impl UntypedClassPartition {
                 }
                 cst::Item::CppText(item_cpp_text) => diagnostics.emit(
                     Diagnostic::warning(source_file_id, "`cpptext` item is ignored")
-                        .with_label(Label::primary(item_cpp_text.cpptext.span, ""))
+                        .with_label(Label::primary(item_cpp_text.span(), ""))
                         .with_note(notes::CPP_UNSUPPORTED),
                 ),
                 cst::Item::StructCppText(item_struct_cpp_text) => diagnostics.emit(
@@ -215,15 +236,10 @@ impl UntypedClassPartition {
                         .with_label(Label::primary(item_struct_cpp_text.cpptext.span, "")),
                 ),
                 cst::Item::Stmt(stmt) => {
-                    diagnostics.emit(
-                        Diagnostic::error(source_file_id, "statement found outside of function")
-                            .with_label(Label::primary(stmt.span(), "statements are not allowed here"))
-                            .with_note(indoc!("
-                                note: in contrast to most modern scripting languages, UnrealScript requires all executable code to belong
-                                      to a function. this is because code is executed in response to game events such as `Tick`;
-                                      it doesn't execute automatically like in Python or Lua
-                            "))
-                    );
+                    diagnostics.emit(diagnostics::stmt_outside_of_function(
+                        source_file_id,
+                        stmt.span(),
+                    ));
                 }
             }
         }
@@ -411,7 +427,7 @@ impl NamedItem for VarCst {
 impl NamedItem for TypeCst {
     fn name(&self) -> token::Ident {
         match self {
-            TypeCst::Struct(item_struct) => item_struct.name(),
+            TypeCst::Struct(item_struct) => item_struct.name,
             TypeCst::Enum(item_enum) => item_enum.name(),
         }
     }
@@ -419,6 +435,7 @@ impl NamedItem for TypeCst {
 
 pub trait UntypedClassPartitionsExt {
     fn find_var(&self, name: &str) -> Option<(SourceFileId, &VarCst)>;
+    fn find_type(&self, name: &str) -> Option<(SourceFileId, &TypeCst)>;
 
     fn index_of_partition_with_function(&self, name: &str) -> Option<usize>;
 }
@@ -428,6 +445,15 @@ impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
         self.iter().find_map(|partition| {
             partition
                 .vars
+                .get(CaseInsensitive::new_ref(name))
+                .map(|cst| (partition.source_file_id, cst))
+        })
+    }
+
+    fn find_type(&self, name: &str) -> Option<(SourceFileId, &TypeCst)> {
+        self.iter().find_map(|partition| {
+            partition
+                .types
                 .get(CaseInsensitive::new_ref(name))
                 .map(|cst| (partition.source_file_id, cst))
         })

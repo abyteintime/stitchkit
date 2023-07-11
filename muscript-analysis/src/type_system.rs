@@ -13,9 +13,9 @@ use crate::{ClassId, TypeId};
 #[derive(Debug, Clone)]
 pub enum Type {
     Error,
-    /// `void`; the lack of a meaningful value.
+    /// `Void`; the lack of a meaningful value.
     ///
-    /// `void` is not treated as a primitive since it does not have a corresponding literal
+    /// `Void` is not treated as a primitive since it does not have a corresponding literal
     /// or value.
     Void,
     Primitive(Primitive),

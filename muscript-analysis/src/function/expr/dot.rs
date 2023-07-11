@@ -8,7 +8,7 @@ use crate::{
     function::builder::FunctionBuilder,
     ir::{RegisterId, Value},
     type_system::Type,
-    Compiler, TypeId,
+    ClassId, Compiler, TypeId,
 };
 
 use super::ExprContext;
@@ -28,45 +28,14 @@ impl<'a> Compiler<'a> {
         let field_name = self.sources.span(builder.source_file_id, &field);
 
         match self.env.get_type(left_type_id) {
-            &Type::Object(class_id) => {
-                if let Some(var_id) = self.lookup_class_var(class_id, field_name) {
-                    let field_ty = self.env.get_var(var_id).ty;
-                    let field = builder.ir.append_register(
-                        field.span,
-                        field_name.to_owned(),
-                        field_ty,
-                        Value::Field(var_id),
-                    );
-                    builder.ir.append_register(
-                        outer.span(),
-                        field_name.to_owned(),
-                        field_ty,
-                        Value::In {
-                            context: left_register_id,
-                            action: field,
-                        },
-                    )
-                } else {
-                    // TODO: If a function with the same name exists, suggest calling it.
-                    self.env.emit(
-                        Diagnostic::error(
-                            builder.source_file_id,
-                            format!(
-                                "cannot find variable `{}` in class `{}`",
-                                field_name,
-                                self.env.class_name(class_id)
-                            ),
-                        )
-                        .with_label(Label::primary(field.span, "")),
-                    );
-                    builder.ir.append_register(
-                        outer.span(),
-                        "invalid_field",
-                        TypeId::VOID,
-                        Value::Void,
-                    )
-                }
-            }
+            &Type::Object(class_id) => self.expr_dot_on_object(
+                class_id,
+                field_name,
+                builder,
+                field,
+                outer,
+                left_register_id,
+            ),
             Type::Array(_) => {
                 self.env.emit(
                     Diagnostic::bug(
@@ -79,18 +48,16 @@ impl<'a> Compiler<'a> {
                     .ir
                     .append_register(outer.span(), "array_dot", TypeId::VOID, Value::Void)
             }
-            Type::Struct { outer: _ } => {
-                self.env.emit(
-                    Diagnostic::bug(
-                        builder.source_file_id,
-                        "`.` on structs is not yet implemented",
-                    )
-                    .with_label(Label::primary(field.span, "")),
-                );
-                builder
-                    .ir
-                    .append_register(outer.span(), "struct_dot", TypeId::VOID, Value::Void)
-            }
+            &Type::Struct {
+                outer: struct_outer_class,
+            } => self.expr_dot_on_struct(
+                struct_outer_class,
+                field_name,
+                builder,
+                field,
+                outer,
+                left_register_id,
+            ),
             _ => {
                 // TODO: Also classes to get defaults and constants.
                 self.env.emit(
@@ -104,6 +71,100 @@ impl<'a> Compiler<'a> {
                     .ir
                     .append_register(outer.span(), "invalid_dot", TypeId::VOID, Value::Void)
             }
+        }
+    }
+
+    fn expr_dot_on_object(
+        &mut self,
+        class_id: ClassId,
+        field_name: &str,
+        builder: &mut FunctionBuilder,
+        field: Ident,
+        outer: &cst::Expr,
+        left_register_id: RegisterId,
+    ) -> RegisterId {
+        if let Some(var_id) = self.lookup_class_var(class_id, field_name) {
+            let field_ty = self.env.get_var(var_id).ty;
+            let field = builder.ir.append_register(
+                field.span,
+                field_name.to_owned(),
+                field_ty,
+                Value::Field(var_id),
+            );
+            builder.ir.append_register(
+                outer.span(),
+                field_name.to_owned(),
+                field_ty,
+                Value::In {
+                    context: left_register_id,
+                    action: field,
+                },
+            )
+        } else {
+            // TODO: If a function with the same name exists, suggest calling it.
+            self.env.emit(
+                Diagnostic::error(
+                    builder.source_file_id,
+                    format!(
+                        "cannot find variable `{field_name}` in class `{}`",
+                        self.env.class_name(class_id)
+                    ),
+                )
+                .with_label(Label::primary(field.span, "")),
+            );
+            builder
+                .ir
+                .append_register(outer.span(), "invalid_field", TypeId::VOID, Value::Void)
+        }
+    }
+
+    fn expr_dot_on_struct(
+        &mut self,
+        struct_outer_class: ClassId,
+        field_name: &str,
+        builder: &mut FunctionBuilder,
+        field: Ident,
+        outer: &cst::Expr,
+        left_register_id: RegisterId,
+    ) -> RegisterId {
+        let struct_type = builder.ir.register(left_register_id).ty;
+        // Drop generic arguments if any, as they are not used for lookup.
+        let struct_type_name = self.env.type_name(struct_type).name.clone();
+
+        if let Some(var_id) =
+            self.lookup_struct_var(struct_outer_class, &struct_type_name, field_name)
+        {
+            let field_ty = self.env.get_var(var_id).ty;
+            let field = builder.ir.append_register(
+                field.span,
+                field_name.to_owned(),
+                field_ty,
+                Value::Field(var_id),
+            );
+            builder.ir.append_register(
+                outer.span(),
+                field_name.to_owned(),
+                field_ty,
+                Value::In {
+                    context: left_register_id,
+                    action: field,
+                },
+            )
+        } else {
+            let class_name = self.env.class_name(struct_outer_class);
+            self.env.emit(
+                Diagnostic::bug(
+                    builder.source_file_id,
+                    format!(
+                        "cannot find variable `{field_name}` in struct `{class_name}.{}`",
+                        self.env.type_name(struct_type)
+                    ),
+                )
+                .with_label(Label::primary(field.span, "")),
+            );
+            builder
+                .ir
+                .append_register(outer.span(), "invalid_field", TypeId::VOID, Value::Void)
         }
     }
 }

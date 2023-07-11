@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
-use bitflags::BitFlags;
+use bitflags::Flags;
 use muscript_foundation::source::SourceFileSet;
 
 use crate::{
@@ -248,7 +248,7 @@ impl<T> FlagDisplay<T> {
         flag_name: &str,
     ) -> Result<&mut Self, fmt::Error>
     where
-        T: BitFlags,
+        T: Flags,
     {
         if self.flags.contains(single_flag) {
             if self.i != 0 {

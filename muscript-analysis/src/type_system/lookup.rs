@@ -240,39 +240,26 @@ impl<'a> Compiler<'a> {
         ty: &cst::Type,
         type_name_ident: Ident,
     ) -> Option<TypeId> {
-        if let Some(type_id) =
-            self.find_type_in_current_scope_inner(source_file_id, scope, ty, type_name_ident)
-        {
-            if let Some(generic) = &ty.generic {
-                let type_name = self.sources.span(source_file_id, &type_name_ident);
-                self.generics_not_allowed(source_file_id, ty, generic, type_name);
-            }
-            Some(type_id)
-        } else {
-            None
-        }
-    }
-
-    fn find_type_in_current_scope_inner(
-        &mut self,
-        source_file_id: SourceFileId,
-        scope: ClassId,
-        ty: &cst::Type,
-        type_name_ident: Ident,
-    ) -> Option<TypeId> {
         let type_name = self.sources.span(source_file_id, &type_name_ident);
         trace!(scope = self.env.class_name(scope), %type_name, "find_type_in_current_scope");
 
         if let Some(partitions) = self.untyped_class_partitions(scope) {
-            let ty = partitions
+            let type_impl = partitions
                 .iter()
                 .find_map(|partition| partition.types.get(CaseInsensitive::new_ref(type_name)))
                 .map(|type_cst| match type_cst {
                     TypeCst::Struct(_) => Type::Struct { outer: scope },
                     TypeCst::Enum(_) => Type::Enum { outer: scope },
                 });
-            if let Some(ty) = ty {
-                return Some(self.env.register_type(TypeName::concrete(type_name), ty));
+            if let Some(type_impl) = type_impl {
+                if let Some(generic) = &ty.generic {
+                    let type_name = self.sources.span(source_file_id, &type_name_ident);
+                    self.generics_not_allowed(source_file_id, ty, generic, type_name);
+                }
+                return Some(
+                    self.env
+                        .register_type(TypeName::concrete(type_name), type_impl),
+                );
             }
         }
 

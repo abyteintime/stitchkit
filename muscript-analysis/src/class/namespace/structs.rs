@@ -112,9 +112,7 @@ impl<'a> Compiler<'a> {
                 } else {
                     None
                 };
-                let Some(class_struct) = self.class_struct_mut(class_id, struct_name) else {
-                    unreachable!()
-                };
+                let class_struct = self.class_struct_mut(class_id, struct_name).unwrap();
                 class_struct
                     .fields
                     .insert(CaseInsensitive::new(field_name.to_owned()), var_id);

@@ -32,6 +32,9 @@ pub enum Value {
     /// Reference to a field on `self`.
     Field(VarId),
 
+    /// # Arrays
+    Len(RegisterId),
+
     /// # Objects
 
     /// The `none` literal.

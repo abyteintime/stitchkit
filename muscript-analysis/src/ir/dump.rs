@@ -80,6 +80,11 @@ impl<'a> DumpIr<'a> {
                 local(self.env, self.sources, f, *var_id)?;
             }
 
+            Value::Len(array) => {
+                f.write_str("len ")?;
+                self.register_id(f, *array)?;
+            }
+
             Value::None => f.write_str("none")?,
             Value::This => f.write_str("this")?,
             Value::In { context, action } => {

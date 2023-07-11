@@ -1,5 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
+    ident::CaseInsensitive,
     source::Spanned,
 };
 use muscript_syntax::{cst, lexis::token::Ident};
@@ -37,16 +38,7 @@ impl<'a> Compiler<'a> {
                 left_register_id,
             ),
             Type::Array(_) => {
-                self.env.emit(
-                    Diagnostic::bug(
-                        builder.source_file_id,
-                        "`.` on arrays is not yet implemented",
-                    )
-                    .with_label(Label::primary(field.span, "")),
-                );
-                builder
-                    .ir
-                    .append_register(outer.span(), "array_dot", TypeId::VOID, Value::Void)
+                self.expr_dot_on_array(field_name, builder, field, outer, left_register_id)
             }
             &Type::Struct {
                 outer: struct_outer_class,
@@ -151,12 +143,11 @@ impl<'a> Compiler<'a> {
                 },
             )
         } else {
-            let class_name = self.env.class_name(struct_outer_class);
             self.env.emit(
                 Diagnostic::bug(
                     builder.source_file_id,
                     format!(
-                        "cannot find variable `{field_name}` in struct `{class_name}.{}`",
+                        "cannot find variable `{field_name}` in struct `{}`",
                         self.env.type_name(struct_type)
                     ),
                 )
@@ -165,6 +156,36 @@ impl<'a> Compiler<'a> {
             builder
                 .ir
                 .append_register(outer.span(), "invalid_field", TypeId::VOID, Value::Void)
+        }
+    }
+
+    fn expr_dot_on_array(
+        &mut self,
+        field_name: &str,
+        builder: &mut FunctionBuilder,
+        field: Ident,
+        outer: &cst::Expr,
+        left_register_id: RegisterId,
+    ) -> RegisterId {
+        if CaseInsensitive::new_ref(field_name) == CaseInsensitive::new_ref("length") {
+            builder.ir.append_register(
+                outer.span(),
+                "array_len",
+                TypeId::INT,
+                Value::Len(left_register_id),
+            )
+        } else {
+            self.env.emit(
+                Diagnostic::error(builder.source_file_id, "`Length` expected")
+                    .with_label(Label::primary(field.span, ""))
+                    .with_note("note: arrays do not have properties other than `Length`"),
+            );
+            builder.ir.append_register(
+                outer.span(),
+                "array_invalid_field",
+                TypeId::VOID,
+                Value::Void,
+            )
         }
     }
 }

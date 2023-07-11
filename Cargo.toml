@@ -13,6 +13,7 @@ members = [
     "muscript-syntax",
     "muscript-syntax-derive",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.69"

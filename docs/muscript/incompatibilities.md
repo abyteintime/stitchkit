@@ -99,8 +99,8 @@ The following coercions are done by vanilla UnrealScript, but **not done** by Mu
 
 - `Byte`, `Int`, and `Float` may convert between each other freely. These automatic conversions are
   not performed since every one (except `Byte` to `Int`) incurs a precision loss. The `Byte` to
-  `Int` conversion is not performed implicitly for consistency sake, but this rule may be relaxed in
-  the future.
+  `Int` or `Float` conversion is not performed implicitly for consistency sake, but this rule may
+  be relaxed in the future.
 - Implicit conversions on parameters marked `coerce`. MuScript ignores `coerce` and always requires
   an explicit conversion, since that's less prone to errors and makes performance more predictable
   (since `String()` conversions are not exactly cheap.)

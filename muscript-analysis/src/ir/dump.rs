@@ -84,6 +84,12 @@ impl<'a> DumpIr<'a> {
                 f.write_str("len ")?;
                 self.register_id(f, *array)?;
             }
+            Value::Index { array, index } => {
+                f.write_str("index ")?;
+                self.register_id(f, *array)?;
+                f.write_str(", ")?;
+                self.register_id(f, *index)?;
+            }
 
             Value::None => f.write_str("none")?,
             Value::This => f.write_str("this")?,

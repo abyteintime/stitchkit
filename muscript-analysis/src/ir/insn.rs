@@ -34,6 +34,10 @@ pub enum Value {
 
     /// # Arrays
     Len(RegisterId),
+    Index {
+        array: RegisterId,
+        index: RegisterId,
+    },
 
     /// # Objects
 
@@ -109,7 +113,7 @@ impl Ir {
     /// allows you to assign everywhere.
     pub fn is_place(&self, register: RegisterId) -> bool {
         match &self.register(register).value {
-            Value::Local(_) | Value::Field(_) => true,
+            Value::Local(_) | Value::Field(_) | Value::Index { .. } => true,
             Value::In { context: _, action } => self.is_place(*action),
             _ => false,
         }

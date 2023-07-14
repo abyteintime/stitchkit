@@ -12,6 +12,7 @@ use crate::{
 
 use super::builder::FunctionBuilder;
 
+mod array;
 mod assign;
 mod call;
 mod conversion;
@@ -78,9 +79,13 @@ impl<'a> Compiler<'a> {
                 ..
             } => self.expr_call(builder, context, expr, function, args, *close),
 
-            cst::Expr::Dot { left, field, .. } => {
-                self.expr_dot(builder, context, expr, left, *field)
-            }
+            cst::Expr::Dot { left, field, .. } => self.expr_dot(builder, expr, left, *field),
+            cst::Expr::Index {
+                left,
+                open,
+                index,
+                close,
+            } => self.expr_index(builder, expr, left, *open, index, *close),
 
             cst::Expr::Assign { lvalue, rvalue, .. } => {
                 self.expr_assign(builder, context, lvalue, rvalue)

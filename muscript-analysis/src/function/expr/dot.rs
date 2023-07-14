@@ -12,18 +12,23 @@ use crate::{
     ClassId, Compiler, TypeId,
 };
 
-use super::ExprContext;
+use super::{ExpectedType, ExprContext};
 
 impl<'a> Compiler<'a> {
     pub(super) fn expr_dot(
         &mut self,
         builder: &mut FunctionBuilder,
-        context: ExprContext,
         outer: &cst::Expr,
         left: &cst::Expr,
         field: Ident,
     ) -> RegisterId {
-        let left_register_id = self.expr(builder, context, left);
+        let left_register_id = self.expr(
+            builder,
+            ExprContext {
+                expected_type: ExpectedType::Any,
+            },
+            left,
+        );
         let left_type_id = builder.ir.register(left_register_id).ty;
 
         let field_name = self.sources.span(builder.source_file_id, &field);

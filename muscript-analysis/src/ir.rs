@@ -1,6 +1,7 @@
 mod basic_block;
 pub mod dump;
 mod insn;
+pub mod interpret;
 
 use std::borrow::Cow;
 

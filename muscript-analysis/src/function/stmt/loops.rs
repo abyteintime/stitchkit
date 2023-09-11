@@ -1,3 +1,4 @@
+use muscript_foundation::source::Spanned;
 use muscript_syntax::cst;
 
 use crate::{
@@ -13,7 +14,9 @@ impl<'a> Compiler<'a> {
     pub(super) fn stmt_while(&mut self, builder: &mut FunctionBuilder, stmt: &cst::StmtWhile) {
         let before_cond = builder.ir.cursor();
 
-        let while_cond_begin = builder.ir.append_basic_block("while_cond");
+        let while_cond_begin = builder
+            .ir
+            .append_basic_block("while_cond", stmt.cond.span());
         let condition = self.expr(
             builder,
             ExprContext {
@@ -24,13 +27,15 @@ impl<'a> Compiler<'a> {
         self.ensure_cond_is_bool(builder, condition);
         let while_cond_end = builder.ir.cursor();
 
-        let while_body_begin = builder.ir.append_basic_block("while_body");
+        let while_body_begin = builder
+            .ir
+            .append_basic_block("while_body", stmt.body.span());
         self.stmt(builder, &stmt.body);
         builder
             .ir
             .set_terminator(Terminator::Goto(while_cond_begin));
 
-        let past_while = builder.ir.append_basic_block("past_while");
+        let past_while = builder.ir.append_basic_block("past_while", stmt.span());
 
         builder.ir.set_cursor(before_cond);
         builder
@@ -62,7 +67,7 @@ impl<'a> Compiler<'a> {
 
         let before_cond = builder.ir.cursor();
 
-        let for_cond_begin = builder.ir.append_basic_block("for_cond");
+        let for_cond_begin = builder.ir.append_basic_block("for_cond", stmt.cond.span());
         let condition = self.expr(
             builder,
             ExprContext {
@@ -73,13 +78,15 @@ impl<'a> Compiler<'a> {
         self.ensure_cond_is_bool(builder, condition);
         let for_cond_end = builder.ir.cursor();
 
-        let for_body_begin = builder.ir.append_basic_block("for_body");
+        let for_body_begin = builder.ir.append_basic_block("for_body", stmt.body.span());
         self.stmt(builder, &stmt.body);
         let for_body_end = builder.ir.cursor();
 
         // TODO: Determine what happens with `continue`s. Perhaps the update expression should be
         // inlined instead of jumped to?
-        let for_update_begin = builder.ir.append_basic_block("for_update");
+        let for_update_begin = builder
+            .ir
+            .append_basic_block("for_update", stmt.update.span());
         let update = self.expr(
             builder,
             ExprContext {
@@ -91,7 +98,7 @@ impl<'a> Compiler<'a> {
         builder.ir.append_sink(update_span, Sink::Discard(update));
         builder.ir.set_terminator(Terminator::Goto(for_cond_begin));
 
-        let past_for = builder.ir.append_basic_block("past_for");
+        let past_for = builder.ir.append_basic_block("past_for", stmt.span());
 
         builder.ir.set_cursor(before_cond);
         builder.ir.set_terminator(Terminator::Goto(for_cond_begin));

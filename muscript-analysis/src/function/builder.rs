@@ -35,14 +35,14 @@ pub struct IrBuilder {
 
 /// # Lifecycle
 impl FunctionBuilder {
-    pub fn new(function_id: FunctionId, function: &Function) -> Self {
+    pub fn new(function_id: FunctionId, function: &Function, body_span: Span) -> Self {
         Self {
             source_file_id: function.source_file_id,
             class_id: function.class_id,
             function_id,
             return_ty: function.return_ty,
             local_scopes: vec![LocalScope::default()],
-            ir: Ir::builder(),
+            ir: Ir::builder(body_span),
         }
     }
 
@@ -91,9 +91,9 @@ impl FunctionBuilder {
 }
 
 impl Ir {
-    pub fn builder() -> IrBuilder {
+    pub fn builder(begin_span: Span) -> IrBuilder {
         let mut ir = Ir::new();
-        let begin = ir.create_basic_block(BasicBlock::new("begin"));
+        let begin = ir.create_basic_block(BasicBlock::new("begin", begin_span));
         IrBuilder { ir, cursor: begin }
     }
 }
@@ -113,8 +113,14 @@ impl IrBuilder {
     }
 
     #[must_use = "basic blocks must be linked to other basic blocks to be reachable"]
-    pub fn append_basic_block(&mut self, name: impl Into<Cow<'static, str>>) -> BasicBlockId {
-        let basic_block_id = self.ir.create_basic_block(BasicBlock::new(name.into()));
+    pub fn append_basic_block(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        span: Span,
+    ) -> BasicBlockId {
+        let basic_block_id = self
+            .ir
+            .create_basic_block(BasicBlock::new(name.into(), span));
         self.set_cursor(basic_block_id);
         basic_block_id
     }

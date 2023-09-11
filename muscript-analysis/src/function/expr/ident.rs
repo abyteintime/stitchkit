@@ -2,6 +2,7 @@ use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label};
 use muscript_syntax::lexis::token::Ident;
 
 use crate::{
+    class::VarKind,
     function::builder::FunctionBuilder,
     ir::{RegisterId, Value},
     Compiler,
@@ -23,10 +24,19 @@ impl<'a> Compiler<'a> {
                 .ir
                 .append_register(ident.span, name.to_owned(), ty, Value::Local(var_id))
         } else if let Some(var_id) = self.lookup_class_var(builder.class_id, name) {
-            let ty = self.env.get_var(var_id).ty;
-            builder
-                .ir
-                .append_register(ident.span, name.to_owned(), ty, Value::Field(var_id))
+            let var = self.env.get_var(var_id);
+            let ty = var.ty;
+            match &var.kind {
+                VarKind::Var(_) => builder.ir.append_register(
+                    ident.span,
+                    name.to_owned(),
+                    ty,
+                    Value::Field(var_id),
+                ),
+                VarKind::Const(constant) => {
+                    constant.append_to(&mut builder.ir, ident.span, "const")
+                }
+            }
         } else if name.eq_ignore_ascii_case("self") {
             let ty = self.env.class_type(builder.class_id);
             builder

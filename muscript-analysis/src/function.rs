@@ -16,8 +16,8 @@ use crate::{
 
 use self::builder::FunctionBuilder;
 
-mod builder;
-mod expr;
+pub mod builder;
+pub mod expr;
 pub mod mangling;
 mod stmt;
 
@@ -207,7 +207,7 @@ impl<'a> Compiler<'a> {
             .expect("CSTs should be ready by the time function bodies are analyzed");
 
         let function = self.env.get_function(function_id);
-        let mut builder = FunctionBuilder::new(function_id, function);
+        let mut builder = FunctionBuilder::new(function_id, function, cst.body.span());
 
         // Hopefully the clone here is not too horrible on performance.
         let params = function.params.clone();

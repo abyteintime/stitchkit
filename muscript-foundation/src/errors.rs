@@ -300,14 +300,13 @@ impl Diagnostic {
             notes: self
                 .notes
                 .iter()
-                .filter_map(|note| {
-                    (note.kind != NoteKind::Debug || config.show_debug_info).then(|| {
-                        if let Some(sug) = note.suggestion.clone() {
-                            format!("{}: `{}`", note.text, sug.replacement)
-                        } else {
-                            note.text.clone()
-                        }
-                    })
+                .filter(|&note| note.kind != NoteKind::Debug || config.show_debug_info)
+                .map(|note| {
+                    if let Some(sug) = note.suggestion.clone() {
+                        format!("{}: `{}`", note.text, sug.replacement)
+                    } else {
+                        note.text.clone()
+                    }
                 })
                 .collect(),
         }

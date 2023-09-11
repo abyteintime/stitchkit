@@ -37,7 +37,9 @@ impl<'a> Compiler<'a> {
         };
 
         builder.ir.set_terminator(Terminator::Return(return_value));
-        let _unreachable = builder.ir.append_basic_block("unreachable_after_return");
+        let _unreachable = builder
+            .ir
+            .append_basic_block("unreachable_after_return", ret.kreturn.span);
     }
 
     /// Returns `true` if the return value's presence matches the return type.

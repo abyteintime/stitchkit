@@ -1,8 +1,23 @@
-use muscript_foundation::{ident::CaseInsensitive, source::SourceFileId};
-use muscript_syntax::cst::NamedItem;
+use muscript_foundation::{
+    ident::CaseInsensitive,
+    source::{SourceFileId, Spanned},
+};
+use muscript_syntax::{
+    cst::{self, NamedItem},
+    lexis::token::Ident,
+};
 
 use crate::{
     class::{Var, VarFlags, VarKind},
+    function::{
+        builder::FunctionBuilder,
+        expr::{ExpectedType, ExprContext},
+        Function, FunctionFlags, FunctionImplementation, FunctionKind,
+    },
+    ir::{
+        interpret::{interpret, Constant},
+        Terminator,
+    },
     partition::{UntypedClassPartitionsExt, VarCst},
     ClassId, Compiler, TypeId, VarId,
 };
@@ -42,12 +57,16 @@ impl<'a> Compiler<'a> {
     ) -> VarId {
         let name = cst.name();
         let var = match cst {
-            VarCst::Const(item_const) => Var {
-                source_file_id,
-                name,
-                ty: TypeId::VOID,
-                kind: VarKind::Const(item_const.value),
-            },
+            VarCst::Const(item_const) => {
+                let constant =
+                    self.evaluate_const(source_file_id, class_id, name, &item_const.value);
+                Var {
+                    source_file_id,
+                    name,
+                    ty: constant.type_id(),
+                    kind: VarKind::Const(constant),
+                }
+            }
             VarCst::Var(item_var) => Var {
                 source_file_id,
                 name,
@@ -61,6 +80,38 @@ impl<'a> Compiler<'a> {
             },
         };
         self.env.register_var(var)
+    }
+
+    fn evaluate_const(
+        &mut self,
+        source_file_id: SourceFileId,
+        class_id: ClassId,
+        name_ident: Ident,
+        value: &cst::Expr,
+    ) -> Constant {
+        let name_str = self.sources.span(source_file_id, &name_ident);
+        let function_id = self.env.register_function(Function {
+            source_file_id,
+            class_id,
+            mangled_name: format!("const-{name_str}"),
+            name_ident,
+            return_ty: TypeId::VOID,
+            params: vec![],
+            flags: FunctionFlags::empty(),
+            kind: FunctionKind::Function,
+            implementation: FunctionImplementation::Script,
+        });
+        let function = self.env.get_function(function_id);
+        let mut builder = FunctionBuilder::new(function_id, function, value.span());
+        let expr_register = self.expr(
+            &mut builder,
+            ExprContext {
+                expected_type: ExpectedType::Any,
+            },
+            value,
+        );
+        builder.ir.set_terminator(Terminator::Return(expr_register));
+        interpret(self.env, source_file_id, &builder.ir)
     }
 
     pub fn all_var_names(&mut self, class_id: ClassId) -> &[String] {

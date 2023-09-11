@@ -1,3 +1,4 @@
+use muscript_foundation::source::Spanned;
 use muscript_syntax::cst;
 
 use crate::{
@@ -24,17 +25,21 @@ impl<'a> Compiler<'a> {
         // NOTE: There may occur more basic blocks inside the branch, so we need to probe for its
         // ending position and place an unconditional goto terminator _there_ instead of the block
         // we just create. The same goes for the false branch.
-        let if_true_begin = builder.ir.append_basic_block("if_true");
+        let if_true_begin = builder
+            .ir
+            .append_basic_block("if_true", stmt.true_branch.span());
         self.stmt(builder, &stmt.true_branch);
         let if_true_end = builder.ir.cursor();
 
         let if_false = stmt.false_branch.as_ref().map(|false_branch| {
-            let if_false_begin = builder.ir.append_basic_block("if_false");
+            let if_false_begin = builder
+                .ir
+                .append_basic_block("if_false", stmt.false_branch.span());
             self.stmt(builder, &false_branch.then);
             (if_false_begin, builder.ir.cursor())
         });
 
-        let past_if = builder.ir.append_basic_block("past_if");
+        let past_if = builder.ir.append_basic_block("past_if", stmt.span());
 
         builder.ir.set_cursor(at_cond_block);
         builder.ir.set_terminator(Terminator::GotoIf {

@@ -5,7 +5,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{cst, lexis::token::Ident};
 
-use crate::{diagnostics::notes, TypeId};
+use crate::{diagnostics::notes, ir::interpret::Constant, TypeId};
 
 #[derive(Debug, Clone)]
 pub struct Var {
@@ -27,7 +27,7 @@ pub enum VarKind {
     ///
     /// Note that this is not the same as `Var` with `VarFlags::CONST`, as that's used for actual
     /// variables that cannot be reassigned.
-    Const(cst::Expr),
+    Const(Constant),
 }
 
 bitflags! {

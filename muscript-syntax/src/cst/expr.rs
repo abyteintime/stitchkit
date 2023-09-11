@@ -509,9 +509,7 @@ pub enum Precedence {
 
 impl PartialOrd for Precedence {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let this = Option::<u8>::from(*self).map(|x| u8::MAX - x);
-        let other = Option::<u8>::from(*other).map(|x| u8::MAX - x);
-        this.partial_cmp(&other)
+        Some(self.cmp(other))
     }
 }
 

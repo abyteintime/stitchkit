@@ -6,7 +6,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst::{self, InfixOperator},
-    lexis::token::{RightParen, Token},
+    lexis::token::{LeftParen, RightParen, Token},
 };
 
 use crate::{
@@ -20,6 +20,13 @@ use crate::{
 };
 
 use super::{void_handling::registers_are_valid, ExpectedType, ExprContext};
+
+pub struct CallSyntax<'a> {
+    pub function: &'a cst::Expr,
+    pub open: LeftParen,
+    pub args: &'a [cst::Arg],
+    pub close: RightParen,
+}
 
 impl<'a> Compiler<'a> {
     fn expr_operator(
@@ -164,10 +171,15 @@ impl<'a> Compiler<'a> {
         builder: &mut FunctionBuilder,
         context: ExprContext,
         outer: &cst::Expr,
-        function: &cst::Expr,
-        args: &[cst::Arg],
-        close: RightParen,
+        syntax: CallSyntax<'_>,
     ) -> RegisterId {
+        let CallSyntax {
+            function,
+            open,
+            args,
+            close,
+        } = syntax;
+
         if let cst::Expr::Ident(ident) = function {
             let name = self.sources.span(builder.source_file_id, ident);
             if let Some(function_id) = self.lookup_function(builder.class_id, name) {
@@ -210,13 +222,52 @@ impl<'a> Compiler<'a> {
                     },
                 );
             } else {
-                self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        format!("function `{name}` could not be found in this scope"),
+                // TODO: There should be a better way of suppressing diagnostics within a scope.
+                let num_diagnostics = self.env.diagnostics.len();
+                let type_id = self.type_id(
+                    builder.source_file_id,
+                    builder.class_id,
+                    &cst::Type {
+                        specifiers: vec![],
+                        path: cst::Path {
+                            components: vec![*ident],
+                        },
+                        generic: None,
+                        cpptemplate: None,
+                    },
+                );
+
+                if type_id != TypeId::VOID {
+                    if let [arg] = args {
+                        if let cst::Arg::Provided(value_expr) = arg {
+                            return self.expr_cast(builder, outer, function, type_id, value_expr);
+                        } else {
+                            self.env.emit(Diagnostic::error(
+                                builder.source_file_id,
+                                "type cast argument cannot be omitted",
+                            ))
+                        }
+                    } else {
+                        self.env.emit(
+                            Diagnostic::error(
+                                builder.source_file_id,
+                                "type cast expects one argument",
+                            )
+                            .with_label(Label::primary(open.span.join(&close.span), "")),
+                        )
+                    }
+                } else {
+                    self.env
+                        .diagnostics
+                        .resize_with(num_diagnostics, || unreachable!("must only shrink"));
+                    self.env.emit(
+                        Diagnostic::error(
+                            builder.source_file_id,
+                            format!("function `{name}` could not be found in this scope"),
+                        )
+                        .with_label(Label::primary(ident.span, "")),
                     )
-                    .with_label(Label::primary(ident.span, "")),
-                )
+                }
             }
         } else {
             self.env.emit(

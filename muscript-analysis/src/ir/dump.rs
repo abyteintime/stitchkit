@@ -80,6 +80,11 @@ impl<'a> DumpIr<'a> {
                 local(self.env, self.sources, f, *var_id)?;
             }
 
+            Value::PrimitiveCast { kind, value } => {
+                write!(f, "cast(primitive {kind:?}) ")?;
+                self.register_id(f, *value)?;
+            }
+
             Value::Len(array) => {
                 f.write_str("len ")?;
                 self.register_id(f, *array)?;

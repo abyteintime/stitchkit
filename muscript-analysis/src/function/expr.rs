@@ -74,10 +74,21 @@ impl<'a> Compiler<'a> {
             } => self.expr_infix(builder, context, expr, operator, left, right),
             cst::Expr::Call {
                 function,
+                open,
                 args,
                 close,
                 ..
-            } => self.expr_call(builder, context, expr, function, args, *close),
+            } => self.expr_call(
+                builder,
+                context,
+                expr,
+                call::CallSyntax {
+                    function,
+                    open: *open,
+                    args,
+                    close: *close,
+                },
+            ),
 
             cst::Expr::Dot { left, field, .. } => self.expr_dot(builder, expr, left, *field),
             cst::Expr::Index {

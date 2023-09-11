@@ -32,6 +32,12 @@ pub enum Value {
     /// Reference to a field on `self`.
     Field(VarId),
 
+    /// # Casts
+    PrimitiveCast {
+        kind: PrimitiveCast,
+        value: RegisterId,
+    },
+
     /// # Arrays
     Len(RegisterId),
     Index {
@@ -64,6 +70,52 @@ pub enum Value {
     },
     /// Signal that an argument in a function call was omitted and its default value should be used.
     Default,
+}
+
+/// Primitive casts supported by the VM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum PrimitiveCast {
+    InterfaceToObject = 54,
+    InterfaceToString = 55,
+    InterfaceToBool = 56,
+    RotatorToVector = 57,
+    ByteToInt = 58,
+    ByteToBool = 59,
+    ByteToFloat = 60,
+    IntToByte = 61,
+    IntToBool = 62,
+    IntToFloat = 63,
+    BoolToByte = 64,
+    BoolToInt = 65,
+    BoolToFloat = 66,
+    FloatToByte = 67,
+    FloatToInt = 68,
+    FloatToBool = 69,
+    // ObjectToInterface casts are not supported here because they also encode the interface to
+    // cast to, which would prevent this enum from being C-like. Instead it's a separate Value variant.
+    // ObjectToInterface = 70,
+    ObjectToBool = 71,
+    NameToBool = 72,
+    StringToByte = 73,
+    StringToInt = 74,
+    StringToBool = 75,
+    StringToFloat = 76,
+    StringToVector = 77,
+    StringToRotator = 78,
+    VectorToBool = 79,
+    VectorToRotator = 80,
+    RotatorToBool = 81,
+    ByteToString = 82,
+    IntToString = 83,
+    BoolToString = 84,
+    FloatToString = 85,
+    ObjectToString = 86,
+    NameToString = 87,
+    VectorToString = 88,
+    RotatorToString = 89,
+    DelegateToString = 90,
+    StringToName = 96,
 }
 
 /// [`Sink`] represents a side-effectful instruction that does not produce a meaningful result.

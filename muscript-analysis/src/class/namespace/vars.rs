@@ -14,10 +14,7 @@ use crate::{
         expr::{ExpectedType, ExprContext},
         Function, FunctionFlags, FunctionImplementation, FunctionKind,
     },
-    ir::{
-        interpret::{interpret, Constant},
-        Terminator,
-    },
+    ir::{interpret::Constant, Terminator},
     partition::{UntypedClassPartitionsExt, VarCst},
     ClassId, Compiler, TypeId, VarId,
 };
@@ -111,7 +108,7 @@ impl<'a> Compiler<'a> {
             value,
         );
         builder.ir.set_terminator(Terminator::Return(expr_register));
-        interpret(self.env, source_file_id, &builder.ir)
+        self.interpret(source_file_id, &builder.ir)
     }
 
     pub fn all_var_names(&mut self, class_id: ClassId) -> &[String] {

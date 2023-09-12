@@ -5,7 +5,11 @@ use muscript_foundation::{
     source::{SourceFileId, Span},
 };
 
-use crate::{function::builder::IrBuilder, TypeId};
+use crate::{
+    diagnostics::notes,
+    function::{builder::IrBuilder, FunctionImplementation},
+    Compiler, Environment, TypeId,
+};
 
 use super::{Ir, NodeKind, RegisterId, Terminator, Value};
 
@@ -51,94 +55,149 @@ impl Constant {
             },
         )
     }
-}
 
-pub fn interpret(
-    diagnostics: &mut dyn DiagnosticSink,
-    source_file_id: SourceFileId,
-    ir: &Ir,
-) -> Constant {
-    let block = &ir.basic_blocks[0];
-
-    // NOTE: make this a loop whenever you add support for branching.
-    // Not a loop right now because that would be misleading (and clippy doesn't like it.)
-    // loop {
-
-    // Evaluate side effects
-    for &node_id in &block.flow {
-        let node = ir.node(node_id);
-        if let NodeKind::Sink(_) = node.kind {
-            diagnostics.emit(cannot_evaluate_at_compile_time(
-                source_file_id,
-                CannotEvaluateAtCompileTime::Statement,
-                node.span,
-            ));
-            return Constant::Void;
+    pub fn expect_int(&self) -> i32 {
+        match self {
+            Constant::Int(x) => *x,
+            _ => panic!("Int constant was expected, but got {self:?}"),
         }
     }
 
-    // Evaluate the terminator
-    match &block.terminator {
-        &Terminator::Return(register_id) => {
-            eval_register(diagnostics, source_file_id, ir, register_id)
+    pub fn expect_float(&self) -> f32 {
+        match self {
+            Constant::Float(x) => *x,
+            _ => panic!("Float constant was expected, but got {self:?}"),
         }
+    }
+}
 
-        // For now we disallow any sort of branching.
-        Terminator::Goto(_) => {
-            // When implementing this in the future, remember to set up some mechanism of
-            // "branching fuel" - a limit to how many backward branches can be taken, so as to
-            // avoid compiling indefinitely.
-            diagnostics.emit(
-                Diagnostic::error(source_file_id, "loops cannot be evaluated at compile time")
-                    .with_label(Label::primary(block.span, "")),
-            );
-            Constant::Void
-        }
-        Terminator::GotoIf { .. } => {
-            diagnostics.emit(
-                Diagnostic::error(
+// TODO: Should be in its own crate for handling low-level bytecode stuff.
+mod natives {
+    pub const SUBTRACT_PRE_INT: u16 = 143;
+    pub const SUBTRACT_PRE_FLOAT: u16 = 169;
+}
+
+impl<'a> Compiler<'a> {
+    pub fn interpret(&mut self, source_file_id: SourceFileId, ir: &Ir) -> Constant {
+        let block = &ir.basic_blocks[0];
+
+        // NOTE: make this a loop whenever you add support for branching.
+        // Not a loop right now because that would be misleading (and clippy doesn't like it.)
+        // loop {
+
+        // Evaluate side effects
+        for &node_id in &block.flow {
+            let node = ir.node(node_id);
+            if let NodeKind::Sink(_) = node.kind {
+                self.env.emit(cannot_evaluate_at_compile_time(
                     source_file_id,
-                    "conditional branches (`if`s and `?:`) cannot be evaluated at compile time",
-                )
-                .with_label(Label::primary(block.span, "")),
-            );
-            Constant::Void
+                    CannotEvaluateAtCompileTime::Statement,
+                    node.span,
+                ));
+                return Constant::Void;
+            }
         }
 
-        Terminator::Unreachable => {
-            diagnostics.emit(
-                Diagnostic::bug(source_file_id, "unreachable IR reached")
-                    .with_label(Label::primary(block.span, ""))
-                    .with_note("note: this is a bug, please report it at <https://github.com/abyteintime/stitchkit>"),
-            );
-            Constant::Void
+        // Evaluate the terminator
+        match &block.terminator {
+            &Terminator::Return(register_id) => self.eval_register(source_file_id, ir, register_id),
+
+            // For now we disallow any sort of branching.
+            Terminator::Goto(_) => {
+                // When implementing this in the future, remember to set up some mechanism of
+                // "branching fuel" - a limit to how many backward branches can be taken, so as to
+                // avoid compiling indefinitely.
+                self.env.emit(
+                    Diagnostic::error(source_file_id, "loops cannot be evaluated at compile time")
+                        .with_label(Label::primary(block.span, "")),
+                );
+                Constant::Void
+            }
+            Terminator::GotoIf { .. } => {
+                self.env.emit(
+                    Diagnostic::error(
+                        source_file_id,
+                        "conditional branches (`if`s and `?:`) cannot be evaluated at compile time",
+                    )
+                    .with_label(Label::primary(block.span, "")),
+                );
+                Constant::Void
+            }
+
+            Terminator::Unreachable => {
+                self.env.emit(
+                    Diagnostic::bug(source_file_id, "unreachable IR reached")
+                        .with_label(Label::primary(block.span, ""))
+                        .with_note("note: this is a bug, please report it at <https://github.com/abyteintime/stitchkit>"),
+                );
+                Constant::Void
+            }
         }
+
+        // }
     }
 
-    // }
-}
+    fn eval_register(
+        &mut self,
+        source_file_id: SourceFileId,
+        ir: &Ir,
+        register_id: RegisterId,
+    ) -> Constant {
+        let span = ir.node(register_id.into()).span;
+        let register = ir.register(register_id);
+        match &register.value {
+            Value::Void => Constant::Void,
+            &Value::Bool(x) => Constant::Bool(x),
+            &Value::Byte(x) => Constant::Byte(x),
+            &Value::Int(x) => Constant::Int(x),
+            &Value::Float(x) => Constant::Float(x),
+            Value::String(x) => Constant::String(x.clone()),
 
-fn eval_register(
-    diagnostics: &mut dyn DiagnosticSink,
-    source_file_id: SourceFileId,
-    ir: &Ir,
-    register_id: RegisterId,
-) -> Constant {
-    let register = ir.register(register_id);
-    match &register.value {
-        Value::Void => Constant::Void,
-        &Value::Bool(x) => Constant::Bool(x),
-        &Value::Byte(x) => Constant::Byte(x),
-        &Value::Int(x) => Constant::Int(x),
-        &Value::Float(x) => Constant::Float(x),
-        Value::String(x) => Constant::String(x.clone()),
-        _ => {
-            diagnostics.emit(cannot_evaluate_at_compile_time(
-                source_file_id,
-                CannotEvaluateAtCompileTime::Expression,
-                ir.node(register_id.into()).span,
-            ));
-            Constant::Void
+            Value::CallFinal {
+                function: function_id,
+                arguments,
+            } => {
+                let function = self.env.get_function(*function_id);
+                dbg!(&function.mangled_name);
+                match function.implementation {
+                    FunctionImplementation::Opcode(natives::SUBTRACT_PRE_INT) => {
+                        let x = self
+                            .eval_register(source_file_id, ir, arguments[0])
+                            .expect_int();
+                        Constant::Int(-x)
+                    }
+                    FunctionImplementation::Opcode(natives::SUBTRACT_PRE_FLOAT) => {
+                        let x = self
+                            .eval_register(source_file_id, ir, arguments[0])
+                            .expect_float();
+                        Constant::Float(-x)
+                    }
+                    _ => {
+                        self.env.emit(
+                            Diagnostic::error(
+                                source_file_id,
+                                format!(
+                                    "function `{}` cannot be evaluated at compile time",
+                                    self.sources
+                                        .span(function.source_file_id, &function.name_ident)
+                                ),
+                            )
+                            .with_label(Label::primary(span, ""))
+                            .with_note(notes::CONST_EVAL_SUPPORTED_FEATURES),
+                        );
+                        Constant::Void
+                    }
+                }
+            }
+
+            _ => {
+                self.env.emit(cannot_evaluate_at_compile_time(
+                    source_file_id,
+                    CannotEvaluateAtCompileTime::Expression,
+                    ir.node(register_id.into()).span,
+                ));
+                Constant::Void
+            }
         }
     }
 }
@@ -166,5 +225,5 @@ fn cannot_evaluate_at_compile_time(
         },
     )
     .with_label(Label::primary(span, ""))
-    .with_note("note: compile-time evaluation only supports constants right now")
+    .with_note(notes::CONST_EVAL_SUPPORTED_FEATURES)
 }

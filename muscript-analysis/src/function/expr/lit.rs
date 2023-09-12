@@ -66,7 +66,7 @@ impl<'a> Compiler<'a> {
             "lit_int",
             type_id,
             if type_id == TypeId::FLOAT {
-                Value::Int(i)
+                Value::Float(i as f32)
             } else if type_id == TypeId::BYTE {
                 let byte = u8::try_from(i);
                 if byte.is_err() {
@@ -78,7 +78,7 @@ impl<'a> Compiler<'a> {
                 }
                 Value::Byte(byte.unwrap_or(0))
             } else {
-                Value::Float(i as f32)
+                Value::Int(i)
             },
         )
     }

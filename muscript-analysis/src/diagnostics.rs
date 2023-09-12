@@ -30,5 +30,10 @@ pub mod notes {
         note: MuScript does not consider access modifiers at the moment;
               all items are treated as `public`
     "};
+    pub const CONST_EVAL_SUPPORTED_FEATURES: &str = indoc! {"
+        note: compile-time evaluation currently supports:
+            - literal values
+            - the unary `-` operator on Int and Float values
+    "};
     pub const WIP: &str = "note: MuScript is still unfinished; you can help contribute at <https://github.com/abyteintime/stitchkit>";
 }

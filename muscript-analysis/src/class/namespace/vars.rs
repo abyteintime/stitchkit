@@ -108,7 +108,7 @@ impl<'a> Compiler<'a> {
             value,
         );
         builder.ir.set_terminator(Terminator::Return(expr_register));
-        self.interpret(source_file_id, &builder.ir)
+        self.eval_ir(source_file_id, &builder.ir)
     }
 
     pub fn all_var_names(&mut self, class_id: ClassId) -> &[String] {

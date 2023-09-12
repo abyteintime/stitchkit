@@ -10,7 +10,7 @@ use muscript_syntax::{cst, lexis::token::Ident};
 use crate::{
     class::{Var, VarFlags, VarKind},
     diagnostics::notes,
-    ir::Ir,
+    ir::{Ir, Terminator, Value},
     ClassId, Compiler, FunctionId, TypeId, VarId,
 };
 
@@ -237,6 +237,22 @@ impl<'a> Compiler<'a> {
                 self.stmt_block(&mut builder, block);
             }
         }
+
+        // Give the last emitted block a terminator, which would normally be `unreachable`.
+        // We `return void` for now because TODO: definite return analysis.
+        let end_token_span = match &cst.body {
+            cst::Body::Stub(semi) => semi.span,
+            cst::Body::Impl(block) => block.close.span,
+        };
+        let function = self.env.get_function(function_id);
+        let returned_void = builder.ir.append_register(
+            end_token_span,
+            "default_return",
+            function.return_ty,
+            Value::Void,
+        );
+        builder.ir.set_terminator(Terminator::Return(returned_void));
+
         let ir = builder.into_ir();
 
         self.untyped_class_partitions_for_theft(class_id).unwrap()[partition_index]

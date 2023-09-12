@@ -8,7 +8,7 @@ use muscript_foundation::{
 use crate::{
     diagnostics::notes,
     function::{builder::IrBuilder, FunctionImplementation},
-    Compiler, Environment, TypeId,
+    Compiler, TypeId,
 };
 
 use super::{Ir, NodeKind, RegisterId, Terminator, Value};
@@ -78,7 +78,7 @@ mod natives {
 }
 
 impl<'a> Compiler<'a> {
-    pub fn interpret(&mut self, source_file_id: SourceFileId, ir: &Ir) -> Constant {
+    pub fn eval_ir(&mut self, source_file_id: SourceFileId, ir: &Ir) -> Constant {
         let block = &ir.basic_blocks[0];
 
         // NOTE: make this a loop whenever you add support for branching.

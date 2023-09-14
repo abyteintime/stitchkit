@@ -3,7 +3,10 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::Spanned,
 };
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_syntax::{
+    cst,
+    lexis::token::{Dot, Ident},
+};
 
 use crate::{
     function::builder::FunctionBuilder,
@@ -20,6 +23,7 @@ impl<'a> Compiler<'a> {
         builder: &mut FunctionBuilder,
         outer: &cst::Expr,
         left: &cst::Expr,
+        dot: Dot,
         field: Ident,
     ) -> RegisterId {
         let left_register_id = self.expr(
@@ -62,7 +66,14 @@ impl<'a> Compiler<'a> {
                         builder.source_file_id,
                         "the `.` operator can only be used on objects, structs, and arrays",
                     )
-                    .with_label(Label::primary(field.span, "")),
+                    .with_label(Label::primary(dot.span, ""))
+                    .with_label(Label::secondary(
+                        left.span(),
+                        format!(
+                            "this is found to be of type `{}`, which does not have fields",
+                            self.env.type_name(left_type_id)
+                        ),
+                    )),
                 );
                 builder
                     .ir

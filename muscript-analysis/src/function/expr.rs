@@ -91,7 +91,7 @@ impl<'a> Compiler<'a> {
                 },
             ),
 
-            cst::Expr::Dot { left, field, .. } => self.expr_dot(builder, expr, left, *field),
+            cst::Expr::Dot { left, dot, field } => self.expr_dot(builder, expr, left, *dot, *field),
             cst::Expr::Index {
                 left,
                 open,

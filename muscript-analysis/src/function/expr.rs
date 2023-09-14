@@ -1,5 +1,6 @@
+use indoc::indoc;
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label},
+    errors::{Diagnostic, DiagnosticSink, Label, Note},
     source::Spanned,
 };
 use muscript_syntax::cst;
@@ -100,6 +101,26 @@ impl<'a> Compiler<'a> {
 
             cst::Expr::Assign { lvalue, rvalue, .. } => {
                 self.expr_assign(builder, context, lvalue, rvalue)
+            }
+
+            cst::Expr::FailedExp(token) => {
+                let macro_name = self.sources.span(builder.source_file_id, &token.span);
+                self.env.emit(
+                    Diagnostic::error(builder.source_file_id, "use of undefined macro as an expression")
+                        .with_label(Label::primary(expr.span(), ""))
+                        .with_note(format!("the macro `{macro_name}` was not defined anywhere, and expanded to no tokens where an expression was expected"))
+
+                        .with_note(format!(indoc!{"
+                            help: try defining the macro somewhere:
+                                  `define {} (2 + 2) // or something else
+                        "}, macro_name)),
+                );
+                builder.ir.append_register(
+                    expr.span(),
+                    "failed_expansion",
+                    context.expected_type.to_type_id(),
+                    Value::Void,
+                )
             }
 
             _ => {

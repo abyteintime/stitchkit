@@ -1,6 +1,6 @@
 use indoc::indoc;
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label, Note},
+    errors::{Diagnostic, DiagnosticSink, Label},
     source::Spanned,
 };
 use muscript_syntax::cst;

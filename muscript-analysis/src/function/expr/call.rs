@@ -1,7 +1,7 @@
 use std::fmt::Write as _;
 
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label},
+    errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     source::{Span, Spanned},
 };
 use muscript_syntax::{
@@ -83,7 +83,12 @@ impl<'a> Compiler<'a> {
                 }
                 self.env.emit(
                     Diagnostic::error(builder.source_file_id, error)
-                        .with_label(Label::primary(operator.span(), "")),
+                        .with_label(Label::primary(operator.span(), ""))
+                        .with_note(Note {
+                            kind: NoteKind::Debug,
+                            text: format!("this operator's mangled name is `{}`, which was not found in this scope", operator_function_name),
+                            suggestion: None,
+                        }),
                 );
             }
             builder.ir.append_register(
@@ -271,12 +276,10 @@ impl<'a> Compiler<'a> {
             }
         } else {
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    "expression does not resolve to a function",
-                )
-                .with_label(Label::primary(function.span(), "")),
+                Diagnostic::error(builder.source_file_id, "expression cannot be called")
+                    .with_label(Label::primary(function.span(), "")),
                 // TODO: Examples.
+                // TODO: In case LHS is a macro, this needs a better error message.
                 // .with_note("note: the left hand side of a function call must be:"),
             );
         }

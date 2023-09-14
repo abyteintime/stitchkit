@@ -1,4 +1,5 @@
 use muscript_foundation::ident::CaseInsensitive;
+use tracing::{trace, trace_span};
 
 use crate::{
     partition::{UntypedClassPartition, UntypedClassPartitionsExt},
@@ -86,13 +87,19 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn lookup_function(&mut self, class_id: ClassId, name: &str) -> Option<FunctionId> {
+        let _span = trace_span!("lookup_function", ?class_id).entered();
+        trace!(?name, "looking for function");
+
         // TODO: Speed this up via memoization? Walking the inheritance hierarchy could be
         // a bit slow.
         if let Some(function_id) = self.function_in_class(class_id, name) {
+            trace!("found function");
             Some(function_id)
         } else if let Some(parent_class) = self.super_class_id(class_id) {
-            self.function_in_class(parent_class, name)
+            trace!(?parent_class, "walking up to parent class");
+            self.lookup_function(parent_class, name)
         } else {
+            trace!("did not find anything");
             None
         }
     }

@@ -152,6 +152,7 @@ impl<'a> Compiler<'a> {
             &Value::Int(x) => Constant::Int(x),
             &Value::Float(x) => Constant::Float(x),
             Value::String(x) => Constant::String(x.clone()),
+            Value::Name(x) => Constant::Name(x.clone()),
 
             Value::CallFinal {
                 function: function_id,

@@ -46,9 +46,11 @@ impl<'a> Compiler<'a> {
                 outer,
                 left_register_id,
             ),
+
             Type::Array(_) => {
                 self.expr_dot_on_array(field_name, builder, field, outer, left_register_id)
             }
+
             &Type::Struct {
                 outer: struct_outer_class,
             } => self.expr_dot_on_struct(
@@ -59,25 +61,28 @@ impl<'a> Compiler<'a> {
                 outer,
                 left_register_id,
             ),
+
             _ => {
                 // TODO: Also classes to get defaults and constants.
-                self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        "the `.` operator can only be used on objects, structs, and arrays",
-                    )
-                    .with_label(Label::primary(dot.span, ""))
-                    .with_label(Label::secondary(
-                        left.span(),
-                        format!(
-                            "this is found to be of type `{}`, which does not have fields",
-                            self.env.type_name(left_type_id)
-                        ),
-                    )),
-                );
+                if left_type_id != TypeId::ERROR {
+                    self.env.emit(
+                        Diagnostic::error(
+                            builder.source_file_id,
+                            "the `.` operator can only be used on objects, structs, and arrays",
+                        )
+                        .with_label(Label::primary(dot.span, ""))
+                        .with_label(Label::secondary(
+                            left.span(),
+                            format!(
+                                "this is found to be of type `{}`, which does not have fields",
+                                self.env.type_name(left_type_id)
+                            ),
+                        )),
+                    );
+                }
                 builder
                     .ir
-                    .append_register(outer.span(), "invalid_dot", TypeId::VOID, Value::Void)
+                    .append_register(outer.span(), "invalid_dot", TypeId::ERROR, Value::Void)
             }
         }
     }
@@ -122,7 +127,7 @@ impl<'a> Compiler<'a> {
             );
             builder
                 .ir
-                .append_register(outer.span(), "invalid_field", TypeId::VOID, Value::Void)
+                .append_register(outer.span(), "invalid_field", TypeId::ERROR, Value::Void)
         }
     }
 
@@ -171,7 +176,7 @@ impl<'a> Compiler<'a> {
             );
             builder
                 .ir
-                .append_register(outer.span(), "invalid_field", TypeId::VOID, Value::Void)
+                .append_register(outer.span(), "invalid_field", TypeId::ERROR, Value::Void)
         }
     }
 
@@ -199,7 +204,7 @@ impl<'a> Compiler<'a> {
             builder.ir.append_register(
                 outer.span(),
                 "array_invalid_field",
-                TypeId::VOID,
+                TypeId::ERROR,
                 Value::Void,
             )
         }

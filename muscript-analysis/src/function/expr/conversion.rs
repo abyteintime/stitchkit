@@ -24,7 +24,7 @@ impl<'a> Compiler<'a> {
         let input_register = builder.ir.register(input_register_id);
 
         if !matches!(input_register.value, Value::Void)
-            && expected_ty != TypeId::VOID
+            && expected_ty != TypeId::ERROR
             && input_register.ty != expected_ty
         {
             self.env.emit(

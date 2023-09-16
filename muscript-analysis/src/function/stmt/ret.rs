@@ -49,7 +49,9 @@ impl<'a> Compiler<'a> {
         ret: &cst::StmtReturn,
         provided_return_value_ty: TypeId,
     ) -> bool {
-        if builder.return_ty == TypeId::VOID && provided_return_value_ty != TypeId::VOID {
+        if provided_return_value_ty == TypeId::ERROR {
+            false
+        } else if builder.return_ty == TypeId::VOID && provided_return_value_ty != TypeId::VOID {
             self.env.emit(
                 Diagnostic::error(
                     builder.source_file_id,

@@ -83,7 +83,7 @@ impl<'a> Compiler<'a> {
             );
             builder
                 .ir
-                .append_register(outer.span(), "non_array_index", TypeId::VOID, Value::Void)
+                .append_register(outer.span(), "non_array_index", TypeId::ERROR, Value::Void)
         }
     }
 }

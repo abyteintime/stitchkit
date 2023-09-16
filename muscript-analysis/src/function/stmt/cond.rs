@@ -9,7 +9,7 @@ impl<'a> Compiler<'a> {
         register_id: RegisterId,
     ) {
         let register = builder.ir.register(register_id);
-        if register.ty != TypeId::BOOL && register.ty != TypeId::VOID {
+        if register.ty != TypeId::BOOL && register.ty != TypeId::ERROR {
             // TODO: For various types, this could suggest fixes.
             // - MuScript doesn't allow ints to be used as `if` conditions, but could suggest to do
             //   `x != 0`.

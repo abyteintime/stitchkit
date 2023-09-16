@@ -242,7 +242,7 @@ impl<'a> Compiler<'a> {
                     },
                 );
 
-                if type_id != TypeId::VOID {
+                if type_id != TypeId::ERROR {
                     if let [arg] = args {
                         if let cst::Arg::Provided(value_expr) = arg {
                             return self.expr_cast(builder, outer, function, type_id, value_expr);
@@ -277,7 +277,15 @@ impl<'a> Compiler<'a> {
         } else {
             self.env.emit(
                 Diagnostic::error(builder.source_file_id, "expression cannot be called")
-                    .with_label(Label::primary(function.span(), "")),
+                    .with_label(Label::primary(
+                        function.span(),
+                        "this expression does not denote a function",
+                    ))
+                    .with_label(Label::secondary(
+                        open.span,
+                        "this `(` begins a function call",
+                    ))
+                    .with_label(Label::secondary(close.span, "")),
                 // TODO: Examples.
                 // TODO: In case LHS is a macro, this needs a better error message.
                 // .with_note("note: the left hand side of a function call must be:"),
@@ -313,7 +321,7 @@ impl<'a> Compiler<'a> {
                     expr,
                 );
                 // TODO: Is it okay to pass non-places to `const out`?
-                if builder.ir.register(value).ty != TypeId::VOID
+                if builder.ir.register(value).ty != TypeId::ERROR
                     && param_flags.contains(ParamFlags::OUT)
                     && !builder.ir.is_place(value)
                 {

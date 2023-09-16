@@ -118,7 +118,7 @@ impl<'a> Compiler<'a> {
                 builder.ir.append_register(
                     expr.span(),
                     "failed_expansion",
-                    context.expected_type.to_type_id(),
+                    TypeId::ERROR,
                     Value::Void,
                 )
             }
@@ -129,12 +129,9 @@ impl<'a> Compiler<'a> {
                         .with_label(Label::primary(expr.span(), ""))
                         .with_note(notes::WIP),
                 );
-                builder.ir.append_register(
-                    expr.span(),
-                    "unsupported",
-                    context.expected_type.to_type_id(),
-                    Value::Void,
-                )
+                builder
+                    .ir
+                    .append_register(expr.span(), "unsupported", TypeId::ERROR, Value::Void)
             }
         }
     }

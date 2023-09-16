@@ -21,7 +21,7 @@ impl<'a> Compiler<'a> {
         rvalue: &cst::Expr,
     ) -> RegisterId {
         let lvalue_register = self.expr(builder, context, lvalue);
-        if builder.ir.register(lvalue_register).ty != TypeId::VOID
+        if builder.ir.register(lvalue_register).ty != TypeId::ERROR
             && !builder.ir.is_place(lvalue_register)
         {
             self.env.emit(

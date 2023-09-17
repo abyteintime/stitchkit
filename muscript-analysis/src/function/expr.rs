@@ -115,7 +115,7 @@ impl<'a> Compiler<'a> {
                         .with_note(format!("the macro `{macro_name}` was not defined anywhere, and expanded to no tokens where an expression was expected"))
 
                         .with_note(format!(indoc!{"
-                            help: try defining the macro somewhere:
+                            help: try defining the macro somewhere in your source file, or in a separate .uci file:
                                   `define {} (2 + 2) // or something else
                         "}, macro_name)),
                 );

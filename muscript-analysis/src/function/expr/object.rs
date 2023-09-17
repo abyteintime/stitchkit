@@ -11,6 +11,7 @@ use muscript_syntax::{
 use crate::{
     function::builder::FunctionBuilder,
     ir::{RegisterId, Value},
+    type_system::Type,
     Compiler, TypeId,
 };
 
@@ -58,16 +59,27 @@ impl<'a> Compiler<'a> {
                 );
             }
 
-            self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    "class references are not yet implemented",
-                )
-                .with_label(Label::primary(class_ident.span, "")),
-            );
+            let class_name_ident = Ident {
+                span: Span::from(name_lit.span.start + 1..name_lit.span.end - 1),
+            };
+            if let Some(class_id) = self.lookup_class(builder.source_file_id, class_name_ident) {
+                let class_type_id = self.class_type_id(class_id);
+                let class_package = self.class_package(class_id);
+                return builder.ir.append_register(
+                    outer.span(),
+                    "class_reference",
+                    class_type_id,
+                    Value::Object {
+                        class: class_id,
+                        package: class_package.to_owned(),
+                        name: self.env.type_name(class_type_id).to_owned().to_string(),
+                    },
+                );
+            }
+
             builder.ir.append_register(
                 outer.span(),
-                "unsupported_class_reference",
+                "invalid_class_reference",
                 TypeId::ERROR,
                 Value::Void,
             )

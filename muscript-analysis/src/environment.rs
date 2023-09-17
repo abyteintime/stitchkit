@@ -275,6 +275,16 @@ impl<'a> Compiler<'a> {
             .and_then(|x| x.as_mut())
             .map(|x| x.as_mut_slice())
     }
+
+    /// Returns the package the class belongs to. Assumes the class has undergone package coherence
+    /// checks.
+    pub fn class_package(&self, class_id: ClassId) -> &str {
+        let source_ids = self
+            .input
+            .class_source_ids(self.env.class_name(class_id))
+            .unwrap();
+        &self.sources.get(source_ids[0]).package
+    }
 }
 
 impl Environment {
@@ -377,6 +387,22 @@ impl<'a> Compiler<'a> {
                 }
             }
             (source, type_id)
+        }
+    }
+
+    pub fn class_type_id(&mut self, class_id: ClassId) -> TypeId {
+        let type_name = TypeName::generic(
+            "Class",
+            vec![TypeName::concrete(self.env.class_name(class_id))],
+        );
+        if let Some(&type_id) = self.env.global_type_ids_by_name.get(&type_name) {
+            type_id
+        } else {
+            let type_id = self
+                .env
+                .register_type(type_name.clone(), Type::Class(class_id));
+            self.env.global_type_ids_by_name.insert(type_name, type_id);
+            type_id
         }
     }
 }

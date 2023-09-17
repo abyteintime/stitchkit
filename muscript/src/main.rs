@@ -219,6 +219,7 @@ fn read_source_file(path: &Utf8Path) -> anyhow::Result<String> {
 }
 
 fn pretty_file_name(package_root: &Utf8Path, source_file: &Utf8Path) -> String {
+    let package_root = package_root.parent().unwrap_or(package_root);
     source_file
         .strip_prefix(package_root)
         .expect("source_file must start with package_root")

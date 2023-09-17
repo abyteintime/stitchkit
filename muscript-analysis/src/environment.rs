@@ -223,9 +223,16 @@ impl<'a> Compiler<'a> {
     ) -> Option<&[UntypedClassPartition]> {
         if self.env.untyped_class_partitions.get(&class_id).is_none() {
             let class_name = self.env.class_name(class_id).to_owned();
-            if let Some(class_csts) = self.input.parsed_class_sources(&class_name, self.env) {
+            if let Some(class_sources) = self.input.parsed_class_sources(&class_name, self.env) {
                 let mut diagnostics = vec![];
-                let partitions: Vec<_> = class_csts
+
+                UntypedClassPartition::check_package_coherence(
+                    &mut diagnostics,
+                    self.sources,
+                    &class_sources,
+                );
+
+                let partitions: Vec<_> = class_sources
                     .source_files
                     .into_iter()
                     .map(|source_file| {
@@ -242,6 +249,7 @@ impl<'a> Compiler<'a> {
                     self.sources,
                     &partitions,
                 );
+
                 pipe_all_diagnostics_into(self.env, diagnostics);
                 self.env
                     .untyped_class_partitions

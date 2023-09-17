@@ -1,10 +1,12 @@
 use indexmap::IndexMap;
 use muscript_foundation::{
-    errors::DiagnosticSink,
+    errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet, Span},
 };
 use muscript_syntax::cst::NamedItem;
+
+use crate::ClassSources;
 
 use super::UntypedClassPartition;
 
@@ -76,6 +78,46 @@ impl UntypedClassPartition {
             } else {
                 joint_namespace.insert(name.clone(), (partition_source_file_id, var.name().span));
             }
+        }
+    }
+
+    pub fn check_package_coherence(
+        diagnostics: &mut dyn DiagnosticSink,
+        sources: &SourceFileSet,
+        class_sources: &ClassSources,
+    ) {
+        let first_source_file = class_sources.source_files[0].id;
+        let first_source_package = &sources.get(first_source_file).package;
+
+        let mut conflicting = vec![];
+        for i in 1..class_sources.source_files.len() {
+            let other_source_file = class_sources.source_files[i].id;
+            let other_source_package = &sources.get(other_source_file).package;
+            if first_source_package != other_source_package {
+                conflicting.push(i);
+            }
+        }
+
+        if !conflicting.is_empty() {
+            let mut diagnostic = Diagnostic::error(
+                first_source_file,
+                "redefinition of class across different packages",
+            );
+            conflicting.insert(0, 0);
+            for i in conflicting {
+                let conflicting_cst = &class_sources.source_files[i].parsed;
+                diagnostic.labels.push(
+                    Label::primary(conflicting_cst.class.name.span, "")
+                        .in_file(class_sources.source_files[i].id),
+                );
+            }
+            dbg!(&diagnostic);
+            diagnostics.emit(
+                diagnostic
+                    .with_note("different classes with the same name are defined in multiple packages")
+                    .with_note("note: external classes cannot be extended with new behavior because that would require modifying existing game files, which mods cannot do")
+                    .with_note("help: try renaming your class to something else"),
+            );
         }
     }
 }

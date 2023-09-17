@@ -309,6 +309,7 @@ impl Environment {
         self.register_magic_type("Name", Type::Primitive(Primitive::Name));
 
         let object_class = self.get_or_create_class("Object");
+        let _class_class = self.get_or_create_class("Class");
         self.register_magic_type("Object", Type::Object(object_class));
     }
 }
@@ -327,6 +328,7 @@ impl TypeId {
 
 impl ClassId {
     pub const OBJECT: Self = Self(0);
+    pub const CLASS: Self = Self(1);
 }
 
 impl Primitive {

@@ -11,8 +11,7 @@ use muscript_syntax::{
 use crate::{
     function::builder::FunctionBuilder,
     ir::{RegisterId, Value},
-    type_system::Type,
-    Compiler, TypeId,
+    ClassId, Compiler, TypeId,
 };
 
 use super::ExprContext;
@@ -21,7 +20,7 @@ impl<'a> Compiler<'a> {
     pub(super) fn expr_object(
         &mut self,
         builder: &mut FunctionBuilder,
-        context: ExprContext,
+        _context: ExprContext,
         outer: &cst::Expr,
         class_ident: Ident,
         name_lit: NameLit,
@@ -70,9 +69,9 @@ impl<'a> Compiler<'a> {
                     "class_reference",
                     class_type_id,
                     Value::Object {
-                        class: class_id,
+                        class: ClassId::CLASS,
                         package: class_package.to_owned(),
-                        name: self.env.type_name(class_type_id).to_owned().to_string(),
+                        name: self.env.class_name(class_id).to_owned(),
                     },
                 );
             }

@@ -1,20 +1,16 @@
 mod input;
 
-use std::{
-    collections::HashSet,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, Package};
 use muscript_foundation::{
     errors::DiagnosticConfig,
     source::{SourceFile, SourceFileSet},
 };
-use tracing::{debug, error, metadata::LevelFilter};
+use tracing::{debug, error, metadata::LevelFilter, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 use walkdir::WalkDir;
 
@@ -25,11 +21,11 @@ pub struct Args {
     /// Directory containing the package sources (one directory above `Classes`).
     ///
     /// The `Classes` directory within will be walked to find source files to compile.
-    package: PathBuf,
+    package: Utf8PathBuf,
 
-    /// Game source packages. At least `Core` should be provided here.
-    #[clap(short = 'x', long)]
-    external: Vec<PathBuf>,
+    /// External source packages. At least `Core` should be provided here.
+    #[clap(short = 's', long)]
+    source: Vec<Utf8PathBuf>,
 
     /// Print debug notes for diagnostics that have them.
     #[clap(long)]
@@ -46,12 +42,20 @@ pub struct Args {
 
 pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     debug!("Looking for main package source files");
+    let main_package_name = Rc::from(get_package_name(&args.package)?);
+    debug!("Main package: {main_package_name}");
     let compiled_sources = list_source_files_in_package(&args.package)?;
     debug!("{} source files found", compiled_sources.len());
 
     debug!("Looking for external source files");
     let mut external_sources = vec![];
-    for (i, external_dir) in args.external.iter().enumerate() {
+    let package_names = args
+        .source
+        .iter()
+        .map(|package_path| get_package_name(package_path).map(Rc::from))
+        .collect::<Result<Vec<_>, _>>()?;
+    for (i, external_dir) in args.source.iter().enumerate() {
+        debug!("External package: {}", package_names[i]);
         external_sources.extend(
             list_source_files_in_package(external_dir)?
                 .into_iter()
@@ -66,24 +70,31 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     debug!("Building source file set");
     let mut source_file_set = SourceFileSet::new();
 
-    debug!("Loading compiled sources");
-    let mut compiled_source_file_ids = HashSet::new();
+    debug!("Loading main package sources");
+    let mut main_package_source_file_ids = HashSet::new();
     for path in compiled_sources {
         let source = read_source_file(&path)?;
         let filename = pretty_file_name(&args.package, &path);
-        compiled_source_file_ids.insert(source_file_set.add(SourceFile::new(
+        main_package_source_file_ids.insert(source_file_set.add(SourceFile::new(
+            Rc::clone(&main_package_name),
             filename,
-            path,
+            PathBuf::from(path),
             Rc::from(source),
         )));
     }
 
     debug!("Loading external sources");
     for (i, path) in external_sources {
-        let external_source_path = &args.external[i];
+        let external_source_path = &args.source[i];
+        let package_name = Rc::clone(&package_names[i]);
         let filename = pretty_file_name(external_source_path, &path);
         let source = read_source_file(&path)?;
-        source_file_set.add(SourceFile::new(filename, path, Rc::from(source)));
+        source_file_set.add(SourceFile::new(
+            package_name,
+            filename,
+            PathBuf::from(path),
+            Rc::from(source),
+        ));
     }
 
     debug!("Distilling class names from source file set");
@@ -93,7 +104,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     for (source_file_id, source_file) in source_file_set.iter() {
         match source_file.class_name() {
             Ok(class_name) => {
-                if compiled_source_file_ids.contains(&source_file_id) {
+                if main_package_source_file_ids.contains(&source_file_id) {
                     let class_id = env.get_or_create_class(class_name);
                     classes_to_compile.push(class_id);
                 }
@@ -155,7 +166,14 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn list_source_files_in_package(package: &Path) -> anyhow::Result<Vec<PathBuf>> {
+fn get_package_name(package: &Utf8Path) -> anyhow::Result<String> {
+    package
+        .file_name()
+        .ok_or_else(|| anyhow!("path {package:?} has no package name"))
+        .map(|package_name| package_name.to_owned())
+}
+
+fn list_source_files_in_package(package: &Utf8Path) -> anyhow::Result<Vec<Utf8PathBuf>> {
     let classes_dir = package.join("Classes");
     if !classes_dir.is_dir() {
         bail!("{classes_dir:?} is not a directory");
@@ -165,14 +183,18 @@ fn list_source_files_in_package(package: &Path) -> anyhow::Result<Vec<PathBuf>> 
     for entry in WalkDir::new(classes_dir) {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() && path.extension() == Some(OsStr::new("uc")) {
-            source_file_paths.push(path.to_owned());
+        if let Some(path) = Utf8Path::from_path(path) {
+            if path.is_file() && path.extension() == Some("uc") {
+                source_file_paths.push(path.to_owned());
+            }
+        } else {
+            warn!("path contains invalid UTF-8: {path:?}");
         }
     }
     Ok(source_file_paths)
 }
 
-fn read_source_file(path: &Path) -> anyhow::Result<String> {
+fn read_source_file(path: &Utf8Path) -> anyhow::Result<String> {
     let source_bytes =
         std::fs::read(path).with_context(|| format!("cannot read source file at {path:?}"))?;
 
@@ -196,11 +218,11 @@ fn read_source_file(path: &Path) -> anyhow::Result<String> {
     }
 }
 
-fn pretty_file_name(package_root: &Path, source_file: &Path) -> String {
-    let path = source_file
+fn pretty_file_name(package_root: &Utf8Path, source_file: &Utf8Path) -> String {
+    source_file
         .strip_prefix(package_root)
-        .expect("source_file must start with package_root");
-    path.to_string_lossy().into_owned()
+        .expect("source_file must start with package_root")
+        .to_string()
 }
 
 fn main() {

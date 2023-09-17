@@ -1,4 +1,4 @@
-use crate::{FunctionId, VarId};
+use crate::{ClassId, FunctionId, VarId};
 
 use super::{BasicBlockId, Ir, RegisterId};
 
@@ -52,6 +52,12 @@ pub enum Value {
     /// What's known as `self` in UnrealScript; unfortunately we can't use that identifier since
     /// it's reserved in Rust.
     This,
+    /// Reference to an object.
+    Object {
+        class: ClassId,
+        package: String,
+        name: String,
+    },
     /// Performs `action` with `self` changed to something else.
     In {
         /// The object to use as `self` for `action`. Note that passing `This` here is redundant

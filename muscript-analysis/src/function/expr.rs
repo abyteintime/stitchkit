@@ -20,6 +20,7 @@ mod conversion;
 mod dot;
 mod ident;
 mod lit;
+mod object;
 mod void_handling;
 
 #[derive(Debug, Clone)]
@@ -61,6 +62,9 @@ impl<'a> Compiler<'a> {
 
             cst::Expr::Lit(lit) => self.expr_lit(builder, context, lit),
             cst::Expr::Ident(ident) => self.expr_ident(builder, context, *ident),
+            cst::Expr::Object { class, name } => {
+                self.expr_object(builder, context, expr, *class, *name)
+            }
 
             cst::Expr::Prefix { operator, right } => {
                 self.expr_prefix(builder, context, expr, operator, right)

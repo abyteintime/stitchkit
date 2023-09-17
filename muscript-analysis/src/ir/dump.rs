@@ -98,6 +98,19 @@ impl<'a> DumpIr<'a> {
 
             Value::None => f.write_str("none")?,
             Value::This => f.write_str("this")?,
+            Value::Object {
+                class,
+                package,
+                name,
+            } => {
+                write!(
+                    f,
+                    "object {} '{}.{}'",
+                    self.env.class_name(*class),
+                    package,
+                    name
+                )?;
+            }
             Value::In { context, action } => {
                 f.write_str("in ")?;
                 self.register_id(f, *context)?;

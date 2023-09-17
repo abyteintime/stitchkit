@@ -117,6 +117,8 @@ where
 /// Represents a single source file.
 #[derive(Debug, Clone)]
 pub struct SourceFile {
+    /// The package this source file belongs to.
+    pub package: Rc<str>,
     /// The source file's pretty name.
     pub filename: String,
     /// The full path to the source file.
@@ -129,8 +131,9 @@ pub struct SourceFile {
 
 impl SourceFile {
     /// Creates a new [`SourceFile`].
-    pub fn new(filename: String, full_path: PathBuf, source: Rc<str>) -> Self {
+    pub fn new(package: Rc<str>, filename: String, full_path: PathBuf, source: Rc<str>) -> Self {
         Self {
+            package,
             filename,
             full_path,
             line_starts: codespan_reporting::files::line_starts(&source).collect(),

@@ -223,16 +223,17 @@ impl<'a> Compiler<'a> {
     ) -> Option<&[UntypedClassPartition]> {
         if self.env.untyped_class_partitions.get(&class_id).is_none() {
             let class_name = self.env.class_name(class_id).to_owned();
-            if let Some(class_csts) = self.input.class_sources(&class_name, self.env) {
+            if let Some(class_csts) = self.input.parsed_class_sources(&class_name, self.env) {
                 let mut diagnostics = vec![];
                 let partitions: Vec<_> = class_csts
+                    .source_files
                     .into_iter()
-                    .map(|(source_file_id, cst)| {
+                    .map(|source_file| {
                         UntypedClassPartition::from_cst(
                             &mut diagnostics,
                             self.sources,
-                            source_file_id,
-                            cst,
+                            source_file.id,
+                            source_file.parsed,
                         )
                     })
                     .collect();

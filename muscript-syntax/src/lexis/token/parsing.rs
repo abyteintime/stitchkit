@@ -135,6 +135,6 @@ impl StringLit {
 
 impl NameLit {
     pub fn parse<'a>(&self, input: &'a str) -> &'a str {
-        self.span.get_input(input)
+        Span::from(self.span.start + 1..self.span.end - 1).get_input(input)
     }
 }

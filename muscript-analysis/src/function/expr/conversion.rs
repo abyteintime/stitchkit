@@ -1,6 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    source::{SourceFileId, Span, Spanned},
 };
 use muscript_syntax::cst;
 
@@ -8,7 +8,7 @@ use crate::{
     function::builder::FunctionBuilder,
     ir::{PrimitiveCast, RegisterId, Value},
     type_system::{Primitive, Type},
-    Compiler, TypeId,
+    ClassId, Compiler, TypeId,
 };
 
 use super::{ExpectedType, ExprContext};
@@ -23,21 +23,49 @@ impl<'a> Compiler<'a> {
         let input_node = builder.ir.node(input_register_id.into());
         let input_register = builder.ir.register(input_register_id);
 
+        if let (&Type::Object(expected_class_id), &Type::Object(got_class_id))
+        | (&Type::Class(expected_class_id), &Type::Class(got_class_id)) = (
+            self.env.get_type(expected_ty),
+            self.env.get_type(input_register.ty),
+        ) {
+            if self.is_subclass(expected_class_id, got_class_id) {
+                // Subclass relationships do not need any implicit conversion logic.
+                return input_register_id;
+            } else {
+                let diagnostic = self
+                    .type_mismatch(
+                        builder.source_file_id,
+                        input_node.span,
+                        expected_ty,
+                        input_register.ty,
+                    )
+                    .with_note(format!(
+                        "note: `{}` is not a subclass of `{}`",
+                        self.env.class_name(got_class_id),
+                        self.env.class_name(expected_class_id)
+                    ))
+                    .with_note(format!(
+                        "{}\nnote how it does not include `{}`",
+                        self.note_inheritance_chain(got_class_id),
+                        self.env.class_name(expected_class_id)
+                    ));
+                self.env.emit(diagnostic);
+                return input_register_id;
+            }
+        }
+
         if !matches!(input_register.value, Value::Void)
             && expected_ty != TypeId::ERROR
             && input_register.ty != expected_ty
         {
-            self.env.emit(
-                Diagnostic::error(builder.source_file_id, "type mismatch")
-                    .with_label(Label::primary(input_node.span, ""))
-                    .with_note(indoc::formatdoc! {"
-                            expected `{}`
-                                 got `{}`
-                        ",
-                        self.env.type_name(expected_ty),
-                        self.env.type_name(input_register.ty)
-                    }),
-            )
+            // Produce a generic type mismatch in any other case.
+            let diagnostic = self.type_mismatch(
+                builder.source_file_id,
+                input_node.span,
+                expected_ty,
+                input_register.ty,
+            );
+            self.env.emit(diagnostic)
         }
 
         input_register_id
@@ -234,5 +262,37 @@ impl<'a> Compiler<'a> {
             (String, Name) => Some(StringToName),
             _ => None,
         }
+    }
+
+    fn type_mismatch(
+        &self,
+        source_file_id: SourceFileId,
+        span: Span,
+        expected_ty: TypeId,
+        got_ty: TypeId,
+    ) -> Diagnostic {
+        Diagnostic::error(source_file_id, "type mismatch")
+            .with_label(Label::primary(span, ""))
+            .with_note(indoc::formatdoc! {"
+                    expected `{}`
+                         got `{}`
+                ",
+                self.env.type_name(expected_ty),
+                self.env.type_name(got_ty)
+            })
+    }
+
+    fn note_inheritance_chain(&mut self, class_id: ClassId) -> String {
+        let mut inheritance_chain = format!(
+            "`{}`'s inheritance chain (excluding the class itself) is:",
+            self.env.class_name(class_id)
+        );
+        let mut current_class_id = class_id;
+        while let Some(base) = self.super_class_id(current_class_id) {
+            current_class_id = base;
+            inheritance_chain.push_str("\n  : ");
+            inheritance_chain.push_str(self.env.class_name(current_class_id));
+        }
+        inheritance_chain
     }
 }

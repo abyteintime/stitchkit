@@ -1,4 +1,5 @@
 pub mod lookup;
+mod subtyping;
 
 use std::fmt;
 

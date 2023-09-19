@@ -6,6 +6,7 @@ use muscript_syntax::{
     cst::{self, NamedItem},
     lexis::token::Ident,
 };
+use tracing::info_span;
 
 use crate::{
     class::{Var, VarFlags, VarKind},
@@ -132,6 +133,13 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn class_vars(&mut self, class_id: ClassId) -> Vec<VarId> {
+        let _span = info_span!(
+            "class_vars",
+            ?class_id,
+            class_name = self.env.class_name(class_id)
+        )
+        .entered();
+
         // This clone is less than optimal, but in theory this function should only ever be called
         // once per class (ie. whenever the class is to be emitted,) so not much slowness should
         // happen. *In theory.*

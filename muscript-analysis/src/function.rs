@@ -6,6 +6,7 @@ use muscript_foundation::{
     source::{SourceFileId, SourceFileSet, Spanned},
 };
 use muscript_syntax::{cst, lexis::token::Ident};
+use tracing::info_span;
 
 use crate::{
     class::{Var, VarFlags, VarKind},
@@ -187,6 +188,14 @@ impl<'a> Compiler<'a> {
 
     pub(crate) fn analyze_function_body(&mut self, function_id: FunctionId) -> Ir {
         let function = self.env.get_function(function_id);
+        let _span = info_span!(
+            "analyze_function_body",
+            ?function_id,
+            ?function.class_id,
+            function.mangled_name
+        )
+        .entered();
+
         let &Function {
             source_file_id,
             class_id,

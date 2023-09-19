@@ -6,7 +6,7 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::{SourceFileId, Span},
 };
-use tracing::{trace, trace_span};
+use tracing::{info_span, trace, trace_span};
 
 use super::{
     token::{Token, TokenKind},
@@ -680,7 +680,7 @@ impl<'a> Preprocessor<'a> {
     fn parse_invocation(&mut self) -> Result<PreprocessResult, LexError> {
         let span = self.parse_macro_name()?;
         let macro_name = span.get_input(&self.lexer().input);
-        trace!("Invoking macro `{macro_name}");
+        let _span = info_span!("invoke_macro", macro_name).entered();
 
         match () {
             _ if macro_name.eq_ignore_ascii_case("define") => self.parse_define()?,

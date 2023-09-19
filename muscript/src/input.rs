@@ -11,6 +11,7 @@ use muscript_syntax::{
     lexis::preprocessor::{Definitions, Preprocessor},
     Parser, Structured,
 };
+use tracing::info_span;
 
 struct Sources {
     source_files: Vec<SourceFileId>,
@@ -71,6 +72,7 @@ impl<'a> CompilerInput for Input<'a> {
                     .iter()
                     .flat_map(|&id| {
                         let source_file = self.source_file_set.get(id);
+                        let _span = info_span!("parse_source", source_file.filename).entered();
                         // TODO: Let these be specified from the outside. (#2)
                         let mut definitions = Definitions::default();
                         let mut preprocessor_diagnostics = vec![];

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use muscript_foundation::errors::pipe_all_diagnostics_into;
+use tracing::info_span;
 
 use crate::{environment::ClassId, CompileError, Compiler, FunctionId, VarId};
 
@@ -21,8 +22,17 @@ impl Package {
         compiler: &mut Compiler<'_>,
         class_ids: &[ClassId],
     ) -> Result<Self, CompileError> {
+        let _span = info_span!("compile_package", ?class_ids).entered();
+
         let mut classes = HashMap::new();
         for &class_id in class_ids {
+            let _span = info_span!(
+                "compile_package_class",
+                ?class_id,
+                class_name = compiler.env.class_name(class_id)
+            )
+            .entered();
+
             let vars = compiler.class_vars(class_id);
             let functions = compiler.class_functions(class_id);
             for &function in &functions {

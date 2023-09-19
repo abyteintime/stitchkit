@@ -1,5 +1,5 @@
 use muscript_foundation::ident::CaseInsensitive;
-use tracing::{trace, trace_span};
+use tracing::{info_span, trace};
 
 use crate::{
     partition::{UntypedClassPartition, UntypedClassPartitionsExt},
@@ -79,6 +79,13 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn class_functions(&mut self, class_id: ClassId) -> Vec<FunctionId> {
+        let _span = info_span!(
+            "class_functions",
+            ?class_id,
+            class_name = self.env.class_name(class_id)
+        )
+        .entered();
+
         let all_function_names = self.all_function_names(class_id).to_owned();
         all_function_names
             .iter()
@@ -87,8 +94,7 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn lookup_function(&mut self, class_id: ClassId, name: &str) -> Option<FunctionId> {
-        let _span = trace_span!("lookup_function", ?class_id).entered();
-        trace!(?name, "looking for function");
+        let _span = info_span!("lookup_function", ?class_id, name).entered();
 
         // TODO: Speed this up via memoization? Walking the inheritance hierarchy could be
         // a bit slow.

@@ -39,7 +39,7 @@ pub struct Function {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-    pub struct FunctionFlags: u16 {
+    pub struct FunctionFlags: u32 {
         const CLIENT               = 0x1;
         const EDITOR_ONLY          = 0x2;
         const EXEC                 = 0x4;
@@ -54,6 +54,7 @@ bitflags! {
         const SIMULATED            = 0x2000;
         const SINGULAR             = 0x4000;
         const STATIC               = 0x8000;
+        const UNRELIABLE           = 0x10000;
         // Omitted:
         // - `native`, because that's handled through a different channel (field in Function.)
         // - `coerce`, because it's unclear what it's supposed to mean.
@@ -302,6 +303,7 @@ impl FunctionFlags {
                 cst::FunctionSpecifier::Simulated(_) => flags |= FunctionFlags::SIMULATED,
                 cst::FunctionSpecifier::Singular(_) => flags |= FunctionFlags::SINGULAR,
                 cst::FunctionSpecifier::Static(_) => flags |= FunctionFlags::STATIC,
+                cst::FunctionSpecifier::Unreliable(_) => flags |= FunctionFlags::UNRELIABLE,
 
                 cst::FunctionSpecifier::Native(_, None) => {
                     implementation = FunctionImplementation::Native;

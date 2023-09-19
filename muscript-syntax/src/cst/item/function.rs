@@ -71,6 +71,8 @@ pub enum FunctionSpecifier {
     Singular(Ident),
     #[parse(keyword = "static")]
     Static(Ident),
+    #[parse(keyword = "unreliable")]
+    Unreliable(Ident),
     #[parse(keyword = "virtual")]
     Virtual(Ident),
 }

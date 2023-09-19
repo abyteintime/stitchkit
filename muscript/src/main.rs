@@ -7,7 +7,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, Package};
 use muscript_foundation::{
-    errors::DiagnosticConfig,
+    errors::{DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileSet},
 };
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};
@@ -30,6 +30,10 @@ pub struct Args {
     /// Print debug notes for diagnostics that have them.
     #[clap(long)]
     diagnostics_debug_info: bool,
+
+    /// Do not filter out diagnostics from external packages.
+    #[clap(long)]
+    diagnostics_external: bool,
 
     /// Print the analyzed package.
     #[clap(long)]
@@ -156,12 +160,19 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     {
         let _span = info_span!("emit_diagnostics").entered();
         for diagnostic in env.diagnostics() {
-            _ = diagnostic.emit_to_stderr(
-                &source_file_set,
-                &DiagnosticConfig {
-                    show_debug_info: args.diagnostics_debug_info,
-                },
-            );
+            let is_from_external_package =
+                !main_package_source_file_ids.contains(&diagnostic.source_file);
+            if diagnostic.severity >= Severity::Error
+                || !is_from_external_package
+                || args.diagnostics_external
+            {
+                _ = diagnostic.emit_to_stderr(
+                    &source_file_set,
+                    &DiagnosticConfig {
+                        show_debug_info: args.diagnostics_debug_info,
+                    },
+                );
+            }
         }
     }
 

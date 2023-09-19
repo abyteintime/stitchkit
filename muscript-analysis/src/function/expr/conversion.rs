@@ -1,3 +1,4 @@
+use indoc::formatdoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     source::{SourceFileId, Span, Spanned},
@@ -32,6 +33,7 @@ impl<'a> Compiler<'a> {
                 // Subclass relationships do not need any implicit conversion logic.
                 return input_register_id;
             } else {
+                let inheritance_chain = self.note_inheritance_chain(got_class_id);
                 let diagnostic = self
                     .type_mismatch(
                         builder.source_file_id,
@@ -39,16 +41,14 @@ impl<'a> Compiler<'a> {
                         expected_ty,
                         input_register.ty,
                     )
-                    .with_note(format!(
-                        "note: `{}` is not a subclass of `{}`",
-                        self.env.class_name(got_class_id),
-                        self.env.class_name(expected_class_id)
-                    ))
-                    .with_note(format!(
-                        "{}\nnote how it does not include `{}`",
-                        self.note_inheritance_chain(got_class_id),
-                        self.env.class_name(expected_class_id)
-                    ));
+                    .with_note(formatdoc!{"
+                        note: `{got}` is not a subclass of `{expected}`. if you look at `{got}`'s inheritance chain...{chain}
+                        note how it does not inherit from `{expected}` anywhere in the chain
+                        therefore we cannot substitute `{expected}` with `{got}`, because it may be missing important items (functions, variables, etc.)",
+                        got = self.env.class_name(got_class_id),
+                        expected = self.env.class_name(expected_class_id),
+                        chain = inheritance_chain,
+                    });
                 self.env.emit(diagnostic);
                 return input_register_id;
             }
@@ -273,7 +273,7 @@ impl<'a> Compiler<'a> {
     ) -> Diagnostic {
         Diagnostic::error(source_file_id, "type mismatch")
             .with_label(Label::primary(span, ""))
-            .with_note(indoc::formatdoc! {"
+            .with_note(formatdoc! {"
                     expected `{}`
                          got `{}`
                 ",
@@ -283,15 +283,19 @@ impl<'a> Compiler<'a> {
     }
 
     fn note_inheritance_chain(&mut self, class_id: ClassId) -> String {
-        let mut inheritance_chain = format!(
-            "`{}`'s inheritance chain (excluding the class itself) is:",
-            self.env.class_name(class_id)
-        );
+        let mut inheritance_chain = String::new();
         let mut current_class_id = class_id;
+        let mut is_first = true;
         while let Some(base) = self.super_class_id(current_class_id) {
             current_class_id = base;
-            inheritance_chain.push_str("\n  : ");
+            if is_first {
+                inheritance_chain.push_str("\n  - it inherits from `");
+            } else {
+                inheritance_chain.push_str("\n  - which inherits from `")
+            }
             inheritance_chain.push_str(self.env.class_name(current_class_id));
+            inheritance_chain.push('`');
+            is_first = false;
         }
         inheritance_chain
     }

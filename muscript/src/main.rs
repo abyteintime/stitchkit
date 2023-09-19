@@ -11,7 +11,7 @@ use muscript_foundation::{
     source::{SourceFile, SourceFileSet},
 };
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};
-use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_subscriber::{filter::Directive, prelude::*, EnvFilter};
 use walkdir::WalkDir;
 
 use crate::input::Input;
@@ -281,6 +281,12 @@ fn main() {
             .file(trace_path)
             .include_args(true)
             .build();
+        let chrome_trace = chrome_trace.with_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .with_env_var("MUSCRIPT_TRACE")
+                .from_env_lossy(),
+        );
         (Some(chrome_trace), guard)
     });
 
@@ -291,7 +297,8 @@ fn main() {
                 .with_writer(std::io::stderr)
                 .with_filter(
                     EnvFilter::builder()
-                        .with_default_directive(LevelFilter::DEBUG.into())
+                        .with_default_directive(LevelFilter::WARN.into())
+                        .with_env_var("MUSCRIPT_LOG")
                         .from_env_lossy(),
                 ),
         )

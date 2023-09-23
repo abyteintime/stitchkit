@@ -6,6 +6,31 @@ or augmenting existing features with usability improvements.
 The following is a listing of intentional incompatibilities between MuScript and vanilla
 UnrealScript.
 
+## Laziness
+
+The most surprising aspect of MuScript might be that it does not compile anything until you
+explicitly ask it to. This is the reason MuScript is so fast; it does not look at code you do not
+care about.
+
+It is also the reason why MuScript is capable of compiling a great deal of code despite not being
+fully compatible with vanilla UnrealScript. Even `Object.uc` causes a bunch of compilation errors
+if you compile the `Core` package itself (and those are intentional - it _will_ continue to not
+compile, probably forever.) All these errors occur within function bodies, which MuScript does not
+look at unless you're actually compiling the package.
+
+However, this can cause some fairly surprising behavior. For example, MuScript currently does not
+look at items declared within `.uci` files. They _are parsed_, but are not _analyzed_. This results
+in `EPixelFormat` not being visible to the compiler; this is a problem if you ever try to read
+`Texture2D`'s `Format` property, because the compiler cannot find its type (remember that `.uci`
+files are not analyzed, and that results in `EPixelFormat` being undeclared.)
+
+Of course there are a bunch more `EPixelFormat` variables you cannot read from, but you get
+the idea.
+
+The main point is that `Texture2D`'s `Format` property will not produce an error until you try to
+use it, because the compiler does not process code you do not care about. And the same happens with
+any other item the compiler sees.
+
 ## Default properties
 
 MuScript's `defaultproperties` syntax is a lot more strict than UnrealScript's, since MuScript
@@ -77,6 +102,19 @@ Because the preprocessor operates quite differently, several incompatibilities c
     without errors, but it may not replicate quirks such as allowing mismatched parentheses
     (though none of these quirks were actually tested for! for what it's worth, UPP might disallow
     mismatched parentheses. I simply don't know.)
+
+### Include files
+
+The behavior around `.uci` files is quite different from vanilla UnrealScript.
+
+During compilation, `.uci` files are processed before `.uc` files. Macros defined in said files
+are collected into a single namespace, which is then used as the base macro namespace for all `.uc`
+files (on top of macros defined via the command line.) Note that this namespace is duplicated for
+each `.uc` file, so macros defined in one `.uc` file will not be visible in any other `.uc` file.
+
+Some `.uci` files also define items such as `enum`s and `const`s. These are read by the parser,
+but not analyzed; therefore these items are not visible in any namespace. This means it is
+impossible to use eg. variables whose type is `EPixelFormat`.
 
 ## Type system
 

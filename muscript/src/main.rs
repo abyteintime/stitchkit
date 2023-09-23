@@ -1,4 +1,5 @@
 mod input;
+mod parse;
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
@@ -10,8 +11,10 @@ use muscript_foundation::{
     errors::{DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileSet},
 };
+use muscript_syntax::{cst, lexis::preprocessor::Definitions};
+use parse::parse_source;
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};
-use tracing_subscriber::{filter::Directive, prelude::*, EnvFilter};
+use tracing_subscriber::{prelude::*, EnvFilter};
 use walkdir::WalkDir;
 
 use crate::input::Input;
@@ -51,12 +54,18 @@ pub struct Args {
 pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     let _span = info_span!("muscript").entered();
 
+    let mut include_files = vec![];
+
     let main_package_name = Rc::from(get_package_name(&args.package)?);
     let compiled_sources = {
         let _span = info_span!("list_main_package_sources", %main_package_name).entered();
-        let sources = list_source_files_in_package(&args.package)?;
-        info!(source_file_count = sources.len());
-        sources
+        let mut listing = list_source_files_in_package(&args.package)?;
+        info!(
+            source_count = listing.source.len(),
+            include_count = listing.include.len()
+        );
+        include_files.append(&mut listing.include);
+        listing.source
     };
 
     let (external_sources, package_names) = {
@@ -75,9 +84,13 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
             )
             .entered();
 
-            let source_files_in_package = list_source_files_in_package(external_dir)?;
-            info!(source_file_count = source_files_in_package.len());
-            external_sources.extend(source_files_in_package.into_iter().map(|path| (i, path)));
+            let mut listing = list_source_files_in_package(external_dir)?;
+            info!(
+                source_count = listing.source.len(),
+                include_count = listing.include.len()
+            );
+            external_sources.extend(listing.source.into_iter().map(|path| (i, path)));
+            include_files.append(&mut listing.include);
         }
 
         info!(source_file_count = external_sources.len());
@@ -87,10 +100,27 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     // This is kind of inefficient right now because we also load files that we aren't particularly
     // going to use. Thankfully OS-level caching helps alleviate this a bit, but cold compilations
     // are still quite slow because of this extra step.
-    let (source_file_set, main_package_source_file_ids) = {
+    let (source_file_set, include_file_ids, main_package_source_file_ids) = {
         let _span = info_span!("build_source_file_set").entered();
 
         let mut source_file_set = SourceFileSet::new();
+
+        let include_file_ids = {
+            let _span = info_span!("load_include_files").entered();
+
+            let mut include_file_ids = vec![];
+            let include_package = Rc::from("<include>");
+            for path in include_files {
+                let source = read_source_file(&path)?;
+                include_file_ids.push(source_file_set.add(SourceFile::new(
+                    Rc::clone(&include_package),
+                    path.to_string(),
+                    PathBuf::from(path),
+                    Rc::from(source),
+                )));
+            }
+            include_file_ids
+        };
 
         let main_package_source_file_ids = {
             let _span = info_span!("load_main_package_sources").entered();
@@ -126,13 +156,17 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
             }
         }
 
-        (source_file_set, main_package_source_file_ids)
+        (
+            source_file_set,
+            include_file_ids,
+            main_package_source_file_ids,
+        )
     };
 
-    let (input, mut env, classes_to_compile) = {
+    let (mut input, mut env, classes_to_compile) = {
         let _span = info_span!("compiler_input").entered();
 
-        let mut input = Input::new(&source_file_set);
+        let mut input = Input::new(&source_file_set, Definitions::default());
         let mut env = Environment::new();
         let mut classes_to_compile = vec![];
         for (source_file_id, source_file) in source_file_set.iter() {
@@ -149,6 +183,21 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         }
         (input, env, classes_to_compile)
     };
+
+    {
+        let _span = info_span!("include_files").entered();
+
+        for &source_file_id in &include_file_ids {
+            // TODO: Don't ignore the CST, do something with it.
+            let _cst = parse_source::<cst::BareFile>(
+                &source_file_set,
+                source_file_id,
+                &mut env,
+                &mut input.definitions,
+            );
+        }
+    };
+    let input = input;
 
     let compiler = &mut Compiler {
         sources: &source_file_set,
@@ -220,25 +269,41 @@ fn get_package_name(package: &Utf8Path) -> anyhow::Result<String> {
         .map(|package_name| package_name.to_owned())
 }
 
-fn list_source_files_in_package(package: &Utf8Path) -> anyhow::Result<Vec<Utf8PathBuf>> {
+#[derive(Debug, Default)]
+struct SourceFileListing {
+    pub source: Vec<Utf8PathBuf>,
+    pub include: Vec<Utf8PathBuf>,
+}
+
+fn list_source_files_in_package(package: &Utf8Path) -> anyhow::Result<SourceFileListing> {
     let classes_dir = package.join("Classes");
     if !classes_dir.is_dir() {
         bail!("{classes_dir:?} is not a directory");
     }
 
-    let mut source_file_paths = vec![];
+    let mut listing = SourceFileListing::default();
     for entry in WalkDir::new(classes_dir) {
         let entry = entry?;
         let path = entry.path();
         if let Some(path) = Utf8Path::from_path(path) {
-            if path.is_file() && path.extension() == Some("uc") {
-                source_file_paths.push(path.to_owned());
+            if path.is_file() {
+                match path.extension() {
+                    Some("uc") => listing.source.push(path.to_owned()),
+                    Some("uci") => listing.include.push(path.to_owned()),
+                    _ => (),
+                }
             }
         } else {
             warn!("path contains invalid UTF-8: {path:?}");
         }
     }
-    Ok(source_file_paths)
+
+    // Special case for Globals.uci, which lives outside the Classes folder.
+    let globals_uci = package.join("Globals.uci");
+    if globals_uci.is_file() {
+        listing.include.push(globals_uci);
+    }
+    Ok(listing)
 }
 
 fn read_source_file(path: &Utf8Path) -> anyhow::Result<String> {

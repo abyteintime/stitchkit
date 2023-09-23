@@ -8,16 +8,20 @@ use crate::{
 
 use super::{Class, Item};
 
-#[derive(Debug, Clone, Spanned)]
+#[derive(Debug, Clone, Spanned, Parse)]
 pub struct File {
     pub class: Class,
+    pub bare: BareFile,
+}
+
+#[derive(Debug, Clone, Spanned)]
+pub struct BareFile {
     pub items: Vec<Item>,
     pub eof: EndOfFile,
 }
 
-impl Parse for File {
+impl Parse for BareFile {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let class = parser.parse()?;
         let (items, eof) = parser.parse_terminated_list().map_err(|error| {
             match error.kind {
                 TerminatedListErrorKind::Parse => (),
@@ -32,6 +36,6 @@ impl Parse for File {
             }
             error.parse
         })?;
-        Ok(Self { class, items, eof })
+        Ok(Self { items, eof })
     }
 }

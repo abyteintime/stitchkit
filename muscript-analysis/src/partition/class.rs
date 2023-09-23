@@ -101,7 +101,7 @@ impl UntypedClassPartition {
         let mut default_properties = None;
         let mut replication = None;
 
-        for mut item in file.items {
+        for mut item in file.bare.items {
             item = Self::lower_simulated(item);
 
             match item {

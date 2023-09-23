@@ -1,17 +1,14 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput};
 use muscript_foundation::{
-    errors::{pipe_all_diagnostics_into, DiagnosticSink},
+    errors::DiagnosticSink,
     ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet},
 };
-use muscript_syntax::{
-    cst,
-    lexis::preprocessor::{Definitions, Preprocessor},
-    Parser, Structured,
-};
-use tracing::info_span;
+use muscript_syntax::lexis::preprocessor::Definitions;
+
+use crate::parse::parse_source;
 
 struct Sources {
     source_files: Vec<SourceFileId>,
@@ -20,13 +17,15 @@ struct Sources {
 pub struct Input<'a> {
     source_file_set: &'a SourceFileSet,
     class_sources: HashMap<CaseInsensitive<String>, Sources>,
+    pub definitions: Definitions,
 }
 
 impl<'a> Input<'a> {
-    pub fn new(source_file_set: &'a SourceFileSet) -> Self {
+    pub fn new(source_file_set: &'a SourceFileSet, definitions: Definitions) -> Self {
         Self {
             source_file_set,
             class_sources: Default::default(),
+            definitions,
         }
     }
 
@@ -71,27 +70,12 @@ impl<'a> CompilerInput for Input<'a> {
                     .source_files
                     .iter()
                     .flat_map(|&id| {
-                        let source_file = self.source_file_set.get(id);
-                        let _span = info_span!("parse_source", source_file.filename).entered();
-                        // TODO: Let these be specified from the outside. (#2)
-                        let mut definitions = Definitions::default();
-                        let mut preprocessor_diagnostics = vec![];
-                        let preprocessor = Preprocessor::new(
+                        let result = parse_source(
+                            self.source_file_set,
                             id,
-                            Rc::clone(&source_file.source),
-                            &mut definitions,
-                            &mut preprocessor_diagnostics,
+                            diagnostics,
+                            &mut self.definitions.clone(),
                         );
-                        let mut parser_diagnostics = vec![];
-                        let mut parser = Parser::new(
-                            id,
-                            &source_file.source,
-                            Structured::new(preprocessor),
-                            &mut parser_diagnostics,
-                        );
-                        let result = parser.parse::<cst::File>();
-                        pipe_all_diagnostics_into(diagnostics, preprocessor_diagnostics);
-                        pipe_all_diagnostics_into(diagnostics, parser_diagnostics);
                         result.map(|file| ClassSourceFile { id, parsed: file })
                     })
                     .collect()

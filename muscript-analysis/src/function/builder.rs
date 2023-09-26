@@ -1,9 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
-use muscript_foundation::{
-    ident::CaseInsensitive,
-    source::{SourceFileId, Span},
-};
+use muscript_foundation::{ident::CaseInsensitive, source::SourceFileId};
+use muscript_syntax::lexis::token::TokenSpan;
 
 use crate::{
     ir::{BasicBlock, BasicBlockId, Ir, NodeId, RegisterId, Sink, Terminator, Value},
@@ -35,7 +33,7 @@ pub struct IrBuilder {
 
 /// # Lifecycle
 impl FunctionBuilder {
-    pub fn new(function_id: FunctionId, function: &Function, body_span: Span) -> Self {
+    pub fn new(function_id: FunctionId, function: &Function, body_span: TokenSpan) -> Self {
         Self {
             source_file_id: function.source_file_id,
             class_id: function.class_id,
@@ -91,7 +89,7 @@ impl FunctionBuilder {
 }
 
 impl Ir {
-    pub fn builder(begin_span: Span) -> IrBuilder {
+    pub fn builder(begin_span: TokenSpan) -> IrBuilder {
         let mut ir = Ir::new();
         let begin = ir.create_basic_block(BasicBlock::new("begin", begin_span));
         IrBuilder { ir, cursor: begin }
@@ -116,7 +114,7 @@ impl IrBuilder {
     pub fn append_basic_block(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        span: Span,
+        span: TokenSpan,
     ) -> BasicBlockId {
         let basic_block_id = self
             .ir
@@ -128,7 +126,7 @@ impl IrBuilder {
     #[must_use = "registers must be referenced by sinks to be evaluated"]
     pub fn append_register(
         &mut self,
-        span: Span,
+        span: TokenSpan,
         name: impl Into<Cow<'static, str>>,
         ty: TypeId,
         value: Value,
@@ -141,7 +139,7 @@ impl IrBuilder {
         register_id
     }
 
-    pub fn append_sink(&mut self, span: Span, sink: Sink) -> NodeId {
+    pub fn append_sink(&mut self, span: TokenSpan, sink: Sink) -> NodeId {
         let node_id = self.ir.create_sink(span, sink);
         self.ir.basic_block_mut(self.cursor()).flow.push(node_id);
         node_id

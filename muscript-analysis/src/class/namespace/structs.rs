@@ -3,9 +3,10 @@ use std::{collections::HashMap, rc::Rc};
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, Spanned},
+    source::SourceFileId,
+    span::Spanned,
 };
-use muscript_syntax::cst;
+use muscript_syntax::cst::{self, ItemName};
 
 use crate::{
     class::{Var, VarFlags, VarKind},
@@ -138,7 +139,7 @@ impl<'a> Compiler<'a> {
         self.check_struct_var_specifiers(source_file_id, &cst.specifiers);
         let var = Var {
             source_file_id,
-            name: cst.variable.name,
+            name: ItemName::from_spanned(&cst.variable.name),
             ty: self.type_id(source_file_id, class_id, &cst.ty),
             // For now we reuse class flags despite some of them not being
             // meaningful in structs.
@@ -200,14 +201,11 @@ impl<'a> Compiler<'a> {
                     // Could probably use better error messages explaining why a particular
                     // specifier is banned.
                     self.env.emit(
-                        Diagnostic::error(
-                            source_file_id,
-                            "specifier cannot be used in struct variables",
-                        )
-                        .with_label(Label::primary(
-                            specifier.span(),
-                            "this specifier cannot be used in a struct",
-                        )),
+                        Diagnostic::error("specifier cannot be used in struct variables")
+                            .with_label(Label::primary(
+                                specifier,
+                                "this specifier cannot be used in a struct",
+                            )),
                     )
                 }
             }
@@ -242,11 +240,8 @@ impl<'a> Compiler<'a> {
                         // TODO: Tell the user here what the type actually is?
                         // TODO: Point to the declaration of the mismatched type?
                         self.env.emit(
-                            Diagnostic::error(
-                                source_file_id,
-                                "base type of a struct must also be a struct",
-                            )
-                            .with_label(Label::primary(span, "this is not a struct type")),
+                            Diagnostic::error("base type of a struct must also be a struct")
+                                .with_label(Label::primary(&span, "this is not a struct type")),
                         );
                         let class_struct = self
                             .class_struct_mut(class_id, struct_name)

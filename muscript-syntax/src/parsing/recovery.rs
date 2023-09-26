@@ -1,9 +1,9 @@
-use muscript_foundation::{errors::Diagnostic, source::Span};
+use muscript_foundation::errors::Diagnostic;
 
 use crate::{
     lexis::{
-        token::{SingleToken, Token, TokenKind},
-        Channel, EofReached, LexError, LexicalContext, TokenStream,
+        token::{AnyToken, SingleToken, Token, TokenKind},
+        Channel, LexicalContext, TokenStream,
     },
     ParseError, ParseStream, Parser,
 };
@@ -27,8 +27,8 @@ impl<T> TokenStream for Structured<T>
 where
     T: TokenStream,
 {
-    fn next_any(&mut self, context: LexicalContext) -> Result<Token, LexError> {
-        let token = self.inner.next_any(context)?;
+    fn next_any(&mut self, context: LexicalContext) -> AnyToken {
+        let token = self.inner.next_any(context);
 
         if let Some(closing_kind) = token.kind.closed_by() {
             self.delimiter_stack.push(closing_kind);
@@ -50,22 +50,14 @@ where
             }
         }
 
-        Ok(token)
+        token
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
-        self.inner.text_blob(is_end)
-    }
-
-    fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
-        self.inner.braced_string(left_brace_span)
-    }
-
-    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> Result<Token, LexError> {
+    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> AnyToken {
         self.inner.peek_from(context, channel)
     }
 
-    fn contextualize_diagnostic(&self, diagnostic: Diagnostic) -> Diagnostic {
+    fn contextualize_diagnostic(&self, diagnostic: Diagnostic<Token>) -> Diagnostic<Token> {
         self.inner.contextualize_diagnostic(diagnostic)
     }
 }
@@ -104,21 +96,24 @@ where
                 // Also in case of closers like EndOfFile we need to check against
                 // open_nesting_level being zero, so that we don't loop indefinitely.
                 while self.tokens.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
-                    last_token_span = Some(match self.next_token() {
-                        Ok(token) => {
-                            if token.kind == TokenKind::EndOfFile {
-                                // To prevent an infinite loop from occurring, bail early.
-                                return Err(C::default_from_span(token.span));
-                            }
-                            token.span
+                    last_token_span = Some({
+                        let token = self.next_token();
+                        if token.kind == TokenKind::EndOfFile {
+                            // To prevent an infinite loop from occurring, bail early.
+                            return Err(C::default_from_id(token.id));
                         }
-                        Err(error) => error.span,
+                        token.id
                     });
                 }
                 // Worst case scenario: we have to use the error span provided to us, if a token
                 // consumed by `inner` happens to be a closing token and the nesting level is
                 // decremented because of that.
-                Err(C::default_from_span(last_token_span.unwrap_or(error.span)))
+                Err(C::default_from_id(
+                    last_token_span
+                        .or(error.span.start())
+                        .or(error.span.end())
+                        .expect("parse error span must not be empty"),
+                ))
             }
         }
     }

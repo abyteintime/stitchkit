@@ -2,9 +2,13 @@ use indexmap::IndexMap;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet, Span},
+    source::{SourceFileId, SourceFileSet},
 };
-use muscript_syntax::cst::NamedItem;
+use muscript_syntax::{
+    cst::NamedItem,
+    lexis::token::{Token, TokenSpan},
+    sources::LexedSources,
+};
 
 use crate::ClassSources;
 
@@ -13,8 +17,8 @@ use super::UntypedClassPartition;
 impl UntypedClassPartition {
     /// Coherence check - checks that no identifiers are redeclared across multiple partitions.
     pub fn check_namespace_coherence(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         partitions: &[UntypedClassPartition],
     ) {
         // No need to perform the check across a single partition, because that's guaranteed to
@@ -58,31 +62,29 @@ impl UntypedClassPartition {
     }
 
     fn check_coherence_in_namespace<I>(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
-        joint_namespace: &mut IndexMap<CaseInsensitive<String>, (SourceFileId, Span)>,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
+        joint_namespace: &mut IndexMap<CaseInsensitive<String>, TokenSpan>,
         partition_namespace: &IndexMap<CaseInsensitive<String>, I>,
         partition_source_file_id: SourceFileId,
     ) where
         I: NamedItem,
     {
         for (name, var) in partition_namespace {
-            if let Some(&(source_file_id_first, span_first)) = joint_namespace.get(name) {
+            if let Some(&span_first) = joint_namespace.get(name) {
                 diagnostics.emit(Self::redeclaration_error(
                     sources,
-                    source_file_id_first,
                     span_first,
-                    partition_source_file_id,
                     var.name().span,
                 ));
             } else {
-                joint_namespace.insert(name.clone(), (partition_source_file_id, var.name().span));
+                joint_namespace.insert(name.clone(), var.name().span);
             }
         }
     }
 
     pub fn check_package_coherence(
-        diagnostics: &mut dyn DiagnosticSink,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &SourceFileSet,
         class_sources: &ClassSources,
     ) {
@@ -99,17 +101,14 @@ impl UntypedClassPartition {
         }
 
         if !conflicting.is_empty() {
-            let mut diagnostic = Diagnostic::error(
-                first_source_file,
-                "redefinition of class across different packages",
-            );
+            let mut diagnostic =
+                Diagnostic::error("redefinition of class across different packages");
             conflicting.insert(0, 0);
             for i in conflicting {
                 let conflicting_cst = &class_sources.source_files[i].parsed;
-                diagnostic.labels.push(
-                    Label::primary(conflicting_cst.class.name.span, "")
-                        .in_file(class_sources.source_files[i].id),
-                );
+                diagnostic
+                    .labels
+                    .push(Label::primary(&conflicting_cst.class.name, ""));
             }
             dbg!(&diagnostic);
             diagnostics.emit(

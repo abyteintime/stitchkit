@@ -1,7 +1,8 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
     ident::CaseInsensitive,
-    source::{SourceFileId, Spanned},
+    source::SourceFileId,
+    span::Spanned,
 };
 use muscript_syntax::{cst, lexis::token::Ident};
 use tracing::{trace, trace_span};
@@ -33,7 +34,7 @@ impl<'a> Compiler<'a> {
         match &ty.path.components[..] {
             [] => unreachable!("paths must have at least one component"),
             [type_name_ident] => {
-                let type_name = self.sources.span(source_file_id, type_name_ident);
+                let type_name = self.sources.source(type_name_ident);
 
                 if let Some(type_id) =
                     self.find_type_in_current_scope(source_file_id, scope, ty, *type_name_ident)
@@ -58,10 +59,9 @@ impl<'a> Compiler<'a> {
             [_class_name, _type_name] => {
                 self.env.emit(
                     Diagnostic::bug(
-                        source_file_id,
                         "referring to types declared in a different class's scope is not yet implemented"
                     )
-                    .with_label(Label::primary(ty.path.span(), ""))
+                    .with_label(Label::primary(&ty.path, ""))
                 );
                 return ERROR_RESULT;
             }
@@ -70,14 +70,11 @@ impl<'a> Compiler<'a> {
 
         // TODO: Emit a more helpful diagnostic pointing out possible typos.
         self.env.emit(
-            Diagnostic::error(
-                source_file_id,
-                format!(
-                    "cannot find type `{}` in this scope",
-                    ty.path.pretty_print(self.sources.source(source_file_id))
-                ),
-            )
-            .with_label(Label::primary(ty.path.span(), "")),
+            Diagnostic::error(format!(
+                "cannot find type `{}` in this scope",
+                ty.path.pretty_print(self.sources)
+            ))
+            .with_label(Label::primary(&ty.path, "")),
         );
         ERROR_RESULT
     }
@@ -85,13 +82,12 @@ impl<'a> Compiler<'a> {
     fn expect_no_generics(&mut self, source_file_id: SourceFileId, ty: &cst::Type) {
         if let Some(generic) = &ty.generic {
             self.env.emit(
-                Diagnostic::error(
-                    source_file_id,
-                    "use of generic arguments on non-generic type",
-                )
-                .with_label(Label::primary(generic.span(), ""))
-                .with_label(Label::secondary(ty.path.span(), "this type is not generic"))
-                .with_note("note: generics may only be used on built-in types `Class` and `Array`"),
+                Diagnostic::error("use of generic arguments on non-generic type")
+                    .with_label(Label::primary(generic, ""))
+                    .with_label(Label::secondary(&ty.path, "this type is not generic"))
+                    .with_note(
+                        "note: generics may only be used on built-in types `Class` and `Array`",
+                    ),
             );
         }
     }
@@ -116,29 +112,21 @@ impl<'a> Compiler<'a> {
                 )
             } else {
                 self.env.emit(
-                    Diagnostic::error(
-                        source_file_id,
-                        format!(
-                            "`Array` expects a single generic argument `<T>`, but got {}",
-                            generic.args.len()
-                        ),
-                    )
-                    .with_label(Label::primary(generic.span(), "")),
+                    Diagnostic::error(format!(
+                        "`Array` expects a single generic argument `<T>`, but got {}",
+                        generic.args.len()
+                    ))
+                    .with_label(Label::primary(generic, "")),
                 );
                 ERROR_RESULT
             }
         } else {
             self.env.emit(
-                Diagnostic::error(source_file_id, "`Array` expects one generic argument `<T>`")
-                    .with_label(Label::primary(ty.path.span(), ""))
+                Diagnostic::error("`Array` expects one generic argument `<T>`")
+                    .with_label(Label::primary(&ty.path, ""))
                     .with_note((
                         "help: try giving the array a type of element to store",
-                        ReplacementSuggestion {
-                            span: ty.span(),
-                            // Maybe this suggestion could be a bit more accurate, but the point
-                            // is to show you how `Array` is meant to be used.
-                            replacement: "Array<Int>".into(),
-                        },
+                        self.sources.replacement_suggestion(ty, "Array<Int>"),
                     )),
             );
             ERROR_RESULT
@@ -159,23 +147,20 @@ impl<'a> Compiler<'a> {
                     if let &Type::Object(class_id) = self.env.get_type(inner_id) {
                         (class_id, inner_id)
                     } else {
-                        self.env.emit(Diagnostic::error(
-                            source_file_id,
-                            format!("`{}` is not a class", self.env.type_name(inner_id)),
-                        ));
+                        self.env.emit(Diagnostic::error(format!(
+                            "`{}` is not a class",
+                            self.env.type_name(inner_id)
+                        )));
                         return TypeId::ERROR;
                     }
                 }
                 _ => {
                     self.env.emit(
-                        Diagnostic::error(
-                            source_file_id,
-                            format!(
-                                "`Class` expects a single generic argument `<T>`, but got {}",
-                                generic.args.len()
-                            ),
-                        )
-                        .with_label(Label::primary(generic.span(), "")),
+                        Diagnostic::error(format!(
+                            "`Class` expects a single generic argument `<T>`, but got {}",
+                            generic.args.len()
+                        ))
+                        .with_label(Label::primary(generic, "")),
                     );
                     return TypeId::ERROR;
                 }
@@ -198,14 +183,12 @@ impl<'a> Compiler<'a> {
         type_name: &str,
     ) {
         self.env.emit(
-            Diagnostic::error(source_file_id, "only `Array` and `Class` may use generics")
-                .with_label(Label::primary(generic.span(), ""))
+            Diagnostic::error("only `Array` and `Class` may use generics")
+                .with_label(Label::primary(generic, ""))
                 .with_note((
                     "help: remove the generic parameters",
-                    ReplacementSuggestion {
-                        span: ty.span(),
-                        replacement: type_name.to_string(),
-                    },
+                    self.sources
+                        .replacement_suggestion(ty, type_name.to_string()),
                 )),
         )
     }
@@ -216,7 +199,7 @@ impl<'a> Compiler<'a> {
         ty: &cst::Type,
         type_name_ident: Ident,
     ) -> Option<TypeId> {
-        let type_name = self.sources.span(source_file_id, &type_name_ident);
+        let type_name = self.sources.source(&type_name_ident);
 
         if self.input.class_exists(type_name) {
             // NOTE: Do not process the class here anyhow! Only create a type for it.
@@ -240,7 +223,7 @@ impl<'a> Compiler<'a> {
         ty: &cst::Type,
         type_name_ident: Ident,
     ) -> Option<TypeId> {
-        let type_name = self.sources.span(source_file_id, &type_name_ident);
+        let type_name = self.sources.source(&type_name_ident);
         trace!(scope = self.env.class_name(scope), %type_name, "find_type_in_current_scope");
 
         if let Some(partitions) = self.untyped_class_partitions(scope) {
@@ -253,7 +236,7 @@ impl<'a> Compiler<'a> {
                 });
             if let Some(type_impl) = type_impl {
                 if let Some(generic) = &ty.generic {
-                    let type_name = self.sources.span(source_file_id, &type_name_ident);
+                    let type_name = self.sources.source(&type_name_ident);
                     self.generics_not_allowed(source_file_id, ty, generic, type_name);
                 }
                 return Some(
@@ -297,7 +280,8 @@ impl<'a> Compiler<'a> {
                     extends,
                     ..
                 } = partition;
-                return self.lookup_class(source_file_id, extends.unwrap());
+                let class_name = self.sources.source(&extends.unwrap());
+                return self.lookup_class(source_file_id, class_name, extends.unwrap().span());
             }
         }
         None

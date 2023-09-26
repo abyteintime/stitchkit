@@ -1,7 +1,7 @@
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
+    errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{Span, Spanned},
+    span::Spanned,
 };
 use muscript_syntax::{
     cst,
@@ -25,8 +25,8 @@ impl<'a> Compiler<'a> {
         class_ident: Ident,
         name_lit: NameLit,
     ) -> RegisterId {
-        let class_name = self.sources.span(builder.source_file_id, &class_ident);
-        let object_name = name_lit.parse(self.sources.source(builder.source_file_id));
+        let class_name = self.sources.source(&class_ident);
+        let object_name = name_lit.parse(self.sources);
 
         if CaseInsensitive::new(class_name) == CaseInsensitive::new("class") {
             // Classes, despite being objects like any other, need to be special-cased because they
@@ -35,19 +35,17 @@ impl<'a> Compiler<'a> {
             // Classes within packages are not yet supported because it would be a bunch of extra
             // complication that effectively noone uses.
             if let Some(dot_index) = object_name.find('.') {
-                let start = name_lit.span.start + 1 + dot_index as u32;
                 self.env.emit(
                     Diagnostic::error(
-                        builder.source_file_id,
                         "references to classes located within packages are not supported",
                     )
-                    .with_label(Label::primary(Span::from(start..start + 1), ""))
+                    .with_label(Label::primary(&name_lit, ""))
                     .with_note((
                         "help: try referencing the class using just its name",
-                        ReplacementSuggestion {
-                            span: outer.span(),
-                            replacement: format!("class'{}'", &object_name[dot_index + 1..]),
-                        },
+                        self.sources.replacement_suggestion(
+                            outer,
+                            format!("class'{}'", &object_name[dot_index + 1..]),
+                        ),
                     )),
                 );
                 return builder.ir.append_register(
@@ -58,10 +56,9 @@ impl<'a> Compiler<'a> {
                 );
             }
 
-            let class_name_ident = Ident {
-                span: Span::from(name_lit.span.start + 1..name_lit.span.end - 1),
-            };
-            if let Some(class_id) = self.lookup_class(builder.source_file_id, class_name_ident) {
+            if let Some(class_id) =
+                self.lookup_class(builder.source_file_id, object_name, name_lit.span())
+            {
                 let class_type_id = self.class_type_id(class_id);
                 let class_package = self.class_package(class_id);
                 return builder.ir.append_register(
@@ -84,11 +81,8 @@ impl<'a> Compiler<'a> {
             )
         } else {
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    "object references are not yet implemented",
-                )
-                .with_label(Label::primary(class_ident.span, "")),
+                Diagnostic::error("object references are not yet implemented")
+                    .with_label(Label::primary(outer, "")),
             );
             builder.ir.append_register(
                 outer.span(),

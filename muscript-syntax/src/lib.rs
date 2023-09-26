@@ -9,6 +9,7 @@ mod parsing;
 pub mod cst;
 pub mod diagnostics;
 pub mod list;
+pub mod sources;
 
 pub use parsing::*;
 

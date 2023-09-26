@@ -1,4 +1,4 @@
-use muscript_foundation::source::Spanned;
+use muscript_foundation::span::Spanned;
 use muscript_syntax::cst;
 
 use crate::{

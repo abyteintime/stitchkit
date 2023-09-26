@@ -4,13 +4,13 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, Span},
+    source::SourceFileId,
 };
 use tracing::{info_span, trace, trace_span};
 
 use super::{
-    token::{Token, TokenKind},
-    Channel, EofReached, LexError, Lexer, LexicalContext, TokenStream,
+    token::{Token, TokenKind, TokenSpan},
+    Channel, EofReached, Lexer, LexicalContext, TokenStream,
 };
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
@@ -26,7 +26,7 @@ pub struct Definition {
     /// The source file where the symbol is defined.
     pub source_file: SourceFileId,
     /// The span the symbol occupies within the source file.
-    pub span: Span,
+    pub span: TokenSpan,
     /// The definition text.
     pub text: Rc<str>,
     /// The parameters of this definition.
@@ -44,7 +44,7 @@ pub struct Definition {
 /// as is typical in UnrealScript programming.
 pub struct Preprocessor<'a> {
     pub definitions: &'a mut Definitions,
-    errors: &'a mut dyn DiagnosticSink,
+    errors: &'a mut dyn DiagnosticSink<TokenSpan>,
     stack: Vec<Expansion>,
 }
 

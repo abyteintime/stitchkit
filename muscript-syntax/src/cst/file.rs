@@ -26,9 +26,9 @@ impl Parse for BareFile {
             match error.kind {
                 TerminatedListErrorKind::Parse => (),
                 TerminatedListErrorKind::MissingTerminator => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "end of file expected after items")
+                    Diagnostic::error("end of file expected after items")
                         .with_label(Label::primary(
-                            error.parse.span,
+                            &error.parse.span,
                             "this is where the file should end",
                         ))
                         .with_note(notes::PARSER_BUG),

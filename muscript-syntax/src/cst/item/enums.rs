@@ -36,8 +36,8 @@ impl Parse for EnumDef {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
         let kenum = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "enum name expected")
-                .with_label(labels::invalid_identifier(span, parser.input))
+            Diagnostic::error("enum name expected")
+                .with_label(labels::invalid_identifier(span, &parser.sources))
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let open = parser.parse()?;

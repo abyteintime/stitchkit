@@ -1,10 +1,15 @@
 pub mod labels {
-    use muscript_foundation::{errors::Label, source::Span};
+    use muscript_foundation::errors::Label;
 
-    pub fn invalid_identifier(span: Span, input: &str) -> Label {
+    use crate::{
+        lexis::token::{Token, TokenSpan},
+        sources::LexedSources,
+    };
+
+    pub fn invalid_identifier(span: TokenSpan, sources: &LexedSources<'_>) -> Label<Token> {
         Label::primary(
-            span,
-            format!("`{}` is not a valid identifier", span.get_input(input)),
+            &span,
+            format!("`{}` is not a valid identifier", sources.source(&span)),
         )
     }
 }

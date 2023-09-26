@@ -1,6 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::cst;
 
@@ -19,7 +19,7 @@ impl<'a> Compiler<'a> {
             cst::ReturnValue::Nothing(semi) => {
                 builder
                     .ir
-                    .append_register(semi.span, "return_void", TypeId::VOID, Value::Void)
+                    .append_register(semi.span(), "return_void", TypeId::VOID, Value::Void)
             }
             cst::ReturnValue::Something(expr, _) => self.expr(
                 builder,
@@ -39,7 +39,7 @@ impl<'a> Compiler<'a> {
         builder.ir.set_terminator(Terminator::Return(return_value));
         let _unreachable = builder
             .ir
-            .append_basic_block("unreachable_after_return", ret.kreturn.span);
+            .append_basic_block("unreachable_after_return", ret.kreturn.span());
     }
 
     /// Returns `true` if the return value's presence matches the return type.
@@ -54,44 +54,35 @@ impl<'a> Compiler<'a> {
         } else if builder.return_ty == TypeId::VOID && provided_return_value_ty != TypeId::VOID {
             self.env.emit(
                 Diagnostic::error(
-                    builder.source_file_id,
                     "function does not return anything, but a return value was provided",
                 )
-                .with_label(Label::primary(ret.value.span(), ""))
+                .with_label(Label::primary(&ret.value, ""))
                 .with_label(Label::secondary(
-                    builder.function(self.env).name_ident.span,
+                    &builder.function(self.env).name,
                     "function declared here",
                 ))
                 .with_note((
                     "help: try removing the return value",
-                    ReplacementSuggestion {
-                        span: ret.span(),
-                        replacement: "return;".into(),
-                    },
+                    self.sources.replacement_suggestion(ret, "return;"),
                 )),
             );
             false
         } else if builder.return_ty != TypeId::VOID && provided_return_value_ty == TypeId::VOID {
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    format!(
-                        "function was declared to return `{}`, but no return value was provided",
-                        self.env.type_name(builder.return_ty)
-                    ),
-                )
-                .with_label(Label::primary(ret.span(), ""))
+                Diagnostic::error(format!(
+                    "function was declared to return `{}`, but no return value was provided",
+                    self.env.type_name(builder.return_ty)
+                ))
+                .with_label(Label::primary(ret, ""))
                 .with_label(Label::secondary(
-                    builder.function(self.env).name_ident.span,
+                    &builder.function(self.env).name,
                     "function declared here",
                 ))
                 .with_note((
                     "help: try adding a return value",
-                    ReplacementSuggestion {
-                        span: ret.span(),
-                        // TODO: Type-specific suggestions?
-                        replacement: "return SomeValueHere;".into(),
-                    },
+                    // TODO: Type-specific suggestions?
+                    self.sources
+                        .replacement_suggestion(ret, "return SomeValueHere;"),
                 )),
             );
             false

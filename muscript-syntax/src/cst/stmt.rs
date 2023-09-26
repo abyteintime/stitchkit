@@ -5,7 +5,7 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{LeftBrace, RightBrace, Semi, Token},
+    lexis::token::{AnyToken, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
@@ -68,15 +68,15 @@ impl Parse for StmtExpr {
 
 impl Parse for Block {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let open: LeftBrace = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "block `{ .. }` expected")
-                .with_label(Label::primary(span, "`{` expected here"))
+        let open: LeftBrace = parser.parse_with_error(|_, span| {
+            Diagnostic::error("block `{ .. }` expected")
+                .with_label(Label::primary(&span, "`{` expected here"))
         })?;
         let (stmts, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
                 parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `}` to close block")
-                        .with_label(Label::primary(open.span, "this is where the block begins")),
+                    Diagnostic::error("missing `}` to close block")
+                        .with_label(Label::primary(&open, "this is where the block begins")),
                 );
             }
             error.parse
@@ -85,10 +85,10 @@ impl Parse for Block {
     }
 }
 
-fn _stmt_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "statement expected")
+fn _stmt_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("statement expected")
         .with_label(Label::primary(
-            token.span,
+            token,
             "this token does not start a statement",
         ))
         .with_note("note: notable statement types include expressions, `local`, `if`, `while`, `for`, etc.")

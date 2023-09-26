@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use bitflags::Flags;
 use muscript_foundation::source::SourceFileSet;
+use muscript_syntax::sources::LexedSources;
 
 use crate::{
     function::{Function, FunctionFlags, FunctionImplementation, ParamFlags},
@@ -12,18 +13,18 @@ use super::{BasicBlockId, Ir, NodeId, NodeKind, Register, RegisterId, Sink, Term
 
 fn local(
     env: &Environment,
-    sources: &SourceFileSet,
+    sources: &LexedSources<'_>,
     f: &mut Formatter<'_>,
     local: VarId,
 ) -> fmt::Result {
     let var = env.get_var(local);
-    let name = sources.span(var.source_file_id, &var.name);
+    let name = sources.source(&var.name);
 
     write!(f, "{} ${name}", env.type_name(var.ty))
 }
 
 pub struct DumpIr<'a> {
-    pub sources: &'a SourceFileSet,
+    pub sources: &'a LexedSources<'a>,
     pub env: &'a Environment,
     pub ir: &'a Ir,
 }
@@ -221,7 +222,7 @@ impl<'a> Debug for DumpIr<'a> {
 }
 
 pub struct DumpFunction<'a> {
-    pub sources: &'a SourceFileSet,
+    pub sources: &'a LexedSources<'a>,
     pub env: &'a Environment,
     pub function: &'a Function,
     pub ir: Option<&'a Ir>,

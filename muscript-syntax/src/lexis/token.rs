@@ -1,15 +1,28 @@
-use std::fmt;
+use muscript_foundation::{
+    source_arena::SourceId,
+    span::{Span, Spanned},
+};
+use std::{fmt, ops::Range};
 
-use muscript_foundation::source::{Span, Spanned};
+use crate::{sources::LexedSources, Parse, ParseError, ParseStream, Parser, PredictiveParse};
 
-use crate::{Parse, ParseError, ParseStream, Parser, PredictiveParse};
+pub type SourceLocation = usize;
+
+#[derive(Debug, Clone)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub source_range: Range<usize>,
+}
+
+pub type TokenId = SourceId<Token>;
+pub type TokenSpan = Span<Token>;
 
 #[macro_export]
 macro_rules! debug_token {
     ($T:ty) => {
         impl ::std::fmt::Debug for $T {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                write!(f, "{} @ {:?}", stringify!($T), self.span)
+                write!(f, "{}({:?})", stringify!($T), self.id)
             }
         }
     };
@@ -25,24 +38,27 @@ macro_rules! define_tokens {
         $(
             #[derive(Clone, Copy, PartialEq, Eq)]
             pub struct $name {
-                pub span: Span,
+                pub id: TokenId,
             }
 
             $crate::debug_token!($name);
 
-            impl From<$name> for Token {
+            impl From<$name> for AnyToken {
                 #[track_caller]
                 fn from(specific: $name) -> Self {
                     Self {
                         kind: TokenKind::$name,
-                        span: specific.span,
+                        id: specific.id,
                     }
                 }
             }
 
-            impl Spanned for $name {
-                fn span(&self) -> Span {
-                    self.span
+            impl Spanned<Token> for $name {
+                fn span(&self) -> TokenSpan {
+                    Span::Spanning {
+                        start: self.id,
+                        end: self.id,
+                    }
                 }
             }
 
@@ -50,19 +66,23 @@ macro_rules! define_tokens {
                 const NAME: &'static str = $pretty_name;
                 const KIND: TokenKind = TokenKind::$name;
 
-                fn default_from_span(span: Span) -> Self {
-                    Self { span }
+                fn id(&self) -> TokenId {
+                    self.id
                 }
 
-                fn try_from_token(token: Token, _: &str) -> Result<Self, TokenKindMismatch> {
+                fn default_from_id(id: TokenId) -> Self {
+                    Self { id }
+                }
+
+                fn try_from_token(token: AnyToken, _: &LexedSources<'_>) -> Result<Self, TokenKindMismatch> {
                     if token.kind == TokenKind::$name {
-                        Ok(Self { span: token.span })
+                        Ok(Self { id: token.id })
                     } else {
-                        Err(TokenKindMismatch { span: token.span })
+                        Err(TokenKindMismatch { token_id: token.id })
                     }
                 }
 
-                fn matches(token: &Token, _: &str) -> bool {
+                fn matches(token: &AnyToken, _: &LexedSources<'_>) -> bool {
                     token.kind == TokenKind::$name
                 }
             }
@@ -76,7 +96,7 @@ macro_rules! define_tokens {
             impl PredictiveParse for $name {
                 const LISTEN_TO_CHANNELS: Channel = Self::KIND.channel();
 
-                fn started_by(token: &Token, _: &str) -> bool {
+                fn started_by(token: &AnyToken, _: &LexedSources<'_>) -> bool {
                     token.kind == TokenKind::$name
                 }
             }
@@ -140,6 +160,10 @@ define_tokens! {
     Accent       = "```", // kinda hard to decipher?
     Backslash    = "`\\`",
 
+    // Used for errors produced by the lexer.
+    // These belong to the same channel as comment tokens (they are not )
+    Error = "error",
+
     // This kind is used for `isdefined and `notdefined, which should produce a valid token so that
     // they can be seen by `if, but should not be usable otherwise.
     Generated = "macro output",
@@ -180,55 +204,64 @@ impl TokenKind {
         match self {
             TokenKind::Comment => Channel::COMMENT,
             TokenKind::FailedExp => Channel::MACRO,
+            TokenKind::Error => Channel::ERROR,
             _ => Channel::CODE,
         }
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct Token {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AnyToken {
     pub kind: TokenKind,
-    pub span: Span,
+    pub id: TokenId,
 }
 
-impl fmt::Debug for Token {
+impl fmt::Debug for AnyToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?} @ {:?}", self.kind, self.span)
+        write!(f, "{:?}({:?})", self.kind, self.id)
     }
 }
 
-impl Spanned for Token {
-    fn span(&self) -> Span {
-        self.span
+impl Spanned<Token> for AnyToken {
+    fn span(&self) -> TokenSpan {
+        Span::Spanning {
+            start: self.id,
+            end: self.id,
+        }
     }
 }
 
-impl Parse for Token {
+impl Parse for AnyToken {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        parser.next_token()
+        Ok(parser.next_token())
     }
 }
 
-impl PredictiveParse for Token {
-    fn started_by(_: &Token, _: &str) -> bool {
+impl PredictiveParse for AnyToken {
+    fn started_by(_: &AnyToken, _: &LexedSources<'_>) -> bool {
         true
     }
 }
 
-pub trait SingleToken: Spanned + Into<Token> + Parse + PredictiveParse {
+pub trait SingleToken: Spanned<Token> + Into<AnyToken> + Parse + PredictiveParse {
     const NAME: &'static str;
     const KIND: TokenKind;
 
-    fn default_from_span(span: Span) -> Self;
+    fn id(&self) -> TokenId;
 
-    fn try_from_token(token: Token, input: &str) -> Result<Self, TokenKindMismatch>;
+    fn default_from_id(span: TokenId) -> Self;
 
-    fn matches(token: &Token, input: &str) -> bool;
+    fn try_from_token(
+        token: AnyToken,
+        sources: &LexedSources<'_>,
+    ) -> Result<Self, TokenKindMismatch>;
+
+    fn matches(token: &AnyToken, sources: &LexedSources<'_>) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TokenKindMismatch {
-    pub span: Span,
+    pub token_id: TokenId,
 }
 
 #[macro_use]

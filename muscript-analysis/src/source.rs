@@ -1,5 +1,5 @@
 use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
-use muscript_syntax::cst;
+use muscript_syntax::{cst, lexis::token::Token};
 
 /// Collection of source files for a class.
 #[derive(Debug, Clone)]
@@ -33,6 +33,6 @@ pub trait CompilerInput {
     fn parsed_class_sources(
         &self,
         class_name: &str,
-        diagnostics: &mut dyn DiagnosticSink,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
     ) -> Option<ClassSources>;
 }

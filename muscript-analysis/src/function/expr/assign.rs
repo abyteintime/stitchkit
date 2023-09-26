@@ -1,6 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::cst;
 
@@ -25,14 +25,8 @@ impl<'a> Compiler<'a> {
             && !builder.ir.is_place(lvalue_register)
         {
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    "left-hand side of `=` is not a place that can be assigned to",
-                )
-                .with_label(Label::primary(
-                    lvalue.span(),
-                    "this is not a place in memory",
-                )),
+                Diagnostic::error("left-hand side of `=` is not a place that can be assigned to")
+                    .with_label(Label::primary(lvalue, "this is not a place in memory")),
             )
         }
 

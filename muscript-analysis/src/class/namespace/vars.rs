@@ -1,11 +1,5 @@
-use muscript_foundation::{
-    ident::CaseInsensitive,
-    source::{SourceFileId, Spanned},
-};
-use muscript_syntax::{
-    cst::{self, NamedItem},
-    lexis::token::Ident,
-};
+use muscript_foundation::{ident::CaseInsensitive, source::SourceFileId, span::Spanned};
+use muscript_syntax::cst::{self, ItemName, NamedItem};
 use tracing::info_span;
 
 use crate::{
@@ -84,15 +78,15 @@ impl<'a> Compiler<'a> {
         &mut self,
         source_file_id: SourceFileId,
         class_id: ClassId,
-        name_ident: Ident,
+        name_ident: ItemName,
         value: &cst::Expr,
     ) -> Constant {
-        let name_str = self.sources.span(source_file_id, &name_ident);
+        let name_str = self.sources.source(&name_ident);
         let function_id = self.env.register_function(Function {
             source_file_id,
             class_id,
             mangled_name: format!("const-{name_str}"),
-            name_ident,
+            name: name_ident,
             return_ty: TypeId::VOID,
             params: vec![],
             flags: FunctionFlags::empty(),

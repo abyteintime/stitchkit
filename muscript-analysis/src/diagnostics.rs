@@ -3,18 +3,20 @@
 use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, Label},
-    source::{SourceFileId, Span},
+    source::SourceFileId,
 };
-use muscript_syntax::lexis::token;
+use muscript_syntax::lexis::token::{self, Token, TokenSpan};
 
-pub fn unnecessary_semicolon(source_file_id: SourceFileId, semi: token::Semi) -> Diagnostic {
-    Diagnostic::warning(source_file_id, "unnecessary semicolon `;`")
-        .with_label(Label::primary(semi.span, ""))
+pub fn unnecessary_semicolon(source_file_id: SourceFileId, semi: token::Semi) -> Diagnostic<Token> {
+    Diagnostic::warning("unnecessary semicolon `;`").with_label(Label::primary(&semi, ""))
 }
 
-pub fn stmt_outside_of_function(source_file_id: SourceFileId, span: Span) -> Diagnostic {
-    Diagnostic::error(source_file_id, "statement found outside of function")
-        .with_label(Label::primary(span, "statements are not allowed here"))
+pub fn stmt_outside_of_function(
+    source_file_id: SourceFileId,
+    span: TokenSpan,
+) -> Diagnostic<Token> {
+    Diagnostic::error("statement found outside of function")
+        .with_label(Label::primary(&span, "statements are not allowed here"))
         .with_note(indoc!("
             note: in contrast to most modern scripting languages, UnrealScript requires all executable code to belong to a function.
             this is because code is executed in response to game events such as `Tick`;

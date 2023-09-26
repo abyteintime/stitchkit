@@ -4,19 +4,21 @@ use std::cmp::Ordering;
 
 use muscript_foundation::{
     errors::{Diagnostic, Label, Note, NoteKind},
-    source::{Span, Spanned},
+    span::Spanned,
 };
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     lexis::{
         token::{
-            Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
-            LeftParen, NameLit, Question, RightBracket, RightParen, StringLit, Token, TokenKind,
+            AnyToken, Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
+            LeftParen, NameLit, Question, RightBracket, RightParen, StringLit, TokenKind,
+            TokenSpan,
         },
         Channel, LexicalContext,
     },
     list::SeparatedListDiagnostics,
+    sources::LexedSources,
     Parse, ParseError, ParseStream, Parser,
 };
 
@@ -33,12 +35,12 @@ pub enum Expr {
     },
 
     Prefix {
-        operator: Token,
+        operator: AnyToken,
         right: Box<Expr>,
     },
     Postfix {
         left: Box<Expr>,
-        operator: Token,
+        operator: AnyToken,
     },
     Infix {
         left: Box<Expr>,
@@ -99,7 +101,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq, Spanned)]
 pub struct InfixOperator {
-    pub token: Token,
+    pub token: AnyToken,
     pub assign: Option<Assign>,
 }
 
@@ -110,7 +112,7 @@ pub enum Arg {
     Omitted(
         /// A span for error reporting, so that there's always a valid span to base
         /// error messages upon.
-        Span,
+        TokenSpan,
     ),
 }
 
@@ -123,19 +125,19 @@ pub enum Arg {
 impl Expr {
     fn parse_prefix(
         parser: &mut Parser<'_, impl ParseStream>,
-        token: Token,
+        token: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         use crate::lexis::token::SingleToken;
 
         Ok(match token.kind {
             TokenKind::Ident => Expr::ident(parser, token, is_stmt)?,
-            TokenKind::IntLit => Expr::Lit(Lit::Int(IntLit { span: token.span })),
-            TokenKind::FloatLit => Expr::Lit(Lit::Float(FloatLit { span: token.span })),
-            TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { span: token.span })),
-            TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { span: token.span })),
+            TokenKind::IntLit => Expr::Lit(Lit::Int(IntLit { id: token.id })),
+            TokenKind::FloatLit => Expr::Lit(Lit::Float(FloatLit { id: token.id })),
+            TokenKind::StringLit => Expr::Lit(Lit::String(StringLit { id: token.id })),
+            TokenKind::NameLit => Expr::Lit(Lit::Name(NameLit { id: token.id })),
 
-            TokenKind::FailedExp => Expr::FailedExp(FailedExp { span: token.span }),
+            TokenKind::FailedExp => Expr::FailedExp(FailedExp { id: token.id }),
 
             TokenKind::Add
             | TokenKind::Sub
@@ -146,27 +148,27 @@ impl Expr {
 
             TokenKind::LeftParen => {
                 let inner = Expr::precedence_parse(parser, Precedence::EXPR, false)?;
-                let close = parser.parse_with_error(|parser, span| {
-                    Diagnostic::error(parser.file, "missing `)` to close grouped expression")
-                        .with_label(Label::primary(span, "`)` expected here..."))
-                        .with_label(Label::secondary(token.span, "...to close this `(`"))
+                let close = parser.parse_with_error(|_, span| {
+                    Diagnostic::error("missing `)` to close grouped expression")
+                        .with_label(Label::primary(&span, "`)` expected here..."))
+                        .with_label(Label::secondary(&token, "...to close this `(`"))
                 })?;
                 Expr::Paren {
-                    open: LeftParen::default_from_span(token.span),
+                    open: LeftParen::default_from_id(token.id),
                     inner: Box::new(inner),
                     close,
                 }
             }
 
             _ => parser.bail(
-                token.span,
+                token.span(),
                 // NOTE: This error message specifically avoids mentioning the concept of prefix
                 // tokens, since they're not actually relevant to what's happening here.
                 // What is *really* happening is that we expect any ol' expression, but the user
                 // gave us something that isn't.
-                Diagnostic::error(parser.file, "expression expected")
+                Diagnostic::error("expression expected")
                     .with_label(Label::primary(
-                        token.span,
+                        &token,
                         "this token does not start an expression",
                     ))
                     .with_note("note: expression types include literals, variables, math, etc.")
@@ -181,14 +183,14 @@ impl Expr {
 
     fn unary(
         parser: &mut Parser<'_, impl ParseStream>,
-        operator: Token,
+        operator: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         Ok(Expr::Prefix {
             operator,
             right: {
-                let token = parser
-                    .next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO)?;
+                let token =
+                    parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO);
                 Box::new(Self::parse_prefix(parser, token, is_stmt)?)
             },
         })
@@ -196,21 +198,19 @@ impl Expr {
 
     fn ident(
         parser: &mut Parser<'_, impl ParseStream>,
-        ident: Token,
+        ident: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        let s = ident.span.get_input(parser.input);
+        let s = parser.sources.source(&ident);
         Ok(match () {
-            _ if KNone::matches(s) => Expr::Lit(Lit::None(KNone { span: ident.span })),
-            _ if KTrue::matches(s) => {
-                Expr::Lit(Lit::Bool(BoolLit::True(KTrue { span: ident.span })))
-            }
+            _ if KNone::matches(s) => Expr::Lit(Lit::None(KNone { id: ident.id })),
+            _ if KTrue::matches(s) => Expr::Lit(Lit::Bool(BoolLit::True(KTrue { id: ident.id }))),
             _ if KFalse::matches(s) => {
-                Expr::Lit(Lit::Bool(BoolLit::False(KFalse { span: ident.span })))
+                Expr::Lit(Lit::Bool(BoolLit::False(KFalse { id: ident.id })))
             }
             _ => {
-                let ident = Ident { span: ident.span };
-                let next_token = parser.peek_token()?;
+                let ident = Ident { id: ident.id };
+                let next_token = parser.peek_token();
                 if next_token.kind == TokenKind::NameLit {
                     Expr::Object {
                         class: ident,
@@ -250,27 +250,27 @@ impl Expr {
 
             TokenKind::Assign => Expr::binary(parser, op, move |op, right| Expr::Assign {
                 lvalue: Box::new(left),
-                assign: Assign::default_from_span(op.token.span),
+                assign: Assign::default_from_id(op.token.id),
                 rvalue: Box::new(right),
             })?,
             TokenKind::Dot => Expr::Dot {
                 left: Box::new(left),
-                dot: Dot::default_from_span(op.token.span),
+                dot: Dot::default_from_id(op.token.id),
                 field: parser.parse()?,
             },
             TokenKind::LeftParen => Expr::function_call(parser, left, op.token)?,
             TokenKind::LeftBracket => Expr::Index {
                 left: Box::new(left),
-                open: LeftBracket::default_from_span(op.token.span),
+                open: LeftBracket::default_from_id(op.token.id),
                 index: Box::new(Expr::precedence_parse(parser, Precedence::EXPR, false)?),
                 close: parser.parse()?,
             },
             TokenKind::Question => Expr::ternary(parser, left, op.token)?,
 
             _ => parser.bail(
-                op.token.span,
-                Diagnostic::bug(parser.file, "unimplemented infix operator")
-                    .with_label(Label::primary(op.span(), "this operator cannot be parsed"))
+                op.token.span(),
+                Diagnostic::bug("unimplemented infix operator")
+                    .with_label(Label::primary(&op, "this operator cannot be parsed"))
                     .with_note("note: this means an infix operator was given a precedence level, but wasn't matched by Expr::parse_infix"),
             )?,
         })
@@ -281,21 +281,22 @@ impl Expr {
         operator: InfixOperator,
         build: impl FnOnce(InfixOperator, Expr) -> Expr,
     ) -> Result<Expr, ParseError> {
-        let right = Expr::precedence_parse(parser, operator.token.precedence(parser.input), false)?;
+        let right =
+            Expr::precedence_parse(parser, operator.token.precedence(&parser.sources), false)?;
         Ok(build(operator, right))
     }
 
     fn ternary(
         parser: &mut Parser<'_, impl ParseStream>,
         left: Expr,
-        token: Token,
+        token: AnyToken,
     ) -> Result<Expr, ParseError> {
         use crate::lexis::token::SingleToken;
 
-        let precedence = token.precedence(parser.input);
+        let precedence = token.precedence(&parser.sources);
         Ok(Expr::Ternary {
             cond: Box::new(left),
-            question: Question::default_from_span(token.span),
+            question: Question::default_from_id(token.id),
             true_result: Box::new(Expr::precedence_parse(parser, precedence, false)?),
             colon: parser.parse()?,
             // NOTE: We want to use one less precedence here, since this should be able to match
@@ -311,11 +312,11 @@ impl Expr {
     fn function_call(
         parser: &mut Parser<'_, impl ParseStream>,
         left: Expr,
-        token: Token,
+        token: AnyToken,
     ) -> Result<Expr, ParseError> {
         use crate::lexis::token::SingleToken;
 
-        let open = LeftParen::default_from_span(token.span);
+        let open = LeftParen::default_from_id(token.id);
         let (args, close) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(
                 &open,
@@ -336,11 +337,7 @@ impl Expr {
         })?;
 
         if let Expr::Ident(ident) = left {
-            if ident
-                .span
-                .get_input(parser.input)
-                .eq_ignore_ascii_case("new")
-            {
+            if parser.sources.source(&ident).eq_ignore_ascii_case("new") {
                 let class = Expr::precedence_parse(parser, Precedence::MAX, false)?;
                 return Ok(Expr::New {
                     new: ident,
@@ -365,14 +362,17 @@ impl Expr {
     ) -> Result<InfixOperator, ParseError> {
         use crate::lexis::token::SingleToken;
 
-        let token = parser.next_token()?;
-        let possibly_assign = parser.peek_token()?;
-        if possibly_assign.kind == TokenKind::Assign && possibly_assign.span.start == token.span.end
+        let token = parser.next_token();
+        let possibly_assign = parser.peek_token();
+        if possibly_assign.kind == TokenKind::Assign
+            && parser
+                .sources
+                .tokens_are_hugging_each_other(token.id, possibly_assign.id)
         {
-            let assign = parser.next_token()?;
+            let assign = parser.next_token();
             Ok(InfixOperator {
                 token,
-                assign: Some(Assign::default_from_span(assign.span)),
+                assign: Some(Assign::default_from_id(assign.id)),
             })
         } else {
             Ok(InfixOperator {
@@ -387,12 +387,11 @@ impl Expr {
         precedence: Precedence,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        let token =
-            parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO)?;
+        let token = parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO);
         let mut chain = Expr::parse_prefix(parser, token, is_stmt)?;
 
         let mut operator;
-        while precedence < parser.peek_token()?.precedence(parser.input) {
+        while precedence < parser.peek_token().precedence(&parser.sources) {
             operator = Expr::next_infix_operator(parser)?;
             chain = Expr::parse_infix(parser, chain, operator)?;
         }
@@ -403,11 +402,11 @@ impl Expr {
 
 impl Parse for Arg {
     fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
-        let token = parser.peek_token()?;
+        let token = parser.peek_token();
         if !matches!(token.kind, TokenKind::Comma | TokenKind::RightParen) {
             Ok(Arg::Provided(parser.parse()?))
         } else {
-            Ok(Arg::Omitted(Span::from(token.span.start..token.span.start)))
+            Ok(Arg::Omitted(TokenSpan::single(token.id)))
         }
     }
 }
@@ -417,7 +416,7 @@ impl Precedence {
 
     pub const PATH: Self = Self::Some(6);
     pub const CALL: Self = Self::Some(8);
-    // Needed for `foreach` statements. UnrealScript may be a little more... hardcoded in this
+    // Needed for `foreach` statements. UnrealScript *may* be a little more... hardcoded in this
     // case, but I think there's a case to be made for letting your iterators be arbitrary
     // expressions.
     pub const BELOW_CALL: Self = Self::Some(9);
@@ -434,12 +433,12 @@ impl Precedence {
     pub const EXPR: Self = Self::Some(u8::MAX);
 }
 
-impl Token {
-    fn precedence(&self, input: &str) -> Precedence {
+impl AnyToken {
+    fn precedence(&self, sources: &LexedSources<'_>) -> Precedence {
         // Unlike vanilla UnrealScript, we hardcode our precedence numbers because not doing so
         // would make parsing insanely hard.
         match self.kind {
-            _ if self.kind.is_overloadable_operator() && self.is_compound_assignment(input) => {
+            _ if self.kind.is_overloadable_operator() && self.is_compound_assignment(sources) => {
                 Precedence::ASSIGN
             }
 
@@ -478,7 +477,7 @@ impl Token {
             // declared in Object.uc doesn't make sense. Why would `$` and `@` bind weaker than `=`?
             TokenKind::Dollar | TokenKind::At => Precedence::Some(34),
 
-            TokenKind::Ident => match self.span.get_input(input) {
+            TokenKind::Ident => match sources.source(self) {
                 s if s.eq_ignore_ascii_case("dot") => Precedence::Some(16),
                 s if s.eq_ignore_ascii_case("cross") => Precedence::Some(16),
                 s if s.eq_ignore_ascii_case("clockwisefrom") => Precedence::Some(24),
@@ -491,10 +490,10 @@ impl Token {
         }
     }
 
-    fn is_compound_assignment(&self, input: &str) -> bool {
-        // This is a little bit cursed, but the level of cursedness here is nothing compared to
+    fn is_compound_assignment(&self, sources: &LexedSources<'_>) -> bool {
+        // This is a little bit cursed, but the level of cursedness here is minor compared to
         // UnrealScript as a whole.
-        input[self.span.end as usize..].starts_with('=')
+        sources.span_is_followed_by(self, '=')
     }
 }
 

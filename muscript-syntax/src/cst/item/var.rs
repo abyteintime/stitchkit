@@ -4,7 +4,9 @@ use muscript_syntax_derive::Spanned;
 use crate::{
     cst::{CppBlob, Expr, Meta, TypeOrDef, TypeSpecifier},
     diagnostics,
-    lexis::token::{Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token},
+    lexis::token::{
+        AnyToken, Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token,
+    },
     list::SeparatedListDiagnostics,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
@@ -147,18 +149,12 @@ impl Parse for VarEditor {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown variable specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown variable specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
     .with_note("note: notable variable specifiers include `const` and `transient`")
 }
 

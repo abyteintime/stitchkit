@@ -3,7 +3,11 @@
 use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_syntax_derive::Spanned;
 
-use crate::{cst::KSimulated, lexis::token::Token, Parse, ParseStream, Parser, PredictiveParse};
+use crate::{
+    cst::KSimulated,
+    lexis::token::{AnyToken, Token},
+    Parse, ParseStream, Parser, PredictiveParse,
+};
 
 use super::{ItemFunction, ItemState};
 
@@ -20,13 +24,7 @@ pub enum SimulatedItem {
     State(ItemState),
 }
 
-fn simulated_item_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        "function or state item expected after `simulated`",
-    )
-    .with_label(Label::primary(
-        token.span,
-        "function or state expected here",
-    ))
+fn simulated_item_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("function or state item expected after `simulated`")
+        .with_label(Label::primary(token, "function or state expected here"))
 }

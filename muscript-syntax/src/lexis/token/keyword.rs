@@ -16,16 +16,16 @@ macro_rules! __keyword_impl {
     ($T:tt = $keyword:tt) => {
         #[derive(Clone, Copy, PartialEq, Eq)]
         pub struct $T {
-            pub span: ::muscript_foundation::source::Span,
+            pub id: $crate::lexis::token::TokenId,
         }
 
         $crate::debug_token!($T);
 
-        impl ::std::convert::From<$T> for $crate::lexis::token::Token {
+        impl ::std::convert::From<$T> for $crate::lexis::token::AnyToken {
             fn from(keyword: $T) -> Self {
                 Self {
                     kind: $crate::lexis::token::TokenKind::Ident,
-                    span: keyword.span,
+                    id: keyword.id,
                 }
             }
         }
@@ -34,24 +34,31 @@ macro_rules! __keyword_impl {
             const NAME: &'static str = concat!("`", $keyword, "`");
             const KIND: $crate::lexis::token::TokenKind = $crate::lexis::token::TokenKind::Ident;
 
-            fn default_from_span(span: ::muscript_foundation::source::Span) -> Self {
-                Self { span }
+            fn id(&self) -> $crate::lexis::token::TokenId {
+                self.id
+            }
+
+            fn default_from_id(id: $crate::lexis::token::TokenId) -> Self {
+                Self { id }
             }
 
             fn try_from_token(
-                token: $crate::lexis::token::Token,
-                input: &str,
+                token: $crate::lexis::token::AnyToken,
+                sources: &$crate::sources::LexedSources<'_>,
             ) -> Result<Self, $crate::lexis::token::TokenKindMismatch> {
-                let ident = $crate::lexis::token::Ident::try_from_token(token, input)?;
-                if <$T as $crate::lexis::token::Keyword>::matches(input) {
-                    Ok(Self { span: ident.span })
+                let ident = $crate::lexis::token::Ident::try_from_token(token, sources)?;
+                if <$T as $crate::lexis::token::Keyword>::matches(sources.source(&token)) {
+                    Ok(Self { id: ident.id })
                 } else {
-                    Err($crate::lexis::token::TokenKindMismatch { span: ident.span })
+                    Err($crate::lexis::token::TokenKindMismatch { token_id: ident.id })
                 }
             }
 
-            fn matches(_: &$crate::lexis::token::Token, input: &str) -> bool {
-                <$T as $crate::lexis::token::Keyword>::matches(input)
+            fn matches(
+                token: &$crate::lexis::token::AnyToken,
+                sources: &$crate::sources::LexedSources<'_>,
+            ) -> bool {
+                <$T as $crate::lexis::token::Keyword>::matches(sources.source(token))
             }
         }
 
@@ -59,9 +66,9 @@ macro_rules! __keyword_impl {
             const KEYWORD: &'static str = $keyword;
         }
 
-        impl ::muscript_foundation::source::Spanned for $T {
-            fn span(&self) -> ::muscript_foundation::source::Span {
-                self.span
+        impl ::muscript_foundation::span::Spanned<$crate::lexis::token::Token> for $T {
+            fn span(&self) -> $crate::lexis::token::TokenSpan {
+                $crate::lexis::token::TokenSpan::single(self.id)
             }
         }
 
@@ -74,8 +81,11 @@ macro_rules! __keyword_impl {
         }
 
         impl $crate::parsing::PredictiveParse for $T {
-            fn started_by(token: &$crate::lexis::token::Token, input: &str) -> bool {
-                token.span.get_input(input).eq_ignore_ascii_case($keyword)
+            fn started_by(
+                token: &$crate::lexis::token::AnyToken,
+                sources: &$crate::sources::LexedSources<'_>,
+            ) -> bool {
+                sources.source(token).eq_ignore_ascii_case($keyword)
             }
         }
     };
@@ -96,14 +106,7 @@ where
     T: ParseStream,
 {
     pub fn next_matches_keyword(&mut self, keyword: &str) -> bool {
-        if let Ok(next) = self.peek_token() {
-            next.kind == TokenKind::Ident
-                && next
-                    .span
-                    .get_input(self.input)
-                    .eq_ignore_ascii_case(keyword)
-        } else {
-            false
-        }
+        let next = self.peek_token();
+        next.kind == TokenKind::Ident && self.sources.source(&next).eq_ignore_ascii_case(keyword)
     }
 }

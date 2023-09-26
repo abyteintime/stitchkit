@@ -5,7 +5,10 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::SourceFileId,
 };
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_syntax::{
+    cst,
+    lexis::token::{Ident, Token, TokenSpan},
+};
 use tracing::trace;
 
 use crate::{
@@ -31,7 +34,7 @@ pub struct FunctionId(u32);
 
 #[derive(Debug, Default)]
 pub struct Environment {
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<Diagnostic<Token>>,
 
     class_ids_by_name: HashMap<CaseInsensitive<String>, ClassId>,
     class_names_by_id: Vec<CaseInsensitive<String>>,
@@ -68,10 +71,6 @@ impl Environment {
         };
         env.register_fundamental_types();
         env
-    }
-
-    pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.diagnostics
     }
 }
 
@@ -133,14 +132,18 @@ impl<'a> Compiler<'a> {
     /// Look up a class ID from an identifier.
     ///
     /// Returns `None` and emits a diagnostic if the class cannot be found.
-    pub fn lookup_class(&mut self, source_file_id: SourceFileId, ident: Ident) -> Option<ClassId> {
-        let name = self.sources.span(source_file_id, &ident);
+    pub fn lookup_class(
+        &mut self,
+        source_file_id: SourceFileId,
+        name: &str,
+        error_span: TokenSpan,
+    ) -> Option<ClassId> {
         if self.input.class_exists(name) {
             Some(self.env.get_or_create_class(name))
         } else {
             self.env.emit(
-                Diagnostic::error(source_file_id, format!("class `{name}` does not exist"))
-                    .with_label(Label::primary(ident.span, "")),
+                Diagnostic::error(format!("class `{name}` does not exist"))
+                    .with_label(Label::primary(&error_span, "")),
             );
             None
         }
@@ -208,8 +211,8 @@ impl Environment {
     }
 }
 
-impl DiagnosticSink for Environment {
-    fn emit(&mut self, diagnostic: Diagnostic) {
+impl DiagnosticSink<Token> for Environment {
+    fn emit(&mut self, diagnostic: Diagnostic<Token>) {
         self.diagnostics.push(diagnostic);
     }
 }
@@ -228,7 +231,7 @@ impl<'a> Compiler<'a> {
 
                 UntypedClassPartition::check_package_coherence(
                     &mut diagnostics,
-                    self.sources,
+                    self.sources.source_file_set,
                     &class_sources,
                 );
 
@@ -283,7 +286,7 @@ impl<'a> Compiler<'a> {
             .input
             .class_source_ids(self.env.class_name(class_id))
             .unwrap();
-        &self.sources.get(source_ids[0]).package
+        &self.sources.source_file_set.get(source_ids[0]).package
     }
 }
 
@@ -362,7 +365,7 @@ impl<'a> Compiler<'a> {
         scope: ClassId,
         ty: &cst::Type,
     ) -> (TypeSource, TypeId) {
-        let type_name = TypeName::from_cst(self.sources, source_file_id, ty);
+        let type_name = TypeName::from_cst(self.sources, ty);
         if let Some(&type_id) = self
             .env
             .scoped_type_ids_by_name

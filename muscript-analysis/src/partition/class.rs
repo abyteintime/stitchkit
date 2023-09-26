@@ -7,14 +7,16 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet, Span, Spanned},
+    source::{SourceFileId, SourceFileSet},
+    span::Spanned,
 };
 use muscript_syntax::{
     cst::{self, NamedItem, TypeOrDef, VarDef},
-    lexis::token,
+    lexis::token::{self, Token, TokenSpan},
+    sources::LexedSources,
     Spanned,
 };
-use tracing::trace;
+use tracing::{info_span, trace};
 
 use crate::{
     diagnostics::{self, notes},
@@ -80,18 +82,18 @@ pub enum TypeCst {
 /// # Conversion from CST
 impl UntypedClassPartition {
     pub fn from_cst(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         source_file_id: SourceFileId,
         file: cst::File,
     ) -> Self {
-        let source = &sources.get(source_file_id).source;
         let class = file.class;
-        trace!(
-            "creating UntypedClassPartition {:?} extends {:?}",
-            sources.span(source_file_id, &class.name),
-            sources.span(source_file_id, &class.extends)
-        );
+        let _span = info_span!(
+            "untyped_class_partition_from_cst",
+            class_name = sources.source(&class.name),
+            class_extends = sources.source(&class.extends)
+        )
+        .entered();
 
         let mut vars = IndexMap::new();
         let mut functions = IndexMap::new();
@@ -214,26 +216,23 @@ impl UntypedClassPartition {
                 }
                 cst::Item::StructDefaultProperties(item_struct_default_properties) => diagnostics
                     .emit(
-                        Diagnostic::error(
-                            source_file_id,
-                            "`structdefaultproperties` may only appear in structs",
-                        )
-                        .with_label(Label::primary(
-                            item_struct_default_properties.keyword.span,
-                            "",
-                        )),
+                        Diagnostic::error("`structdefaultproperties` may only appear in structs")
+                            .with_label(Label::primary(
+                                &item_struct_default_properties.keyword,
+                                "",
+                            )),
                     ),
                 cst::Item::Replication(item_replication) => {
                     replication = Some(item_replication);
                 }
                 cst::Item::CppText(item_cpp_text) => diagnostics.emit(
-                    Diagnostic::warning(source_file_id, "`cpptext` item is ignored")
-                        .with_label(Label::primary(item_cpp_text.span(), ""))
+                    Diagnostic::warning("`cpptext` item is ignored")
+                        .with_label(Label::primary(&item_cpp_text, ""))
                         .with_note(notes::CPP_UNSUPPORTED),
                 ),
                 cst::Item::StructCppText(item_struct_cpp_text) => diagnostics.emit(
-                    Diagnostic::error(source_file_id, "`structcpptext` may only appear in structs")
-                        .with_label(Label::primary(item_struct_cpp_text.cpptext.span, "")),
+                    Diagnostic::error("`structcpptext` may only appear in structs")
+                        .with_label(Label::primary(&item_struct_cpp_text.cpptext, "")),
                 ),
                 cst::Item::Stmt(stmt) => {
                     diagnostics.emit(diagnostics::stmt_outside_of_function(
@@ -252,10 +251,10 @@ impl UntypedClassPartition {
                 let path = &x.parent_class.components;
                 if path.len() > 1 {
                     diagnostics.emit(
-                        Diagnostic::error(source_file_id, "parent class cannot be a path")
-                            .with_label(Label::primary(path[1].span, ""))
+                        Diagnostic::error("parent class cannot be a path")
+                            .with_label(Label::primary(&path[1], ""))
                             .with_note("help: paths `A.B` are used to refer to items declared within classes, not classes themselves")
-                            .with_note(format!("note: assuming you meant to use `{}` as the parent class", path[0].span.get_input(source)))
+                            .with_note(format!("note: assuming you meant to use `{}` as the parent class", sources.source(&path[0])))
                     )
                 }
                 path[0]
@@ -271,8 +270,8 @@ impl UntypedClassPartition {
     }
 
     fn add_to_scope<I>(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         source_file_id: SourceFileId,
         scope: &mut IndexMap<CaseInsensitive<String>, I>,
         item: I,
@@ -280,13 +279,13 @@ impl UntypedClassPartition {
         I: NamedItem,
     {
         Self::add_to_scope_with_name(diagnostics, sources, source_file_id, scope, item, |item| {
-            sources.span(source_file_id, &item.name()).to_owned()
+            sources.source(&item.name()).to_owned()
         })
     }
 
     fn add_to_scope_with_name<I>(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         source_file_id: SourceFileId,
         scope: &mut IndexMap<CaseInsensitive<String>, I>,
         item: I,
@@ -297,18 +296,13 @@ impl UntypedClassPartition {
         let name = get_name(&item);
         if let Some(other) = scope.get(CaseInsensitive::new_ref(&name)) {
             diagnostics.emit(
-                Self::redeclaration_error(
-                    sources,
-                    source_file_id,
-                    other.name().span,
-                    source_file_id,
-                    item.name().span,
-                )
-                .with_note(Note {
-                    kind: NoteKind::Debug,
-                    text: format!("mangled name of conflicting item: `{name}`"),
-                    suggestion: None,
-                }),
+                Self::redeclaration_error(sources, other.name().span, item.name().span).with_note(
+                    Note {
+                        kind: NoteKind::Debug,
+                        text: format!("mangled name of conflicting item: `{name}`"),
+                        suggestion: None,
+                    },
+                ),
             );
         } else {
             scope.insert(CaseInsensitive::new(name.to_owned()), item);
@@ -316,23 +310,16 @@ impl UntypedClassPartition {
     }
 
     fn redeclaration_error(
-        sources: &SourceFileSet,
-        source_file_id_first: SourceFileId,
-        span_first: Span,
-        source_file_id_re: SourceFileId,
-        span_re: Span,
-    ) -> Diagnostic {
-        let source_re = &sources.get(source_file_id_re).source;
-        let source_first = &sources.get(source_file_id_first).source;
-        let name_re = span_re.get_input(source_re);
-        let name_first = span_first.get_input(source_first);
+        sources: &LexedSources<'_>,
+        span_first: TokenSpan,
+        span_re: TokenSpan,
+    ) -> Diagnostic<Token> {
+        let name_re = sources.source(&span_re);
+        let name_first = sources.source(&span_first);
 
-        let mut diagnostic =
-            Diagnostic::error(source_file_id_re, format!("redefinition of `{name_first}`"))
-                .with_label(
-                    Label::primary(span_first, "first defined here").in_file(source_file_id_first),
-                )
-                .with_label(Label::primary(span_re, "redefined here").in_file(source_file_id_re));
+        let mut diagnostic = Diagnostic::error(format!("redefinition of `{name_first}`"))
+            .with_label(Label::primary(&span_first, "first defined here"))
+            .with_label(Label::primary(&span_re, "redefined here"));
 
         if name_re != name_first
             && CaseInsensitive::new_ref(name_re) == CaseInsensitive::new_ref(name_first)
@@ -351,7 +338,7 @@ impl UntypedClassPartition {
                 cst::SimulatedItem::Function(mut f) => {
                     f.pre_specifiers
                         .push(cst::FunctionSpecifier::Simulated(token::Ident {
-                            span: simulated.simulated.span,
+                            id: simulated.simulated.id,
                         }));
                     cst::Item::Function(f)
                 }
@@ -410,13 +397,15 @@ impl ItemSingleVar {
 }
 
 impl NamedItem for ItemSingleVar {
-    fn name(&self) -> token::Ident {
-        self.variable.name
+    fn name(&self) -> cst::ItemName {
+        cst::ItemName {
+            span: TokenSpan::single(self.variable.name.id),
+        }
     }
 }
 
 impl NamedItem for VarCst {
-    fn name(&self) -> token::Ident {
+    fn name(&self) -> cst::ItemName {
         match self {
             VarCst::Const(item_const) => item_const.name(),
             VarCst::Var(item_var) => item_var.name(),
@@ -425,9 +414,11 @@ impl NamedItem for VarCst {
 }
 
 impl NamedItem for TypeCst {
-    fn name(&self) -> token::Ident {
+    fn name(&self) -> cst::ItemName {
         match self {
-            TypeCst::Struct(item_struct) => item_struct.name,
+            TypeCst::Struct(item_struct) => cst::ItemName {
+                span: TokenSpan::single(item_struct.name.id),
+            },
             TypeCst::Enum(item_enum) => item_enum.name(),
         }
     }

@@ -7,7 +7,7 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet},
 };
-use muscript_syntax::cst;
+use muscript_syntax::{cst, sources::LexedSources};
 
 use crate::{ClassId, TypeId};
 
@@ -82,18 +82,13 @@ impl TypeName {
         }
     }
 
-    pub fn from_cst(sources: &SourceFileSet, source_file_id: SourceFileId, ty: &cst::Type) -> Self {
+    pub fn from_cst(sources: &LexedSources<'_>, ty: &cst::Type) -> Self {
         Self {
-            name: CaseInsensitive::new(sources.span(source_file_id, &ty.path).to_owned()),
+            name: CaseInsensitive::new(sources.source(&ty.path).to_owned()),
             generic_arguments: ty
                 .generic
                 .iter()
-                .flat_map(|generic| {
-                    generic
-                        .args
-                        .iter()
-                        .map(|ty| Self::from_cst(sources, source_file_id, ty))
-                })
+                .flat_map(|generic| generic.args.iter().map(|ty| Self::from_cst(sources, ty)))
                 .collect(),
         }
     }

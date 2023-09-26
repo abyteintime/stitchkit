@@ -1,13 +1,15 @@
-use std::rc::Rc;
+use std::{collections::HashMap, ops::Range, rc::Rc};
 
 use muscript_foundation::{
     errors::{Diagnostic, Label, ReplacementSuggestion},
-    source::{SourceFileId, Span},
+    source::SourceFileId,
+    source_arena::SourceArenaBuilder,
+    span::Span,
 };
 
 use super::{
-    token::{Token, TokenKind},
-    Channel, EofReached, LexError, TokenStream,
+    token::{AnyToken, SourceLocation, Token, TokenId, TokenKind},
+    Channel, TokenStream,
 };
 
 /// Context for lexical analysis.
@@ -20,19 +22,32 @@ pub enum LexicalContext {
     Type,
 }
 
-#[derive(Debug, Clone)]
-pub struct Lexer {
+#[derive(Debug)]
+pub struct Lexer<'a> {
+    pub token_arena: SourceArenaBuilder<'a, Token>,
+
     pub file: SourceFileId,
     pub input: Rc<str>,
-    pub position: u32,
+    pub position: SourceLocation,
+
+    pub errors: HashMap<TokenId, Diagnostic<Token>>,
 }
 
-impl Lexer {
-    pub fn new(file: SourceFileId, input: Rc<str>) -> Self {
+// Unnecessary casts are allowed because `SourceLocation` may not end up being a `usize` if we
+// want to save some space.
+#[allow(clippy::unnecessary_cast)]
+impl<'a> Lexer<'a> {
+    pub fn new(
+        token_arena: SourceArenaBuilder<'a, Token>,
+        file: SourceFileId,
+        input: Rc<str>,
+    ) -> Self {
         Self {
+            token_arena,
             file,
             input,
             position: 0,
+            errors: HashMap::new(),
         }
     }
 
@@ -46,22 +61,19 @@ impl Lexer {
 
     pub fn advance_char(&mut self) {
         if let Some(char) = self.current_char() {
-            self.position += char.len_utf8() as u32;
+            self.position += char.len_utf8() as SourceLocation;
         }
     }
 
-    fn span(&self, start: u32) -> Span {
-        Span::from(start..self.position)
+    fn range(&self, start: SourceLocation) -> Range<SourceLocation> {
+        start..self.position
     }
 
-    fn span_with_len(&self, start: u32, len: u32) -> Span {
-        let len = self.input[start as usize..]
-            .char_indices()
-            .skip(len as usize)
-            .map(|(index, _)| index)
-            .next()
-            .unwrap_or(self.input.len());
-        Span::from(start..start + len as u32)
+    fn create_token(&mut self, kind: TokenKind, range: Range<SourceLocation>) -> TokenId {
+        self.token_arena.push(Token {
+            kind,
+            source_range: range,
+        })
     }
 
     fn one_or_more(&mut self, mut test: impl Fn(char) -> bool) -> Result<(), ()> {
@@ -80,7 +92,7 @@ impl Lexer {
         }
     }
 
-    fn comment_or_division(&mut self, start: u32) -> Result<TokenKind, LexError> {
+    fn comment_or_division(&mut self, start: SourceLocation) -> TokenId {
         self.advance_char();
         match self.current_char() {
             Some('/') => {
@@ -90,7 +102,7 @@ impl Lexer {
                 }
                 // Skip the \n at the end.
                 self.advance_char();
-                Ok(TokenKind::Comment)
+                self.create_token(TokenKind::Comment, self.range(start))
             }
             Some('*') => {
                 self.advance_char();
@@ -112,35 +124,39 @@ impl Lexer {
                             }
                         }
                         None => {
-                            return Err(LexError::new(
-                                self.span(start),
+                            let comment_start =
+                                self.create_token(TokenKind::Error, start..start + 2);
+                            let _rest = self.create_token(TokenKind::Error, self.range(start + 2));
+                            self.errors.insert(
+                                comment_start,
                                 Diagnostic::error(
-                                    self.file,
                                     "block comment does not have a matching '*/' terminator",
                                 )
                                 .with_label(Label::primary(
-                                    self.span_with_len(start, 2),
+                                    &Span::single(comment_start),
                                     "the comment starts here",
                                 )),
-                            ))
+                            );
+                            return comment_start;
                         }
                         _ => self.advance_char(),
                     }
                 }
-                Ok(TokenKind::Comment)
+                self.create_token(TokenKind::Comment, self.range(start))
             }
-            _ => Ok(TokenKind::Div),
+            _ => self.create_token(TokenKind::Div, self.range(start)),
         }
     }
 
-    fn identifier(&mut self) -> TokenKind {
+    fn identifier(&mut self) -> TokenId {
+        let start = self.position;
         while let Some('a'..='z' | 'A'..='Z' | '0'..='9' | '_') = self.current_char() {
             self.advance_char();
         }
-        TokenKind::Ident
+        self.create_token(TokenKind::Ident, self.range(start))
     }
 
-    fn decimal_number(&mut self, start: u32) -> Result<TokenKind, LexError> {
+    fn decimal_number(&mut self, start: SourceLocation) -> TokenId {
         while let Some('0'..='9') = self.current_char() {
             self.advance_char();
         }
@@ -149,53 +165,62 @@ impl Lexer {
             while let Some('0'..='9') = self.current_char() {
                 self.advance_char();
             }
-            let result = if let Some('e' | 'E') = self.current_char() {
+            if let Some('e' | 'E') = self.current_char() {
                 let exponent_start = self.position;
                 self.advance_char();
                 if let Some('+' | '-') = self.current_char() {
                     self.advance_char();
                 }
-                let exponent_end = self.position;
-                self.one_or_more(|c| c.is_ascii_digit()).map_err(|_| {
-                    LexError::new(
-                        self.span(start),
-                        Diagnostic::error(
-                            self.file,
+                let _exponent_end = self.position;
+
+                match self.one_or_more(|c| c.is_ascii_digit()) {
+                    Ok(_) => {
+                        if self.current_char() == Some('f') {
+                            self.advance_char();
+                        }
+                        self.create_token(TokenKind::FloatLit, self.range(start))
+                    }
+                    Err(_) => {
+                        let before_exponent =
+                            self.create_token(TokenKind::FloatLit, start..exponent_start);
+                        if self.current_char() == Some('f') {
+                            self.advance_char();
+                        }
+                        let exponent =
+                            self.create_token(TokenKind::Error, self.range(exponent_start));
+                        self.errors.insert(exponent, Diagnostic::error(
                             "'e' in float literal with scientific notation must be followed by an exponent number",
                         )
                         .with_label(Label::primary(
-                            Span::from(exponent_start..exponent_end),
+                            &Span::single(exponent),
                             "scientific notation used here",
-                        )),
-                    )
-                })
+                        )));
+                        before_exponent
+                    }
+                }
             } else {
-                Ok(())
+                if self.current_char() == Some('f') {
+                    self.advance_char();
+                }
+                self.create_token(TokenKind::FloatLit, self.range(start))
             }
-            .map(|_| TokenKind::FloatLit);
-            // NOTE: Even in case of error above, we want to continue reading to skip the possible
-            // f suffix so that the parser doesn't have to deal with a stray identifier.
-            if self.current_char() == Some('f') {
-                self.advance_char();
-            }
-            result
         } else if self.current_char() == Some('f') {
             self.advance_char();
-            Ok(TokenKind::FloatLit)
+            self.create_token(TokenKind::FloatLit, self.range(start))
         } else {
-            Ok(TokenKind::IntLit)
+            self.create_token(TokenKind::IntLit, self.range(start))
         }
     }
 
-    fn number(&mut self, start: u32) -> Result<TokenKind, LexError> {
-        let result = if self.current_char() == Some('0') {
+    fn number(&mut self, start: SourceLocation) -> TokenId {
+        let literal = if self.current_char() == Some('0') {
             self.advance_char();
             if let Some('x' | 'X') = self.current_char() {
                 self.advance_char();
                 while let Some('0'..='9' | 'A'..='F' | 'a'..='f') = self.current_char() {
                     self.advance_char();
                 }
-                Ok(TokenKind::IntLit)
+                self.create_token(TokenKind::IntLit, self.range(start))
             } else {
                 // Again, we don't want to early-out here to not leave the parser with a
                 // stray identifier.
@@ -209,24 +234,25 @@ impl Lexer {
             let ident_start = self.position;
             self.identifier();
             let ident_end = self.position;
-            return Err(LexError::new(
-                self.span(start),
+            let ident_error = self.create_token(TokenKind::Error, self.range(ident_start));
+            self.errors.insert(
+                ident_error,
                 Diagnostic::error(
-                    self.file,
                     "number literal must not be immediately followed by an identifier",
                 )
                 .with_label(Label::secondary(
-                    Span::from(start..ident_start),
+                    &Span::single(literal),
                     "number literal occurs here...",
                 ))
                 .with_label(Label::primary(
-                    Span::from(ident_start..ident_end),
+                    &Span::single(ident_error),
                     "...and is immediately followed by an identifier",
                 ))
                 .with_note((
                     "help: add a space between the number and the identifier",
                     ReplacementSuggestion {
-                        span: Span::from(start..ident_end),
+                        file: self.file,
+                        span: start..ident_end,
                         replacement: format!(
                             "{} {}",
                             &self.input[start as usize..ident_start as usize],
@@ -234,13 +260,13 @@ impl Lexer {
                         ),
                     },
                 )),
-            ));
+            );
         }
 
-        result
+        literal
     }
 
-    fn string_char(&mut self) -> Result<(), LexError> {
+    fn string_char(&mut self) {
         // The lexer doesn't do any parsing of escape sequences. For the lexer only really \"
         // counts, so that it knows where the string ends.
         match self.current_char() {
@@ -251,53 +277,53 @@ impl Lexer {
             }
             _ => self.advance_char(),
         }
-        Ok(())
     }
 
-    fn string(&mut self, start: u32) -> Result<TokenKind, LexError> {
+    fn string(&mut self, start: SourceLocation) -> TokenId {
         self.advance_char();
         while self.current_char() != Some('"') {
             if self.current_char().is_none() {
-                return Err(LexError::new(
-                    self.span(start),
-                    Diagnostic::error(
-                        self.file,
-                        "string literal does not have a closing quote '\"'",
-                    )
-                    .with_label(Label::primary(
-                        self.span_with_len(start, 1),
-                        "the string starts here",
-                    )),
-                ));
+                let quote = self.create_token(TokenKind::Error, start..start + 1);
+                let unterminated = self.create_token(TokenKind::Error, self.range(start + 1));
+                self.errors.insert(
+                    unterminated,
+                    Diagnostic::error("string literal does not have a closing quote `\"`")
+                        .with_label(Label::primary(
+                            &Span::single(quote),
+                            "the string starts here",
+                        )),
+                );
+                return unterminated;
             }
-            self.string_char()?;
+            self.string_char();
         }
         self.advance_char();
-        Ok(TokenKind::StringLit)
+        self.create_token(TokenKind::StringLit, self.range(start))
     }
 
-    fn name(&mut self, start: u32) -> Result<TokenKind, LexError> {
+    fn name(&mut self, start: SourceLocation) -> TokenId {
         self.advance_char();
         while self.current_char() != Some('\'') {
             if self.current_char().is_none() {
-                return Err(LexError::new(
-                    self.span(start),
-                    Diagnostic::error(self.file, "name does not have a closing quote '\"'")
-                        .with_label(Label::primary(
-                            self.span_with_len(start, 1),
-                            "the name starts here",
-                        )),
-                ));
+                let quote = self.create_token(TokenKind::Error, start..start + 1);
+                let unterminated = self.create_token(TokenKind::Error, self.range(start + 1));
+                self.errors.insert(
+                    unterminated,
+                    Diagnostic::error("name does not have a closing quote `'`")
+                        .with_label(Label::primary(&Span::single(quote), "the name starts here")),
+                );
+                return unterminated;
             }
-            self.string_char()?;
+            self.string_char();
         }
         self.advance_char();
-        Ok(TokenKind::NameLit)
+        self.create_token(TokenKind::NameLit, self.range(start))
     }
 
-    fn single_char_token(&mut self, kind: TokenKind) -> TokenKind {
+    fn single_char_token(&mut self, kind: TokenKind) -> TokenId {
+        let start = self.position;
         self.advance_char();
-        kind
+        self.create_token(kind, self.range(start))
     }
 
     fn single_or_double_char_token(
@@ -305,19 +331,20 @@ impl Lexer {
         kind: TokenKind,
         second: char,
         second_kind: TokenKind,
-    ) -> TokenKind {
+    ) -> TokenId {
+        let start = self.position;
         self.advance_char();
         if self.current_char() == Some(second) {
             self.advance_char();
-            second_kind
+            self.create_token(second_kind, self.range(start))
         } else {
-            kind
+            self.create_token(kind, self.range(start))
         }
     }
 }
 
 /// Functions used by the preprocessor.
-impl Lexer {
+impl<'a> Lexer<'a> {
     pub(super) fn eat_until_line_feed(&mut self) {
         while !matches!(self.current_char(), Some('\n') | None) {
             self.advance_char();
@@ -326,19 +353,19 @@ impl Lexer {
     }
 }
 
-impl TokenStream for Lexer {
-    fn next_any(&mut self, context: LexicalContext) -> Result<Token, LexError> {
+impl<'a> TokenStream for Lexer<'a> {
+    fn next_any(&mut self, context: LexicalContext) -> AnyToken {
         self.skip_whitespace();
 
         let start = self.position;
 
-        let kind = if let Some(char) = self.current_char() {
+        let id = if let Some(char) = self.current_char() {
             match char {
-                '/' => self.comment_or_division(start)?,
+                '/' => self.comment_or_division(start),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
-                '0'..='9' => self.number(start)?,
-                '"' => self.string(start)?,
-                '\'' => self.name(start)?,
+                '0'..='9' => self.number(start),
+                '"' => self.string(start),
+                '\'' => self.name(start),
                 '+' => self.single_or_double_char_token(TokenKind::Add, '+', TokenKind::Inc),
                 '-' => self.single_or_double_char_token(TokenKind::Sub, '-', TokenKind::Dec),
                 '*' => self.single_or_double_char_token(TokenKind::Mul, '*', TokenKind::Pow),
@@ -348,13 +375,13 @@ impl TokenStream for Lexer {
                     match self.current_char() {
                         Some('<') => {
                             self.advance_char();
-                            TokenKind::ShiftLeft
+                            self.create_token(TokenKind::ShiftLeft, self.range(start))
                         }
                         Some('=') => {
                             self.advance_char();
-                            TokenKind::LessEqual
+                            self.create_token(TokenKind::LessEqual, self.range(start))
                         }
-                        _ => TokenKind::Less,
+                        _ => self.create_token(TokenKind::Less, self.range(start)),
                     }
                 }
                 '>' => {
@@ -364,16 +391,16 @@ impl TokenStream for Lexer {
                             self.advance_char();
                             if self.current_char() == Some('>') {
                                 self.advance_char();
-                                TokenKind::TripleShiftRight
+                                self.create_token(TokenKind::TripleShiftRight, self.range(start))
                             } else {
-                                TokenKind::ShiftRight
+                                self.create_token(TokenKind::ShiftRight, self.range(start))
                             }
                         }
                         Some('=') => {
                             self.advance_char();
-                            TokenKind::GreaterEqual
+                            self.create_token(TokenKind::GreaterEqual, self.range(start))
                         }
-                        _ => TokenKind::Greater,
+                        _ => self.create_token(TokenKind::Greater, self.range(start)),
                     }
                 }
                 '&' => self.single_or_double_char_token(TokenKind::BitAnd, '&', TokenKind::And),
@@ -401,9 +428,9 @@ impl TokenStream for Lexer {
                         // decimal_number can pick it up properly and not allow `.0.0`, which would
                         // be invalid syntax.
                         self.position -= 1;
-                        self.decimal_number(start)?
+                        self.decimal_number(start)
                     } else {
-                        TokenKind::Dot
+                        self.create_token(TokenKind::Dot, self.range(start))
                     }
                 }
                 ',' => self.single_char_token(TokenKind::Comma),
@@ -412,87 +439,29 @@ impl TokenStream for Lexer {
                 '`' => self.single_char_token(TokenKind::Accent),
                 '\\' => self.single_char_token(TokenKind::Backslash),
                 unknown => {
-                    return Err(LexError::new(
-                        self.span(start),
-                        Diagnostic::error(
-                            self.file,
-                            format!("unrecognized character: {unknown:?}"),
-                        )
-                        .with_label(Label::primary(
-                            self.span(start),
-                            "this character is not valid syntax",
-                        )),
-                    ))
+                    let unrecognized_character =
+                        self.create_token(TokenKind::Error, self.range(start));
+
+                    self.errors.insert(
+                        unrecognized_character,
+                        Diagnostic::error(format!("unrecognized character: {unknown:?}"))
+                            .with_label(Label::primary(
+                                &Span::single(unrecognized_character),
+                                "this character is not valid syntax",
+                            )),
+                    );
+                    unrecognized_character
                 }
             }
         } else {
-            TokenKind::EndOfFile
+            self.create_token(TokenKind::EndOfFile, self.range(start))
         };
 
-        let end = self.position;
-        Ok(Token {
-            kind,
-            span: Span::from(start..end),
-        })
+        let kind = self.token_arena.arena().element(id).kind;
+        AnyToken { kind, id }
     }
 
-    fn text_blob(&mut self, is_end: &dyn Fn(char) -> bool) -> Result<Span, EofReached> {
-        let start = self.position;
-        loop {
-            if let Some(char) = self.current_char() {
-                if is_end(char) {
-                    break;
-                }
-                self.advance_char();
-            } else {
-                return Err(EofReached);
-            }
-        }
-        let end = self.position;
-        Ok(Span::from(start..end))
-    }
-
-    fn braced_string(&mut self, left_brace_span: Span) -> Result<Span, LexError> {
-        let start = self.position;
-
-        let mut nesting = 1;
-        while nesting > 0 {
-            match self.current_char() {
-                Some('{') => {
-                    nesting += 1;
-                    self.advance_char();
-                }
-                Some('}') => {
-                    nesting -= 1;
-                    if nesting != 0 {
-                        // If nesting is zero, we don't wanna consume the right brace
-                        // because the parser turns it into a token.
-                        self.advance_char();
-                    }
-                }
-                None => {
-                    return Err(LexError::new(
-                        Span::from(start..self.position),
-                        Diagnostic::error(
-                            self.file,
-                            "braced string is missing its right brace `}`",
-                        )
-                        .with_label(Label::primary(
-                            left_brace_span,
-                            "the braced string starts here",
-                        ))
-                        .with_note("note: braced strings may nest `{hello {world}}`"),
-                    ))
-                }
-                _ => self.advance_char(),
-            }
-        }
-
-        let end = self.position;
-        Ok(Span::from(start..end))
-    }
-
-    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> Result<Token, LexError> {
+    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> AnyToken {
         let position = self.position;
         let result = self.next_from(context, channel);
         self.position = position;

@@ -1,13 +1,10 @@
-use muscript_foundation::{
-    errors::{Diagnostic, Label},
-    source::Spanned,
-};
+use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{CppBlob, Extends},
     diagnostics::{labels, notes},
-    lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
+    lexis::token::{AnyToken, Ident, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
@@ -41,8 +38,8 @@ impl Parse for StructDef {
         let specifiers = parser.parse_greedy_list()?;
         let cpp_name = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "struct name expected")
-                .with_label(labels::invalid_identifier(span, parser.input))
+            Diagnostic::error("struct name expected")
+                .with_label(labels::invalid_identifier(span, &parser.sources))
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let extends = parser.parse()?;
@@ -50,8 +47,8 @@ impl Parse for StructDef {
         let (items, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
                 parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `}` to close struct body").with_label(
-                        Label::primary(open.span(), "this is where the struct body begins"),
+                    Diagnostic::error("missing `}` to close struct body").with_label(
+                        Label::primary(&open, "this is where the struct body begins"),
                     ),
                 )
             }
@@ -85,17 +82,11 @@ pub enum StructSpecifier {
     Transient(Ident),
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown struct specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown struct specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
     .with_note("note: notable struct specifiers include `immutable` and `transient`")
 }

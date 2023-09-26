@@ -3,7 +3,7 @@ use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Expr, Precedence},
-    lexis::token::{Colon, LeftParen, RightParen, Semi, Token},
+    lexis::token::{AnyToken, Colon, LeftParen, RightParen, Semi, Token},
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -137,7 +137,7 @@ impl Parse for StmtForEach {
     }
 }
 
-fn _return_value_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "return value or `;` expected")
-        .with_label(Label::primary(token.span, "return value expected here"))
+fn _return_value_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("return value or `;` expected")
+        .with_label(Label::primary(token, "return value expected here"))
 }

@@ -2,8 +2,9 @@ use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{Greater, Ident, Less, Token},
+    lexis::token::{AnyToken, Greater, Ident, Less, Token},
     list::SeparatedListDiagnostics,
+    sources::LexedSources,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -57,8 +58,8 @@ impl Parse for Type {
 
 impl PredictiveParse for Type {
     #[allow(deprecated)]
-    fn started_by(token: &Token, input: &str) -> bool {
-        Ident::started_by(token, input)
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool {
+        Ident::started_by(token, sources)
     }
 }
 
@@ -99,24 +100,15 @@ impl TypeOrDef {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown type specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown type specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
 }
 
-fn type_or_def_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        "type, struct definition, or enum definition expected",
-    )
-    .with_label(Label::primary(token.span, "type expected here"))
+fn type_or_def_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("type, struct definition, or enum definition expected")
+        .with_label(Label::primary(token, "type expected here"))
 }

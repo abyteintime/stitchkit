@@ -1,6 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::cst;
 
@@ -21,8 +21,8 @@ impl<'a> Compiler<'a> {
     pub fn stmt(&mut self, builder: &mut FunctionBuilder, stmt: &cst::Stmt) {
         match stmt {
             cst::Stmt::Empty(semi) => self.env.emit(
-                Diagnostic::warning(builder.source_file_id, "empty statement has no effect")
-                    .with_label(Label::primary(semi.span, "this semicolon is redundant")),
+                Diagnostic::warning("empty statement has no effect")
+                    .with_label(Label::primary(semi, "this semicolon is redundant")),
             ),
             cst::Stmt::Expr(expr) => self.stmt_expr(builder, expr),
             cst::Stmt::Block(block) => self.stmt_block(builder, block),
@@ -36,8 +36,8 @@ impl<'a> Compiler<'a> {
 
             _ => {
                 self.env.emit(
-                    Diagnostic::error(builder.source_file_id, "unsupported statement")
-                        .with_label(Label::primary(stmt.span(), ""))
+                    Diagnostic::error("unsupported statement")
+                        .with_label(Label::primary(stmt, ""))
                         .with_note(notes::WIP),
                 );
             }

@@ -3,8 +3,9 @@ use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Extends, KSimulated},
-    lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
+    lexis::token::{AnyToken, Ident, LeftBrace, RightBrace, Semi},
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
+    sources::LexedSources,
     Parse, ParseError, ParseStream, Parser, PredictiveParse,
 };
 
@@ -49,9 +50,8 @@ impl Parse for ItemState {
         let (items, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
                 parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `}` to close state body").with_label(
-                        Label::primary(open.span, "this is where the state body begins"),
-                    ),
+                    Diagnostic::error("missing `}` to close state body")
+                        .with_label(Label::primary(&open, "this is where the state body begins")),
                 )
             }
             error.parse
@@ -73,8 +73,8 @@ impl Parse for ItemState {
 
 impl PredictiveParse for ItemState {
     #[allow(deprecated)]
-    fn started_by(token: &Token, input: &str) -> bool {
-        KState::started_by(token, input) || KAuto::started_by(token, input)
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool {
+        KState::started_by(token, sources) || KAuto::started_by(token, sources)
     }
 }
 

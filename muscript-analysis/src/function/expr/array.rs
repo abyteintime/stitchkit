@@ -1,6 +1,6 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::{cst, lexis::token};
 
@@ -44,14 +44,13 @@ impl<'a> Compiler<'a> {
             let index_type_id = builder.ir.register(index_register_id).ty;
             if index_type_id != TypeId::INT {
                 self.env.emit(
-                    Diagnostic::error(builder.source_file_id, "array index must be an `Int`")
-                        .with_label(Label::primary(
-                            left.span(),
-                            format!(
-                                "this was found to be of type `{}`",
-                                self.env.type_name(index_type_id)
-                            ),
-                        )),
+                    Diagnostic::error("array index must be an `Int`").with_label(Label::primary(
+                        left,
+                        format!(
+                            "this was found to be of type `{}`",
+                            self.env.type_name(index_type_id)
+                        ),
+                    )),
                 );
             }
             builder.ir.append_register(
@@ -65,21 +64,18 @@ impl<'a> Compiler<'a> {
             )
         } else {
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    "indexing `[]` can only be done on arrays",
-                )
-                .with_label(Label::primary(
-                    left.span(),
-                    format!(
-                        "found to be of type `{}`, but an array was expected",
-                        self.env.type_name(left_type_id)
-                    ),
-                ))
-                .with_label(Label::secondary(
-                    open.span.join(&close.span),
-                    "indexing here",
-                )),
+                Diagnostic::error("indexing `[]` can only be done on arrays")
+                    .with_label(Label::primary(
+                        left,
+                        format!(
+                            "found to be of type `{}`, but an array was expected",
+                            self.env.type_name(left_type_id)
+                        ),
+                    ))
+                    .with_label(Label::secondary(
+                        &open.span().join(&close.span()),
+                        "indexing here",
+                    )),
             );
             builder
                 .ir

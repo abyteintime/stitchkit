@@ -1,9 +1,13 @@
 use indoc::formatdoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::{SourceFileId, Span, Spanned},
+    source::SourceFileId,
+    span::Spanned,
 };
-use muscript_syntax::cst;
+use muscript_syntax::{
+    cst,
+    lexis::token::{Token, TokenSpan},
+};
 
 use crate::{
     function::builder::FunctionBuilder,
@@ -101,11 +105,8 @@ impl<'a> Compiler<'a> {
             }
             Type::Object(_class_id) => {
                 self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        "object type casts are not yet supported",
-                    )
-                    .with_label(Label::primary(outer.span(), "")),
+                    Diagnostic::error("object type casts are not yet supported")
+                        .with_label(Label::primary(outer, "")),
                 );
                 builder.ir.append_register(
                     outer.span(),
@@ -116,11 +117,8 @@ impl<'a> Compiler<'a> {
             }
             Type::Class(_class_id) => {
                 self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        "class type casts are not yet supported",
-                    )
-                    .with_label(Label::primary(outer.span(), "")),
+                    Diagnostic::error("class type casts are not yet supported")
+                        .with_label(Label::primary(outer, "")),
                 );
                 builder.ir.append_register(
                     outer.span(),
@@ -131,11 +129,8 @@ impl<'a> Compiler<'a> {
             }
             Type::Struct { outer: _ } => {
                 self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        "struct type casts are not yet supported",
-                    )
-                    .with_label(Label::primary(outer.span(), "")),
+                    Diagnostic::error("struct type casts are not yet supported")
+                        .with_label(Label::primary(outer, "")),
                 );
                 builder.ir.append_register(
                     outer.span(),
@@ -146,11 +141,8 @@ impl<'a> Compiler<'a> {
             }
             Type::Enum { outer: _ } => {
                 self.env.emit(
-                    Diagnostic::error(
-                        builder.source_file_id,
-                        "enum type casts are not yet supported",
-                    )
-                    .with_label(Label::primary(outer.span(), "")),
+                    Diagnostic::error("enum type casts are not yet supported")
+                        .with_label(Label::primary(outer, "")),
                 );
                 builder.ir.append_register(
                     outer.span(),
@@ -163,10 +155,9 @@ impl<'a> Compiler<'a> {
             Type::Array(_) => {
                 self.env.emit(
                     Diagnostic::error(
-                        builder.source_file_id,
                         "casting between dynamic array types is not supported",
                     )
-                    .with_label(Label::primary(outer.span(), ""))
+                    .with_label(Label::primary(outer, ""))
                     .with_note("note: casting between array types like `Array<Int>` and `Array<Float>` is not supported by the VM and would be a very expensive operation"),
                 );
                 builder.ir.append_register(
@@ -212,13 +203,13 @@ impl<'a> Compiler<'a> {
         }
 
         self.env.emit(
-            Diagnostic::error(builder.source_file_id, "invalid cast")
+            Diagnostic::error("invalid cast")
                 .with_label(Label::primary(
-                    value_expr.span(),
+                    value_expr,
                     format!("from type `{}`", self.env.type_name(from_type)),
                 ))
                 .with_label(Label::primary(
-                    type_expr.span(),
+                    type_expr,
                     format!("to type `{}`", self.env.type_name(to_type)),
                 )),
         );
@@ -267,12 +258,12 @@ impl<'a> Compiler<'a> {
     fn type_mismatch(
         &self,
         source_file_id: SourceFileId,
-        span: Span,
+        span: TokenSpan,
         expected_ty: TypeId,
         got_ty: TypeId,
-    ) -> Diagnostic {
-        Diagnostic::error(source_file_id, "type mismatch")
-            .with_label(Label::primary(span, ""))
+    ) -> Diagnostic<Token> {
+        Diagnostic::error("type mismatch")
+            .with_label(Label::primary(&span, ""))
             .with_note(formatdoc! {"
                     expected `{}`
                          got `{}`

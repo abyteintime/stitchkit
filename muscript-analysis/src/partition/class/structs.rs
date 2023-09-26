@@ -3,9 +3,14 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet, Span, Spanned},
+    source::{SourceFileId, SourceFileSet},
+    span::Spanned,
 };
-use muscript_syntax::{cst, lexis::token};
+use muscript_syntax::{
+    cst,
+    lexis::token::{self, Token, TokenSpan},
+    sources::LexedSources,
+};
 
 use crate::diagnostics::{self, notes, unnecessary_semicolon};
 
@@ -26,8 +31,8 @@ pub struct UntypedStruct {
 /// # Conversion from CST
 impl UntypedStruct {
     pub fn from_cst(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         source_file_id: SourceFileId,
         types: &mut IndexMap<CaseInsensitive<String>, TypeCst>,
         cst: cst::StructDef,
@@ -86,18 +91,18 @@ impl UntypedStruct {
                 }
 
                 cst::Item::DefaultProperties(cst::ItemDefaultProperties {
-                    keyword: cst::KDefaultProperties { span },
+                    keyword: cst::KDefaultProperties { id },
                     block,
                 })
                 | cst::Item::StructDefaultProperties(cst::ItemStructDefaultProperties {
-                    keyword: cst::KStructDefaultProperties { span },
+                    keyword: cst::KStructDefaultProperties { id },
                     block,
                 }) => {
                     // As mentioned, canonicalize `structdefaultproperties` items to
                     // regular `defaultproperties`. There's no reason to have this distinction
                     // anyways.
                     default_properties = Some(cst::ItemDefaultProperties {
-                        keyword: cst::KDefaultProperties { span },
+                        keyword: cst::KDefaultProperties { id },
                         block,
                     })
                 }
@@ -142,8 +147,8 @@ impl UntypedStruct {
                         item_struct.span(),
                         "structs may not nest",
                     )
-                    .with_label(Label::secondary(cst.open.span, "outer struct begins here"))
-                    .with_label(Label::secondary(cst.close.span, "outer struct ends here"))
+                    .with_label(Label::secondary(&cst.open, "outer struct begins here"))
+                    .with_label(Label::secondary(&cst.close, "outer struct ends here"))
                     .with_note("help: try putting your struct outside this struct's braces"),
                 ),
                 cst::Item::Enum(item_enum) => diagnostics.emit(
@@ -175,8 +180,8 @@ impl UntypedStruct {
                     "}),
                 ),
                 item @ (cst::Item::CppText(_) | cst::Item::StructCppText(_)) => diagnostics.emit(
-                    Diagnostic::warning(source_file_id, "`cpptext` item is ignored")
-                        .with_label(Label::primary(item.span(), ""))
+                    Diagnostic::warning("`cpptext` item is ignored")
+                        .with_label(Label::primary(&item, ""))
                         .with_note(notes::CPP_UNSUPPORTED),
                 ),
                 cst::Item::Stmt(stmt) => diagnostics.emit(diagnostics::stmt_outside_of_function(
@@ -197,10 +202,10 @@ impl UntypedStruct {
 
 fn item_may_not_appear_in_struct(
     source_file_id: SourceFileId,
-    span: Span,
+    span: TokenSpan,
     message: &str,
-) -> Diagnostic {
-    Diagnostic::error(source_file_id, message)
-        .with_label(Label::primary(span, ""))
+) -> Diagnostic<Token> {
+    Diagnostic::error(message)
+        .with_label(Label::primary(&span, ""))
         .with_note("note: structs may only contain `var`s and `defaultproperties`")
 }

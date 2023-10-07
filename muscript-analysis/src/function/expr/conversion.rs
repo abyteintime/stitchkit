@@ -4,10 +4,8 @@ use muscript_foundation::{
     source::SourceFileId,
     span::Spanned,
 };
-use muscript_syntax::{
-    cst,
-    lexis::token::{Token, TokenSpan},
-};
+use muscript_lexer::token::{Token, TokenSpan};
+use muscript_syntax::cst;
 
 use crate::{
     function::builder::FunctionBuilder,

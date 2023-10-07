@@ -10,5 +10,6 @@ indexmap = "1.9.2"
 indoc = { workspace = true }
 tracing = { workspace = true }
 
-muscript-foundation = { workspace = true }
-muscript-syntax = { workspace = true }
+muscript-syntax.workspace = true
+muscript-foundation.workspace = true
+muscript-lexer.workspace = true

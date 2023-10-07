@@ -1,12 +1,12 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{sources::LexedSources, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Extends, KSimulated},
-    lexis::token::{AnyToken, Ident, LeftBrace, RightBrace, Semi},
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
-    sources::LexedSources,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident, LeftBrace, RightBrace, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{Item, VarEditor};
@@ -39,7 +39,7 @@ pub struct Ignores {
 }
 
 impl Parse for ItemState {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let auto = parser.parse()?;
         let state = parser.parse()?;
         let editor = parser.parse()?;
@@ -79,7 +79,7 @@ impl PredictiveParse for ItemState {
 }
 
 impl Parse for Ignores {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let ignores = parser.parse()?;
         let (events, semi) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(

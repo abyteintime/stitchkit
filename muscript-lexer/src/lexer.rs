@@ -7,20 +7,7 @@ use muscript_foundation::{
     span::Span,
 };
 
-use super::{
-    token::{AnyToken, SourceLocation, Token, TokenId, TokenKind},
-    Channel, TokenStream,
-};
-
-/// Context for lexical analysis.
-///
-/// In the default context multiple `>` operators use maximal munch, therefore `>>` is a single
-/// token. In the type context, each `>` character produces a single `>` token.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LexicalContext {
-    Default,
-    Type,
-}
+use super::token::{SourceLocation, Token, TokenId, TokenKind, TokenSpan};
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -341,130 +328,107 @@ impl<'a> Lexer<'a> {
             self.create_token(kind, self.range(start))
         }
     }
-}
 
-/// Functions used by the preprocessor.
-impl<'a> Lexer<'a> {
-    pub(super) fn eat_until_line_feed(&mut self) {
-        while !matches!(self.current_char(), Some('\n') | None) {
-            self.advance_char();
-        }
-        self.advance_char(); // Advance past the line feed too.
-    }
-}
+    pub fn lex(mut self) -> (TokenSpan, HashMap<TokenId, Diagnostic<Token>>) {
+        loop {
+            self.skip_whitespace();
 
-impl<'a> TokenStream for Lexer<'a> {
-    fn next_any(&mut self, context: LexicalContext) -> AnyToken {
-        self.skip_whitespace();
-
-        let start = self.position;
-
-        let id = if let Some(char) = self.current_char() {
-            match char {
-                '/' => self.comment_or_division(start),
-                'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
-                '0'..='9' => self.number(start),
-                '"' => self.string(start),
-                '\'' => self.name(start),
-                '+' => self.single_or_double_char_token(TokenKind::Add, '+', TokenKind::Inc),
-                '-' => self.single_or_double_char_token(TokenKind::Sub, '-', TokenKind::Dec),
-                '*' => self.single_or_double_char_token(TokenKind::Mul, '*', TokenKind::Pow),
-                '%' => self.single_char_token(TokenKind::Rem),
-                '<' => {
-                    self.advance_char();
-                    match self.current_char() {
-                        Some('<') => {
-                            self.advance_char();
-                            self.create_token(TokenKind::ShiftLeft, self.range(start))
-                        }
-                        Some('=') => {
-                            self.advance_char();
-                            self.create_token(TokenKind::LessEqual, self.range(start))
-                        }
-                        _ => self.create_token(TokenKind::Less, self.range(start)),
-                    }
-                }
-                '>' => {
-                    self.advance_char();
-                    match self.current_char() {
-                        Some('>') if context != LexicalContext::Type => {
-                            self.advance_char();
-                            if self.current_char() == Some('>') {
+            let start = self.position;
+            if let Some(char) = self.current_char() {
+                match char {
+                    '/' => self.comment_or_division(start),
+                    'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
+                    '0'..='9' => self.number(start),
+                    '"' => self.string(start),
+                    '\'' => self.name(start),
+                    '+' => self.single_or_double_char_token(TokenKind::Add, '+', TokenKind::Inc),
+                    '-' => self.single_or_double_char_token(TokenKind::Sub, '-', TokenKind::Dec),
+                    '*' => self.single_or_double_char_token(TokenKind::Mul, '*', TokenKind::Pow),
+                    '%' => self.single_char_token(TokenKind::Rem),
+                    '<' => {
+                        self.advance_char();
+                        match self.current_char() {
+                            Some('<') => {
                                 self.advance_char();
-                                self.create_token(TokenKind::TripleShiftRight, self.range(start))
-                            } else {
-                                self.create_token(TokenKind::ShiftRight, self.range(start))
+                                self.create_token(TokenKind::ShiftLeft, self.range(start))
                             }
+                            Some('=') => {
+                                self.advance_char();
+                                self.create_token(TokenKind::LessEqual, self.range(start))
+                            }
+                            _ => self.create_token(TokenKind::Less, self.range(start)),
                         }
-                        Some('=') => {
-                            self.advance_char();
-                            self.create_token(TokenKind::GreaterEqual, self.range(start))
+                    }
+                    '>' => {
+                        self.advance_char();
+                        match self.current_char() {
+                            Some('=') => {
+                                self.advance_char();
+                                self.create_token(TokenKind::GreaterEqual, self.range(start))
+                            }
+                            _ => self.create_token(TokenKind::Greater, self.range(start)),
                         }
-                        _ => self.create_token(TokenKind::Greater, self.range(start)),
+                    }
+                    '&' => self.single_or_double_char_token(TokenKind::BitAnd, '&', TokenKind::And),
+                    '|' => self.single_or_double_char_token(TokenKind::BitOr, '|', TokenKind::Or),
+                    '^' => self.single_or_double_char_token(TokenKind::BitXor, '^', TokenKind::Xor),
+                    '$' => self.single_char_token(TokenKind::Dollar),
+                    '@' => self.single_char_token(TokenKind::At),
+                    ':' => self.single_char_token(TokenKind::Colon),
+                    '?' => self.single_char_token(TokenKind::Question),
+                    '!' => {
+                        self.single_or_double_char_token(TokenKind::Not, '=', TokenKind::NotEqual)
+                    }
+                    '=' => {
+                        self.single_or_double_char_token(TokenKind::Assign, '=', TokenKind::Equal)
+                    }
+                    '~' => self.single_or_double_char_token(
+                        TokenKind::BitNot,
+                        '=',
+                        TokenKind::ApproxEqual,
+                    ),
+                    '(' => self.single_char_token(TokenKind::LeftParen),
+                    ')' => self.single_char_token(TokenKind::RightParen),
+                    '[' => self.single_char_token(TokenKind::LeftBracket),
+                    ']' => self.single_char_token(TokenKind::RightBracket),
+                    '{' => self.single_char_token(TokenKind::LeftBrace),
+                    '}' => self.single_char_token(TokenKind::RightBrace),
+                    '.' => {
+                        self.advance_char();
+                        if let Some('0'..='9') = self.current_char() {
+                            // Hack: need to advance the position back to the `.` so that
+                            // decimal_number can pick it up properly and not allow `.0.0`, which would
+                            // be invalid syntax.
+                            self.position -= 1;
+                            self.decimal_number(start)
+                        } else {
+                            self.create_token(TokenKind::Dot, self.range(start))
+                        }
+                    }
+                    ',' => self.single_char_token(TokenKind::Comma),
+                    ';' => self.single_char_token(TokenKind::Semi),
+                    '#' => self.single_char_token(TokenKind::Hash),
+                    '`' => self.single_char_token(TokenKind::Accent),
+                    '\\' => self.single_char_token(TokenKind::Backslash),
+                    unknown => {
+                        let unrecognized_character =
+                            self.create_token(TokenKind::Error, self.range(start));
+
+                        self.errors.insert(
+                            unrecognized_character,
+                            Diagnostic::error(format!("unrecognized character: {unknown:?}"))
+                                .with_label(Label::primary(
+                                    &Span::single(unrecognized_character),
+                                    "this character is not valid syntax",
+                                )),
+                        );
+                        unrecognized_character
                     }
                 }
-                '&' => self.single_or_double_char_token(TokenKind::BitAnd, '&', TokenKind::And),
-                '|' => self.single_or_double_char_token(TokenKind::BitOr, '|', TokenKind::Or),
-                '^' => self.single_or_double_char_token(TokenKind::BitXor, '^', TokenKind::Xor),
-                '$' => self.single_char_token(TokenKind::Dollar),
-                '@' => self.single_char_token(TokenKind::At),
-                ':' => self.single_char_token(TokenKind::Colon),
-                '?' => self.single_char_token(TokenKind::Question),
-                '!' => self.single_or_double_char_token(TokenKind::Not, '=', TokenKind::NotEqual),
-                '=' => self.single_or_double_char_token(TokenKind::Assign, '=', TokenKind::Equal),
-                '~' => {
-                    self.single_or_double_char_token(TokenKind::BitNot, '=', TokenKind::ApproxEqual)
-                }
-                '(' => self.single_char_token(TokenKind::LeftParen),
-                ')' => self.single_char_token(TokenKind::RightParen),
-                '[' => self.single_char_token(TokenKind::LeftBracket),
-                ']' => self.single_char_token(TokenKind::RightBracket),
-                '{' => self.single_char_token(TokenKind::LeftBrace),
-                '}' => self.single_char_token(TokenKind::RightBrace),
-                '.' => {
-                    self.advance_char();
-                    if let Some('0'..='9') = self.current_char() {
-                        // Hack: need to advance the position back to the `.` so that
-                        // decimal_number can pick it up properly and not allow `.0.0`, which would
-                        // be invalid syntax.
-                        self.position -= 1;
-                        self.decimal_number(start)
-                    } else {
-                        self.create_token(TokenKind::Dot, self.range(start))
-                    }
-                }
-                ',' => self.single_char_token(TokenKind::Comma),
-                ';' => self.single_char_token(TokenKind::Semi),
-                '#' => self.single_char_token(TokenKind::Hash),
-                '`' => self.single_char_token(TokenKind::Accent),
-                '\\' => self.single_char_token(TokenKind::Backslash),
-                unknown => {
-                    let unrecognized_character =
-                        self.create_token(TokenKind::Error, self.range(start));
-
-                    self.errors.insert(
-                        unrecognized_character,
-                        Diagnostic::error(format!("unrecognized character: {unknown:?}"))
-                            .with_label(Label::primary(
-                                &Span::single(unrecognized_character),
-                                "this character is not valid syntax",
-                            )),
-                    );
-                    unrecognized_character
-                }
-            }
-        } else {
-            self.create_token(TokenKind::EndOfFile, self.range(start))
-        };
-
-        let kind = self.token_arena.arena().element(id).kind;
-        AnyToken { kind, id }
-    }
-
-    fn peek_from(&mut self, context: LexicalContext, channel: Channel) -> AnyToken {
-        let position = self.position;
-        let result = self.next_from(context, channel);
-        self.position = position;
-        result
+            } else {
+                self.create_token(TokenKind::EndOfFile, self.range(start));
+                break (self.token_arena.finish(), self.errors);
+            };
+        }
     }
 }

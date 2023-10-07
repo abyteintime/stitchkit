@@ -12,6 +12,7 @@ tracing-subscriber = { workspace = true }
 tracing-chrome = "0.7.1"
 walkdir = { workspace = true }
 
-muscript-analysis = { workspace = true }
-muscript-foundation = { workspace = true }
-muscript-syntax = { workspace = true }
+muscript-analysis.workspace = true
+muscript-lexer.workspace = true
+muscript-foundation.workspace = true
+muscript-syntax.workspace = true

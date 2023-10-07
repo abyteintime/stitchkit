@@ -1,8 +1,7 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
 use bitflags::Flags;
-use muscript_foundation::source::SourceFileSet;
-use muscript_syntax::sources::LexedSources;
+use muscript_lexer::sources::LexedSources;
 
 use crate::{
     function::{Function, FunctionFlags, FunctionImplementation, ParamFlags},

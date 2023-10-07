@@ -5,10 +5,8 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::SourceFileId,
 };
-use muscript_syntax::{
-    cst,
-    lexis::token::{Ident, Token, TokenSpan},
-};
+use muscript_lexer::token::{Token, TokenSpan};
+use muscript_syntax::cst;
 use tracing::trace;
 
 use crate::{
@@ -226,7 +224,10 @@ impl<'a> Compiler<'a> {
     ) -> Option<&[UntypedClassPartition]> {
         if self.env.untyped_class_partitions.get(&class_id).is_none() {
             let class_name = self.env.class_name(class_id).to_owned();
-            if let Some(class_sources) = self.input.parsed_class_sources(&class_name, self.env) {
+            if let Some(class_sources) =
+                self.input
+                    .parsed_class_sources(self.sources, &class_name, self.env)
+            {
                 let mut diagnostics = vec![];
 
                 UntypedClassPartition::check_package_coherence(
@@ -241,7 +242,7 @@ impl<'a> Compiler<'a> {
                     .map(|source_file| {
                         UntypedClassPartition::from_cst(
                             &mut diagnostics,
-                            self.sources,
+                            &self.sources.as_borrowed(),
                             source_file.id,
                             source_file.parsed,
                         )
@@ -249,7 +250,7 @@ impl<'a> Compiler<'a> {
                     .collect();
                 UntypedClassPartition::check_namespace_coherence(
                     &mut diagnostics,
-                    self.sources,
+                    &self.sources.as_borrowed(),
                     &partitions,
                 );
 
@@ -365,7 +366,7 @@ impl<'a> Compiler<'a> {
         scope: ClassId,
         ty: &cst::Type,
     ) -> (TypeSource, TypeId) {
-        let type_name = TypeName::from_cst(self.sources, ty);
+        let type_name = TypeName::from_cst(&self.sources.as_borrowed(), ty);
         if let Some(&type_id) = self
             .env
             .scoped_type_ids_by_name

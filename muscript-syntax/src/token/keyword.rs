@@ -1,4 +1,6 @@
-use crate::{lexis::token::SingleToken, ParseStream, Parser};
+use muscript_lexer::token_stream::TokenStream;
+
+use crate::{token::SingleToken, Parser};
 
 use super::TokenKind;
 
@@ -16,65 +18,68 @@ macro_rules! __keyword_impl {
     ($T:tt = $keyword:tt) => {
         #[derive(Clone, Copy, PartialEq, Eq)]
         pub struct $T {
-            pub id: $crate::lexis::token::TokenId,
+            pub id: muscript_lexer::token::TokenId,
         }
 
         $crate::debug_token!($T);
 
-        impl ::std::convert::From<$T> for $crate::lexis::token::AnyToken {
+        impl ::std::convert::From<$T> for muscript_lexer::token::AnyToken {
             fn from(keyword: $T) -> Self {
                 Self {
-                    kind: $crate::lexis::token::TokenKind::Ident,
+                    kind: muscript_lexer::token::TokenKind::Ident,
                     id: keyword.id,
                 }
             }
         }
 
-        impl $crate::lexis::token::SingleToken for $T {
+        impl $crate::token::SingleToken for $T {
             const NAME: &'static str = concat!("`", $keyword, "`");
-            const KIND: $crate::lexis::token::TokenKind = $crate::lexis::token::TokenKind::Ident;
+            const KIND: muscript_lexer::token::TokenKind = muscript_lexer::token::TokenKind::Ident;
 
-            fn id(&self) -> $crate::lexis::token::TokenId {
+            fn id(&self) -> muscript_lexer::token::TokenId {
                 self.id
             }
 
-            fn default_from_id(id: $crate::lexis::token::TokenId) -> Self {
+            fn default_from_id(id: muscript_lexer::token::TokenId) -> Self {
                 Self { id }
             }
 
             fn try_from_token(
-                token: $crate::lexis::token::AnyToken,
-                sources: &$crate::sources::LexedSources<'_>,
-            ) -> Result<Self, $crate::lexis::token::TokenKindMismatch> {
-                let ident = $crate::lexis::token::Ident::try_from_token(token, sources)?;
-                if <$T as $crate::lexis::token::Keyword>::matches(sources.source(&token)) {
+                token: muscript_lexer::token::AnyToken,
+                sources: &muscript_lexer::sources::LexedSources<'_>,
+            ) -> Result<Self, $crate::token::TokenKindMismatch> {
+                let ident = $crate::token::Ident::try_from_token(token, sources)?;
+                if <$T as $crate::token::Keyword>::matches(sources.source(&token)) {
                     Ok(Self { id: ident.id })
                 } else {
-                    Err($crate::lexis::token::TokenKindMismatch { token_id: ident.id })
+                    Err($crate::token::TokenKindMismatch { token_id: ident.id })
                 }
             }
 
             fn matches(
-                token: &$crate::lexis::token::AnyToken,
-                sources: &$crate::sources::LexedSources<'_>,
+                token: &muscript_lexer::token::AnyToken,
+                sources: &muscript_lexer::sources::LexedSources<'_>,
             ) -> bool {
-                <$T as $crate::lexis::token::Keyword>::matches(sources.source(token))
+                <$T as $crate::token::Keyword>::matches(sources.source(token))
             }
         }
 
-        impl $crate::lexis::token::Keyword for $T {
+        impl $crate::token::Keyword for $T {
             const KEYWORD: &'static str = $keyword;
         }
 
-        impl ::muscript_foundation::span::Spanned<$crate::lexis::token::Token> for $T {
-            fn span(&self) -> $crate::lexis::token::TokenSpan {
-                $crate::lexis::token::TokenSpan::single(self.id)
+        impl ::muscript_foundation::span::Spanned<::muscript_lexer::token::Token> for $T {
+            fn span(&self) -> muscript_lexer::token::TokenSpan {
+                muscript_lexer::token::TokenSpan::single(self.id)
             }
         }
 
         impl $crate::parsing::Parse for $T {
             fn parse(
-                parser: &mut $crate::parsing::Parser<'_, impl $crate::ParseStream>,
+                parser: &mut $crate::parsing::Parser<
+                    '_,
+                    impl ::muscript_lexer::token_stream::TokenStream,
+                >,
             ) -> Result<Self, $crate::parsing::ParseError> {
                 parser.expect_token()
             }
@@ -82,8 +87,8 @@ macro_rules! __keyword_impl {
 
         impl $crate::parsing::PredictiveParse for $T {
             fn started_by(
-                token: &$crate::lexis::token::AnyToken,
-                sources: &$crate::sources::LexedSources<'_>,
+                token: &muscript_lexer::token::AnyToken,
+                sources: &muscript_lexer::sources::LexedSources<'_>,
             ) -> bool {
                 sources.source(token).eq_ignore_ascii_case($keyword)
             }
@@ -103,7 +108,7 @@ macro_rules! keyword {
 // This is expected to replace `keyword!` entirely.
 impl<'a, T> Parser<'a, T>
 where
-    T: ParseStream,
+    T: TokenStream,
 {
     pub fn next_matches_keyword(&mut self, keyword: &str) -> bool {
         let next = self.peek_token();

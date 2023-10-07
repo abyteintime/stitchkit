@@ -1,5 +1,5 @@
 use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label};
-use muscript_syntax::lexis::token::Token;
+use muscript_lexer::token::Token;
 
 use super::UntypedClassPartition;
 

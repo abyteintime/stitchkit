@@ -5,7 +5,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst,
-    lexis::token::{Dot, Ident},
+    token::{Dot, Ident},
 };
 
 use crate::{

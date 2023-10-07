@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use heck::ToPascalCase;
-use muscript_foundation::source::{SourceFileId, SourceFileSet};
+use muscript_foundation::source::SourceFileId;
 use muscript_syntax::cst;
 
 use crate::type_system::TypeName;
@@ -92,7 +92,7 @@ pub fn mangled_type_name(type_name: &TypeName) -> Cow<'_, str> {
 
 /// CST-level mangling; performed at partitioning time to disambiguate operators.
 pub mod cst_level {
-    use muscript_syntax::sources::LexedSources;
+    use muscript_lexer::sources::LexedSources;
 
     use super::*;
 

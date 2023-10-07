@@ -6,11 +6,8 @@ use muscript_foundation::{
     source::SourceFileId,
     span::Spanned,
 };
-use muscript_syntax::{
-    cst::{self, ItemName},
-    lexis::token::Token,
-    sources::LexedSources,
-};
+use muscript_lexer::{sources::LexedSources, token::Token};
+use muscript_syntax::cst::{self, ItemName};
 use tracing::info_span;
 
 use crate::{
@@ -140,7 +137,7 @@ impl<'a> Compiler<'a> {
     ) -> FunctionId {
         let (flags, implementation) = FunctionFlags::from_pre_specifiers(
             self.env,
-            self.sources,
+            &self.sources.as_borrowed(),
             source_file_id,
             &cst.pre_specifiers,
         );

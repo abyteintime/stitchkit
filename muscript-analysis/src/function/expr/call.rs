@@ -5,9 +5,10 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     span::Spanned,
 };
+use muscript_lexer::token::{Token, TokenSpan};
 use muscript_syntax::{
     cst::{self, InfixOperator},
-    lexis::token::{AnyToken, LeftParen, RightParen, Token, TokenSpan},
+    token::{AnyToken, LeftParen, RightParen},
 };
 
 use crate::{

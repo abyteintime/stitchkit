@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
+use muscript_lexer::{sources::LexedSources, token::TokenKind, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{AnyToken, Ident, TokenKind},
-    sources::LexedSources,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 #[derive(Debug, Clone, Spanned)]
@@ -19,7 +19,7 @@ impl Path {
     }
 
     pub fn continue_parsing(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         root: Ident,
     ) -> Result<Self, ParseError> {
         let mut components = vec![root];
@@ -53,7 +53,7 @@ impl From<Ident> for Path {
 }
 
 impl Parse for Path {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let root = parser.parse()?;
         Self::continue_parsing(parser, root)
     }

@@ -65,7 +65,7 @@ impl<'a> Compiler<'a> {
                 ty: self.type_id(source_file_id, class_id, &item_var.ty),
                 kind: VarKind::Var(VarFlags::from_cst(
                     self.env,
-                    self.sources,
+                    &self.sources.as_borrowed(),
                     source_file_id,
                     &item_var.specifiers,
                 )),

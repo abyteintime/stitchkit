@@ -1,11 +1,15 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{
+    token::{TokenKind, TokenSpan},
+    token_stream::TokenStream,
+};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::token::{Assign, BitOr, Greater, Ident, Less, TokenKind, TokenSpan},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Assign, BitOr, Greater, Ident, Less},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 #[derive(Debug, Clone, PredictiveParse, Spanned)]
@@ -22,7 +26,7 @@ pub enum MetaValue {
 }
 
 impl Parse for Meta {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open = parser.parse()?;
         let (pairs, close) = parser
             .parse_separated_list::<_, _, BitOr>()
@@ -47,7 +51,7 @@ impl Parse for Meta {
 
 #[doc(hidden)]
 impl Parse for MetaValue {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let key: Ident = parser.parse_with_error(|parser, span| {
             Diagnostic::error("metadata key expected")
                 .with_label(labels::invalid_identifier(span, &parser.sources))

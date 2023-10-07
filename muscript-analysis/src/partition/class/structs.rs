@@ -3,14 +3,14 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet},
+    source::SourceFileId,
     span::Spanned,
 };
-use muscript_syntax::{
-    cst,
-    lexis::token::{self, Token, TokenSpan},
+use muscript_lexer::{
     sources::LexedSources,
+    token::{Token, TokenSpan},
 };
+use muscript_syntax::{cst, token::Ident};
 
 use crate::diagnostics::{self, notes, unnecessary_semicolon};
 
@@ -18,7 +18,7 @@ use super::{InlineTypeDef, ItemSingleVar, TypeCst, UntypedClassPartition};
 
 #[derive(Debug, Clone)]
 pub struct UntypedStruct {
-    pub name: token::Ident,
+    pub name: Ident,
     pub extends: Option<cst::Path>,
 
     pub vars: IndexMap<CaseInsensitive<String>, ItemSingleVar>,

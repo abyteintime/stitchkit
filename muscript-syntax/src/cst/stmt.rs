@@ -2,12 +2,13 @@ mod control_flow;
 mod local;
 
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{AnyToken, LeftBrace, RightBrace, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, LeftBrace, RightBrace, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 pub use control_flow::*;
@@ -53,7 +54,7 @@ pub struct Block {
 }
 
 impl Parse for StmtExpr {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let expr = Expr::precedence_parse(parser, Precedence::EXPR, true)?;
         if let Expr::Label { .. } = &expr {
             Ok(Self { expr, semi: None })
@@ -67,7 +68,7 @@ impl Parse for StmtExpr {
 }
 
 impl Parse for Block {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse_with_error(|_, span| {
             Diagnostic::error("block `{ .. }` expected")
                 .with_label(Label::primary(&span, "`{` expected here"))
@@ -85,7 +86,7 @@ impl Parse for Block {
     }
 }
 
-fn _stmt_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn _stmt_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("statement expected")
         .with_label(Label::primary(
             token,

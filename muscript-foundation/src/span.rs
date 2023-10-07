@@ -35,6 +35,10 @@ impl<T> Span<T> {
         }
     }
 
+    pub fn spanning(start: SourceId<T>, end: SourceId<T>) -> Self {
+        Self::Spanning { start, end }
+    }
+
     pub fn start(&self) -> Option<SourceId<T>> {
         if let Span::Spanning { start, .. } = self {
             Some(*start)

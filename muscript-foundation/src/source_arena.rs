@@ -5,7 +5,7 @@ use std::{
     num::NonZeroU32,
 };
 
-use crate::source::SourceFileId;
+use crate::{source::SourceFileId, span::Span};
 
 /// ID of an element within a [`SourceArena<T>`].
 pub struct SourceId<T> {
@@ -39,9 +39,12 @@ impl<T> SourceArena<T> {
     }
 
     pub fn build_source_file(&mut self, source_file_id: SourceFileId) -> SourceArenaBuilder<T> {
-        self.source_file_id_mapping
-            .push((self.current_element_id(), source_file_id));
-        SourceArenaBuilder { source_arena: self }
+        let start = self.current_element_id();
+        self.source_file_id_mapping.push((start, source_file_id));
+        SourceArenaBuilder {
+            source_arena: self,
+            start,
+        }
     }
 
     pub fn element(&self, id: SourceId<T>) -> &T {
@@ -68,6 +71,7 @@ impl<T> Default for SourceArena<T> {
 #[derive(Debug)]
 pub struct SourceArenaBuilder<'a, T> {
     source_arena: &'a mut SourceArena<T>,
+    start: SourceId<T>,
 }
 
 impl<'a, T> SourceArenaBuilder<'a, T> {
@@ -79,6 +83,30 @@ impl<'a, T> SourceArenaBuilder<'a, T> {
 
     pub fn arena(&self) -> &SourceArena<T> {
         self.source_arena
+    }
+
+    pub fn finish(self) -> Span<T> {
+        let end = self.source_arena.current_element_id();
+        Span::Spanning {
+            start: self.start,
+            end,
+        }
+    }
+}
+
+impl<T> SourceId<T> {
+    pub fn successor(self) -> Self {
+        Self {
+            index: self.index.saturating_add(1),
+            _phantom_data: PhantomData,
+        }
+    }
+
+    pub fn successor_in(self, span: Span<T>) -> Option<Self> {
+        match span {
+            Span::Empty => None,
+            Span::Spanning { end, .. } => (self < end).then_some(self.successor()),
+        }
     }
 }
 

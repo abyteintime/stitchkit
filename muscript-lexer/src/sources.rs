@@ -1,19 +1,16 @@
-use std::collections::HashMap;
-
 use muscript_foundation::{
-    errors::{Diagnostic, ReplacementSuggestion},
+    errors::ReplacementSuggestion,
     source::SourceFileSet,
     source_arena::SourceArena,
     span::{Span, Spanned},
 };
 
-use crate::lexis::token::{Token, TokenId};
+use crate::token::{Token, TokenId};
 
 #[derive(Clone, Copy)]
 pub struct LexedSources<'a> {
     pub source_file_set: &'a SourceFileSet,
     pub token_arena: &'a SourceArena<Token>,
-    pub errors: &'a HashMap<TokenId, Diagnostic<Token>>,
 }
 
 impl<'a> LexedSources<'a> {
@@ -51,9 +48,9 @@ impl<'a> LexedSources<'a> {
     }
 }
 
-/// Hacks to enable parsing compound assignments (`+=` etc.)
+/// Hacks to enable parsing multi-token operators (`+=`, `>>` etc.)
 impl<'a> LexedSources<'a> {
-    pub(crate) fn span_is_followed_by(&self, tokens: &impl Spanned<Token>, c: char) -> bool {
+    pub fn span_is_followed_by(&self, tokens: &impl Spanned<Token>, c: char) -> bool {
         match tokens.span() {
             Span::Empty => false,
             Span::Spanning { start, end } => {
@@ -65,7 +62,7 @@ impl<'a> LexedSources<'a> {
     }
 
     /// Returns whether there is no space between the tokens.
-    pub(crate) fn tokens_are_hugging_each_other(&self, left: TokenId, right: TokenId) -> bool {
+    pub fn tokens_are_hugging_each_other(&self, left: TokenId, right: TokenId) -> bool {
         let left = self.token_arena.element(left);
         let right = self.token_arena.element(right);
         left.source_range.end == right.source_range.start

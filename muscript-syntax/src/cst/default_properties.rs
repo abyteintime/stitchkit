@@ -3,16 +3,17 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     span::Spanned,
 };
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::notes,
-    lexis::token::{
-        Add, AnyToken, Assign, Dot, FailedExp, FloatLit, Ident, IntLit, LeftBrace, LeftBracket,
-        LeftParen, NameLit, RightBrace, RightBracket, RightParen, Semi, StringLit, Sub, Token,
-    },
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{
+        Add, AnyToken, Assign, Dot, FailedExp, FloatLit, Ident, IntLit, LeftBrace, LeftBracket,
+        LeftParen, NameLit, RightBrace, RightBracket, RightParen, Semi, StringLit, Sub,
+    },
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::Path;
@@ -136,7 +137,7 @@ pub struct Subobject {
 }
 
 impl Parse for DefaultPropertiesBlock {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftBrace = parser.parse()?;
         let (properties, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
@@ -156,7 +157,7 @@ impl Parse for DefaultPropertiesBlock {
 }
 
 impl Parse for CallArg {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open = parser.parse()?;
         if let Some(close) = parser.parse()? {
             Ok(Self {
@@ -175,7 +176,7 @@ impl Parse for CallArg {
 }
 
 impl Parse for Compound {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open = parser.parse()?;
         let (elements, close) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(
@@ -201,7 +202,7 @@ impl Parse for Compound {
 }
 
 impl Parse for CompoundElement {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         if let Some(ident) = parser.parse()? {
             if let index @ Some(_) = parser.parse()? {
                 Ok(Self::Field(
@@ -225,7 +226,7 @@ impl Parse for CompoundElement {
 }
 
 impl Parse for Subobject {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let begin: KBegin = parser.parse()?;
         let object1: KObject = parser.parse()?;
         let (properties, end) = parser.parse_terminated_list().map_err(|error| {
@@ -252,7 +253,7 @@ impl Parse for Subobject {
     }
 }
 
-fn default_property_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn default_property_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("default property expected")
         .with_label(Label::primary(
             token,
@@ -267,28 +268,28 @@ fn default_property_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) ->
         ))
 }
 
-fn index_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn index_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("`(Index)` or `[Index]` expected")
         .with_label(Label::primary(token, "array index expected here"))
 }
 
-fn index_lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn index_lit_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("integer or enum index expected")
         .with_label(Label::primary(token, "array index expected here"))
         .with_note("note: indices are integers `[1]`, or enums `[EXAMPLE_EnumValue]`")
 }
 
-fn value_action_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn value_action_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("`=` or `.Operation(Arg)` expected")
         .with_label(Label::primary(token, "property action expected here"))
 }
 
-fn num_lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn num_lit_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("number literal expected")
         .with_label(Label::primary(token, "number literal expected here"))
 }
 
-fn lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn lit_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("default property literal expected")
         .with_label(Label::primary(
             token,
@@ -306,7 +307,7 @@ fn lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<T
         ))
 }
 
-fn braced_compound_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn braced_compound_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::bug("compound literal expected")
         .with_label(Label::primary(token, "compound literal expected here"))
         .with_note(notes::PARSER_BUG)

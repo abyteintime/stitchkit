@@ -1,10 +1,11 @@
+use muscript_lexer::token_stream::TokenStream;
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{KIf, ParenExpr},
-    lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Ident, LeftBrace, RightBrace, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 keyword!(KReplication = "replication");
@@ -26,7 +27,7 @@ pub struct RepCondition {
 }
 
 impl Parse for ItemReplication {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         Ok(Self {
             replication: parser.parse()?,
             open: parser.parse()?,
@@ -37,7 +38,7 @@ impl Parse for ItemReplication {
 }
 
 impl Parse for RepCondition {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let kif = parser.parse()?;
         let cond = parser.parse()?;
         let (vars, semi) = parser.parse_comma_separated_list().map_err(|error| {

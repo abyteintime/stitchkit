@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput};
+use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput, OwnedSources};
 use muscript_foundation::{
     errors::DiagnosticSink,
     ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet},
 };
-use muscript_syntax::lexis::preprocessor::Definitions;
+use muscript_lexer::token::Token;
 
 use crate::parse::parse_source;
 
@@ -17,15 +17,13 @@ struct Sources {
 pub struct Input<'a> {
     source_file_set: &'a SourceFileSet,
     class_sources: HashMap<CaseInsensitive<String>, Sources>,
-    pub definitions: Definitions,
 }
 
 impl<'a> Input<'a> {
-    pub fn new(source_file_set: &'a SourceFileSet, definitions: Definitions) -> Self {
+    pub fn new(source_file_set: &'a SourceFileSet) -> Self {
         Self {
             source_file_set,
             class_sources: Default::default(),
-            definitions,
         }
     }
 
@@ -60,8 +58,9 @@ impl<'a> CompilerInput for Input<'a> {
 
     fn parsed_class_sources(
         &self,
+        owned_sources: &mut OwnedSources<'_>,
         class_name: &str,
-        diagnostics: &mut dyn DiagnosticSink,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
     ) -> Option<ClassSources> {
         self.class_sources
             .get(CaseInsensitive::new_ref(class_name))
@@ -70,12 +69,7 @@ impl<'a> CompilerInput for Input<'a> {
                     .source_files
                     .iter()
                     .flat_map(|&id| {
-                        let result = parse_source(
-                            self.source_file_set,
-                            id,
-                            diagnostics,
-                            &mut self.definitions.clone(),
-                        );
+                        let result = parse_source(owned_sources, id, diagnostics);
                         result.map(|file| ClassSourceFile { id, parsed: file })
                     })
                     .collect()

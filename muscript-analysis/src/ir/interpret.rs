@@ -4,7 +4,7 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     source::SourceFileId,
 };
-use muscript_syntax::lexis::token::{Token, TokenSpan};
+use muscript_lexer::token::{Token, TokenSpan};
 
 use crate::{
     diagnostics::notes,

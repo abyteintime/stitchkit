@@ -2,7 +2,7 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     span::Spanned,
 };
-use muscript_syntax::lexis::token::Ident;
+use muscript_syntax::token::Ident;
 
 use crate::{
     class::VarKind,

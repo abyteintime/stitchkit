@@ -1,7 +1,6 @@
 use muscript_foundation::span::Spanned;
+use muscript_lexer::token::{Token, TokenSpan};
 use muscript_syntax_derive::Spanned;
-
-use crate::lexis::token::{Token, TokenSpan};
 
 use super::{EnumDef, ItemConst, ItemEnum, ItemFunction, ItemState, ItemStruct, StructDef};
 

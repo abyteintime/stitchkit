@@ -16,7 +16,7 @@ pub fn derive_spanned_impl(item: Item) -> syn::Result<TokenStream> {
 }
 
 fn spanned_trait() -> TokenStream {
-    quote! { ::muscript_foundation::span::Spanned<::muscript_syntax::lexis::token::Token> }
+    quote! { ::muscript_foundation::span::Spanned<::muscript_lexer::token::Token> }
 }
 
 fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
@@ -53,7 +53,7 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics #spanned_trait for #type_name #type_generics #where_clause {
-            fn span(&self) -> ::muscript_syntax::lexis::token::TokenSpan {
+            fn span(&self) -> ::muscript_lexer::token::TokenSpan {
                 #get_span
             }
         }
@@ -94,7 +94,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics #spanned_trait for #type_name #type_generics #where_clause {
-            fn span(&self) -> ::muscript_syntax::lexis::token::TokenSpan {
+            fn span(&self) -> ::muscript_lexer::token::TokenSpan {
                 match self {
                     #arms
                 }

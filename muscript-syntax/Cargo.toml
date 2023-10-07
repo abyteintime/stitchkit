@@ -15,4 +15,5 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 muscript-foundation = { workspace = true }
+muscript-lexer = { workspace = true }
 muscript-syntax-derive = { workspace = true }

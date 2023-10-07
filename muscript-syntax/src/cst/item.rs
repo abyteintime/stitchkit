@@ -11,11 +11,12 @@ mod structs;
 mod var;
 
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{AnyToken, Semi, Token},
-    Parse, ParseStream, Parser,
+    token::{AnyToken, Semi},
+    Parse, Parser,
 };
 
 pub use consts::*;
@@ -56,7 +57,7 @@ pub enum Item {
     Stmt(Stmt),
 }
 
-fn _item_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn _item_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("item expected")
         .with_label(Label::primary(token, "this token does not start an item"))
         .with_note("help: notable types of items include `var`, `function`, `struct`, and `enum`")

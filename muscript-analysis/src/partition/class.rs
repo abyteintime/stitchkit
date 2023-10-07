@@ -7,16 +7,18 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet},
+    source::SourceFileId,
     span::Spanned,
+};
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{Token, TokenSpan},
 };
 use muscript_syntax::{
     cst::{self, NamedItem, TypeOrDef, VarDef},
-    lexis::token::{self, Token, TokenSpan},
-    sources::LexedSources,
-    Spanned,
+    token, Spanned,
 };
-use tracing::{info_span, trace};
+use tracing::info_span;
 
 use crate::{
     diagnostics::{self, notes},

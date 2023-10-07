@@ -1,9 +1,8 @@
 pub mod labels {
     use muscript_foundation::errors::Label;
-
-    use crate::{
-        lexis::token::{Token, TokenSpan},
+    use muscript_lexer::{
         sources::LexedSources,
+        token::{Token, TokenSpan},
     };
 
     pub fn invalid_identifier(span: TokenSpan, sources: &LexedSources<'_>) -> Label<Token> {

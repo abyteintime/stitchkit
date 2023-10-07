@@ -1,14 +1,13 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{CppBlob, Expr, Meta, TypeOrDef, TypeSpecifier},
     diagnostics,
-    lexis::token::{
-        AnyToken, Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi, Token,
-    },
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident, LeftBracket, LeftParen, RightBracket, RightParen, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 keyword!(KVar = "var");
@@ -105,7 +104,7 @@ pub enum VarSpecifier {
 }
 
 impl Parse for ItemVar {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let var = parser.parse()?;
         let editor = parser.parse()?;
         let specifiers = parser.parse_greedy_list()?;
@@ -125,7 +124,7 @@ impl Parse for ItemVar {
 }
 
 impl Parse for VarEditor {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open = parser.parse()?;
         let (categories, close) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(
@@ -149,7 +148,7 @@ impl Parse for VarEditor {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error(format!(
         "unknown variable specifier `{}`",
         parser.sources.source(token)

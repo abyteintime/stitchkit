@@ -4,7 +4,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst,
-    lexis::token::{FloatLit, IntLit, NameLit, StringLit},
+    token::{FloatLit, IntLit, NameLit, StringLit},
 };
 
 use crate::{
@@ -59,7 +59,7 @@ impl<'a> Compiler<'a> {
         } else {
             TypeId::INT
         };
-        let i = lit.parse(self.sources, self.env);
+        let i = lit.parse(&self.sources.as_borrowed(), self.env);
         builder.ir.append_register(
             lit.span(),
             "lit_int",
@@ -83,21 +83,21 @@ impl<'a> Compiler<'a> {
     }
 
     fn expr_lit_float(&mut self, builder: &mut FunctionBuilder, lit: &FloatLit) -> RegisterId {
-        let f = lit.parse(self.sources, self.env);
+        let f = lit.parse(&self.sources.as_borrowed(), self.env);
         builder
             .ir
             .append_register(lit.span(), "lit_float", TypeId::FLOAT, Value::Float(f))
     }
 
     fn expr_lit_string(&mut self, builder: &mut FunctionBuilder, lit: &StringLit) -> RegisterId {
-        let s = lit.parse(self.sources, self.env);
+        let s = lit.parse(&self.sources.as_borrowed(), self.env);
         builder
             .ir
             .append_register(lit.span(), "lit_string", TypeId::STRING, Value::String(s))
     }
 
     fn expr_lit_name(&mut self, builder: &mut FunctionBuilder, lit: &NameLit) -> RegisterId {
-        let n = lit.parse(self.sources).to_string();
+        let n = lit.parse(&self.sources.as_borrowed()).to_string();
         builder
             .ir
             .append_register(lit.span(), "lit_name", TypeId::NAME, Value::Name(n))

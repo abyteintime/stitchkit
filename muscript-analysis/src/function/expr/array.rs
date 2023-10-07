@@ -2,7 +2,7 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     span::Spanned,
 };
-use muscript_syntax::{cst, lexis::token};
+use muscript_syntax::{cst, token};
 
 use crate::{
     function::builder::FunctionBuilder,

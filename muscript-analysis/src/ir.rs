@@ -10,7 +10,7 @@ use crate::{TypeId, VarId};
 pub use basic_block::*;
 pub use insn::*;
 use muscript_foundation::span::Spanned;
-use muscript_syntax::lexis::token::{Token, TokenSpan};
+use muscript_lexer::token::{Token, TokenSpan};
 
 /// Represents the IR of a chunk (a function, or some other unit of execution.)
 #[derive(Clone, Default)]

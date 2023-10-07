@@ -39,7 +39,7 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics ::muscript_syntax::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_syntax::ParseStream>
+                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_lexer::token_stream::TokenStream>
             ) -> ::std::result::Result<Self, ::muscript_syntax::ParseError>
             {
                 Ok(Self {
@@ -118,7 +118,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
         quote! {
             _ => {
                 let ref_parser: &::muscript_syntax::Parser<'_, _> = parser;
-                let the_error: ::muscript_foundation::errors::Diagnostic<::muscript_syntax::lexis::token::Token> = #error(ref_parser, &token);
+                let the_error: ::muscript_foundation::errors::Diagnostic<::muscript_lexer::token::Token> = #error(ref_parser, &token);
                 let the_error = the_error.with_note(::muscript_foundation::errors::Note {
                     kind: ::muscript_foundation::errors::NoteKind::Debug,
                     text: ::std::format!("at token {:?}", token),
@@ -133,7 +133,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics ::muscript_syntax::Parse for #type_name #type_generics #where_clause {
             fn parse(
-                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_syntax::ParseStream>
+                parser: &mut ::muscript_syntax::Parser<'_, impl ::muscript_lexer::token_stream::TokenStream>
             ) -> ::std::result::Result<Self, ::muscript_syntax::ParseError>
             {
                 let token = parser.peek_token();

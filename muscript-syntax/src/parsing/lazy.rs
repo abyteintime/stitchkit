@@ -2,11 +2,15 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     span::Spanned,
 };
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{AnyToken, Token, TokenKind, TokenSpan},
+    token_stream::TokenStream,
+};
 
 use crate::{
-    lexis::token::{AnyToken, LeftBrace, RightBrace, SingleToken, Token, TokenKind, TokenSpan},
-    sources::LexedSources,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{LeftBrace, RightBrace, SingleToken},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 pub trait Delimiters {
@@ -52,14 +56,14 @@ impl<D> Parse for LazyBlock<D>
 where
     D: Delimiters,
 {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: D::Open = parser.parse()?;
-        let open_nesting_level = parser.tokens.nesting_level();
+        let open_nesting_level = parser.nesting_level();
 
         let mut inner = TokenSpan::Empty;
         let mut close = None;
 
-        while parser.tokens.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
+        while parser.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
             let token = parser.next_token();
             if let Ok(c) = D::Close::try_from_token(token, &parser.sources) {
                 close = Some(c);

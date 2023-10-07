@@ -9,13 +9,15 @@ mod source;
 pub mod type_system;
 
 pub use environment::*;
-use muscript_syntax::sources::LexedSources;
+use muscript_foundation::{source::SourceFileSet, source_arena::SourceArena};
 pub use package::*;
 pub use source::*;
 
+use muscript_lexer::{sources::LexedSources, token::Token};
+
 /// Full compiler state.
 pub struct Compiler<'a> {
-    pub sources: &'a LexedSources<'a>,
+    pub sources: &'a mut OwnedSources<'a>,
     pub env: &'a mut Environment,
     pub input: &'a dyn CompilerInput,
 }

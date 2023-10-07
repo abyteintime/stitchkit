@@ -2,7 +2,7 @@ use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Expr, KConst},
-    lexis::token::{Assign, Ident, Semi},
+    token::{Assign, Ident, Semi},
     Parse, PredictiveParse,
 };
 

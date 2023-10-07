@@ -4,11 +4,11 @@ use muscript_foundation::{
     ident::CaseInsensitive,
     source::{SourceFileId, SourceFileSet},
 };
-use muscript_syntax::{
-    cst::NamedItem,
-    lexis::token::{Token, TokenSpan},
+use muscript_lexer::{
     sources::LexedSources,
+    token::{Token, TokenSpan},
 };
+use muscript_syntax::cst::NamedItem;
 
 use crate::ClassSources;
 
@@ -88,7 +88,11 @@ impl UntypedClassPartition {
         sources: &SourceFileSet,
         class_sources: &ClassSources,
     ) {
-        let first_source_file = class_sources.source_files[0].id;
+        let Some(first_source_file) = class_sources.source_files.get(0) else {
+            // This can happen if all the class's source files failed to parse.
+            return;
+        };
+        let first_source_file = first_source_file.id;
         let first_source_package = &sources.get(first_source_file).package;
 
         let mut conflicting = vec![];

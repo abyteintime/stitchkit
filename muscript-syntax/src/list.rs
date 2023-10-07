@@ -6,18 +6,19 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     span::Span,
 };
+use muscript_lexer::{
+    token::TokenKind,
+    token_stream::{Channel, TokenStream},
+};
 
 use crate::{
-    lexis::{
-        token::{Comma, SingleToken, TokenKind},
-        Channel, LexicalContext, TokenStream,
-    },
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Comma, SingleToken},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 impl<'a, T> Parser<'a, T>
 where
-    T: ParseStream,
+    T: TokenStream,
 {
     pub fn parse_greedy_list<E>(&mut self) -> Result<Vec<E>, ParseError>
     where
@@ -102,7 +103,7 @@ where
             // Type was chosen here because of generic lists, which are terminated with `>` and thus
             // `>>` need to be treated as disjoint tokens. But will we ever need a separated list
             // terminated with `>>` (RightShift)?
-            let token = self.peek_token_from(LexicalContext::Type, Channel::CODE);
+            let token = self.peek_token_from(Channel::CODE);
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(SeparatedListError {
@@ -115,7 +116,7 @@ where
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
-                    self.next_token_from(LexicalContext::Type, Channel::CODE);
+                    self.next_token_from(Channel::CODE);
                     break R::default_from_id(token.id);
                 }
                 _ => (),
@@ -123,7 +124,7 @@ where
             // TODO: Have some better error recovery in case parsing the element or any delimiting
             // tokens fails.
             elements.push(self.parse().map_err(error(SeparatedListErrorKind::Parse))?);
-            match self.next_token_from(LexicalContext::Type, Channel::CODE) {
+            match self.next_token_from(Channel::CODE) {
                 token if S::matches(&token, &self.sources) => (),
                 token if R::matches(&token, &self.sources) => {
                     // Use default_from_span instead of try_from_token here, since we know the token

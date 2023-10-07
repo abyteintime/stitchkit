@@ -1,8 +1,9 @@
 use std::num::{IntErrorKind, ParseIntError};
 
 use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label};
+use muscript_lexer::sources::LexedSources;
 
-use crate::{diagnostics::notes, sources::LexedSources};
+use crate::diagnostics::notes;
 
 use super::{FloatLit, IntLit, NameLit, StringLit, Token};
 

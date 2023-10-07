@@ -6,12 +6,13 @@ use std::{collections::HashSet, path::PathBuf, rc::Rc};
 use anyhow::{anyhow, bail, Context};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
-use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, Package};
+use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, OwnedSources, Package};
 use muscript_foundation::{
     errors::{DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileSet},
+    source_arena::SourceArena,
 };
-use muscript_syntax::{cst, lexis::preprocessor::Definitions};
+use muscript_syntax::cst;
 use parse::parse_source;
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
@@ -163,10 +164,15 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         )
     };
 
-    let (mut input, mut env, classes_to_compile) = {
+    let mut sources = OwnedSources {
+        source_file_set: &source_file_set,
+        token_arena: SourceArena::new(),
+    };
+
+    let (input, mut env, classes_to_compile) = {
         let _span = info_span!("compiler_input").entered();
 
-        let mut input = Input::new(&source_file_set, Definitions::default());
+        let mut input = Input::new(&source_file_set);
         let mut env = Environment::new();
         let mut classes_to_compile = vec![];
         for (source_file_id, source_file) in source_file_set.iter() {
@@ -189,18 +195,12 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
 
         for &source_file_id in &include_file_ids {
             // TODO: Don't ignore the CST, do something with it.
-            let _cst = parse_source::<cst::BareFile>(
-                &source_file_set,
-                source_file_id,
-                &mut env,
-                &mut input.definitions,
-            );
+            let _cst = parse_source::<cst::BareFile>(&mut sources, source_file_id, &mut env);
         }
     };
-    let input = input;
 
     let compiler = &mut Compiler {
-        sources: &source_file_set,
+        sources: &mut sources,
         env: &mut env,
         input: &input,
     };
@@ -208,15 +208,16 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
 
     {
         let _span = info_span!("emit_diagnostics").entered();
-        for diagnostic in env.diagnostics() {
-            let is_from_external_package =
-                !main_package_source_file_ids.contains(&diagnostic.source_file);
+        for diagnostic in &compiler.env.diagnostics {
+            let is_from_external_package = false;
+            // !main_package_source_file_ids.contains(&diagnostic.source_file);
             if diagnostic.severity >= Severity::Error
                 || !is_from_external_package
                 || args.diagnostics_external
             {
                 _ = diagnostic.emit_to_stderr(
                     &source_file_set,
+                    &compiler.sources.token_arena,
                     &DiagnosticConfig {
                         show_debug_info: args.diagnostics_debug_info,
                     },
@@ -229,7 +230,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         // TODO: Code generation.
         if args.dump_analysis_output {
             let _span = info_span!("dump_analysis_output").entered();
-            println!("{env:#?}");
+            println!("{:#?}", compiler.env);
             println!("{package:#?}");
         }
         if args.dump_ir {
@@ -237,17 +238,17 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
             for (&class_id, class) in &package.classes {
                 println!(
                     "\n{}\n----------------------------------------------------------------",
-                    env.class_name(class_id)
+                    compiler.env.class_name(class_id)
                 );
                 for &function_id in &class.functions {
-                    let function = env.get_function(function_id);
-                    let ir = env.get_function_ir(function_id);
+                    let function = compiler.env.get_function(function_id);
+                    let ir = compiler.env.get_function_ir(function_id);
                     println!(
                         "\n{} {:?}",
                         function.mangled_name,
                         DumpFunction {
-                            sources: &source_file_set,
-                            env: &env,
+                            sources: &compiler.sources.as_borrowed(),
+                            env: compiler.env,
                             function,
                             ir,
                         }

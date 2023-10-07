@@ -5,7 +5,8 @@ use muscript_foundation::{
     errors::{Diagnostic, Label},
     source::SourceFileId,
 };
-use muscript_syntax::lexis::token::{self, Token, TokenSpan};
+use muscript_lexer::token::{Token, TokenSpan};
+use muscript_syntax::token;
 
 pub fn unnecessary_semicolon(source_file_id: SourceFileId, semi: token::Semi) -> Diagnostic<Token> {
     Diagnostic::warning("unnecessary semicolon `;`").with_label(Label::primary(&semi, ""))

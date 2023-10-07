@@ -30,13 +30,13 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics ::muscript_syntax::PredictiveParse for #type_name #type_generics #where_clause {
-            const LISTEN_TO_CHANNELS: ::muscript_syntax::lexis::Channel =
+            const LISTEN_TO_CHANNELS: ::muscript_lexer::token_stream::Channel =
                 <#ty as ::muscript_syntax::PredictiveParse>::LISTEN_TO_CHANNELS;
 
             #[allow(deprecated)]
             fn started_by(
-                token: &::muscript_syntax::lexis::token::AnyToken,
-                sources: &::muscript_syntax::sources::LexedSources<'_>,
+                token: &::muscript_lexer::token::AnyToken,
+                sources: &::muscript_lexer::sources::LexedSources<'_>,
             ) -> bool
             {
                 <#ty as ::muscript_syntax::PredictiveParse>::started_by(token, sources)
@@ -64,7 +64,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
         let test = if let Some(keyword) = &attrs.keyword {
             let keyword = LitStr::new(keyword, variant.ident.span());
             quote! {
-                (token.kind == ::muscript_syntax::lexis::token::TokenKind::Ident &&
+                (token.kind == ::muscript_lexer::token::TokenKind::Ident &&
                     sources.source(token).eq_ignore_ascii_case(#keyword))
             }
         } else {
@@ -89,8 +89,8 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics ::muscript_syntax::PredictiveParse for #type_name #type_generics #where_clause {
             fn started_by(
-                token: &::muscript_syntax::lexis::token::AnyToken,
-                sources: &::muscript_syntax::sources::LexedSources<'_>,
+                token: &::muscript_lexer::token::AnyToken,
+                sources: &::muscript_lexer::sources::LexedSources<'_>,
             ) -> bool
             {
                 #started_by

@@ -3,11 +3,8 @@ use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     source::SourceFileId,
 };
-use muscript_syntax::{
-    cst::{self, ItemName},
-    lexis::token::Token,
-    sources::LexedSources,
-};
+use muscript_lexer::{sources::LexedSources, token::Token};
+use muscript_syntax::cst::{self, ItemName};
 
 use crate::{diagnostics::notes, ir::interpret::Constant, TypeId};
 

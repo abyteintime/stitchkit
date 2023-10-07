@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
 use muscript_foundation::{ident::CaseInsensitive, source::SourceFileId};
-use muscript_syntax::lexis::token::TokenSpan;
+use muscript_lexer::token::TokenSpan;
 
 use crate::{
     ir::{BasicBlock, BasicBlockId, Ir, NodeId, RegisterId, Sink, Terminator, Value},

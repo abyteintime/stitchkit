@@ -6,20 +6,20 @@ use muscript_foundation::{
     errors::{Diagnostic, Label, Note, NoteKind},
     span::Spanned,
 };
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{TokenKind, TokenSpan},
+    token_stream::{Channel, TokenStream},
+};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::{
-        token::{
-            AnyToken, Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
-            LeftParen, NameLit, Question, RightBracket, RightParen, StringLit, TokenKind,
-            TokenSpan,
-        },
-        Channel, LexicalContext,
-    },
     list::SeparatedListDiagnostics,
-    sources::LexedSources,
-    Parse, ParseError, ParseStream, Parser,
+    token::{
+        AnyToken, Assign, Colon, Dot, FailedExp, FloatLit, Ident, IntLit, Keyword, LeftBracket,
+        LeftParen, NameLit, Question, RightBracket, RightParen, StringLit,
+    },
+    Parse, ParseError, Parser,
 };
 
 pub use lit::*;
@@ -124,11 +124,11 @@ pub enum Arg {
 // for each precedence level.
 impl Expr {
     fn parse_prefix(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         token: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        use crate::lexis::token::SingleToken;
+        use crate::token::SingleToken;
 
         Ok(match token.kind {
             TokenKind::Ident => Expr::ident(parser, token, is_stmt)?,
@@ -182,22 +182,21 @@ impl Expr {
     }
 
     fn unary(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         operator: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
         Ok(Expr::Prefix {
             operator,
             right: {
-                let token =
-                    parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO);
+                let token = parser.next_token_from(Channel::CODE | Channel::MACRO);
                 Box::new(Self::parse_prefix(parser, token, is_stmt)?)
             },
         })
     }
 
     fn ident(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         ident: AnyToken,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
@@ -229,11 +228,11 @@ impl Expr {
     }
 
     fn parse_infix(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         left: Expr,
         op: InfixOperator,
     ) -> Result<Expr, ParseError> {
-        use crate::lexis::token::SingleToken;
+        use crate::token::SingleToken;
 
         Ok(match op.token.kind {
             TokenKind::Inc | TokenKind::Dec => Expr::Postfix {
@@ -277,23 +276,26 @@ impl Expr {
     }
 
     fn binary(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         operator: InfixOperator,
         build: impl FnOnce(InfixOperator, Expr) -> Expr,
     ) -> Result<Expr, ParseError> {
-        let right =
-            Expr::precedence_parse(parser, operator.token.precedence(&parser.sources), false)?;
+        let right = Expr::precedence_parse(
+            parser,
+            Precedence::of(operator.token, &parser.sources),
+            false,
+        )?;
         Ok(build(operator, right))
     }
 
     fn ternary(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         left: Expr,
         token: AnyToken,
     ) -> Result<Expr, ParseError> {
-        use crate::lexis::token::SingleToken;
+        use crate::token::SingleToken;
 
-        let precedence = token.precedence(&parser.sources);
+        let precedence = Precedence::of(token, &parser.sources);
         Ok(Expr::Ternary {
             cond: Box::new(left),
             question: Question::default_from_id(token.id),
@@ -310,11 +312,11 @@ impl Expr {
     }
 
     fn function_call(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         left: Expr,
         token: AnyToken,
     ) -> Result<Expr, ParseError> {
-        use crate::lexis::token::SingleToken;
+        use crate::token::SingleToken;
 
         let open = LeftParen::default_from_id(token.id);
         let (args, close) = parser.parse_comma_separated_list().map_err(|error| {
@@ -358,9 +360,9 @@ impl Expr {
     }
 
     fn next_infix_operator(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
     ) -> Result<InfixOperator, ParseError> {
-        use crate::lexis::token::SingleToken;
+        use crate::token::SingleToken;
 
         let token = parser.next_token();
         let possibly_assign = parser.peek_token();
@@ -383,15 +385,15 @@ impl Expr {
     }
 
     pub fn precedence_parse(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         precedence: Precedence,
         is_stmt: bool,
     ) -> Result<Expr, ParseError> {
-        let token = parser.next_token_from(LexicalContext::Default, Channel::CODE | Channel::MACRO);
+        let token = parser.next_token_from(Channel::CODE | Channel::MACRO);
         let mut chain = Expr::parse_prefix(parser, token, is_stmt)?;
 
         let mut operator;
-        while precedence < parser.peek_token().precedence(&parser.sources) {
+        while precedence < Precedence::of(parser.peek_token(), &parser.sources) {
             operator = Expr::next_infix_operator(parser)?;
             chain = Expr::parse_infix(parser, chain, operator)?;
         }
@@ -401,7 +403,7 @@ impl Expr {
 }
 
 impl Parse for Arg {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let token = parser.peek_token();
         if !matches!(token.kind, TokenKind::Comma | TokenKind::RightParen) {
             Ok(Arg::Provided(parser.parse()?))
@@ -431,14 +433,14 @@ impl Precedence {
     pub const ASSIGN: Self = Self::Some(50);
 
     pub const EXPR: Self = Self::Some(u8::MAX);
-}
 
-impl AnyToken {
-    fn precedence(&self, sources: &LexedSources<'_>) -> Precedence {
+    fn of(token: AnyToken, sources: &LexedSources<'_>) -> Precedence {
         // Unlike vanilla UnrealScript, we hardcode our precedence numbers because not doing so
         // would make parsing insanely hard.
-        match self.kind {
-            _ if self.kind.is_overloadable_operator() && self.is_compound_assignment(sources) => {
+        match token.kind {
+            _ if token.kind.is_overloadable_operator()
+                && is_compound_assignment(token, sources) =>
+            {
                 Precedence::ASSIGN
             }
 
@@ -477,7 +479,7 @@ impl AnyToken {
             // declared in Object.uc doesn't make sense. Why would `$` and `@` bind weaker than `=`?
             TokenKind::Dollar | TokenKind::At => Precedence::Some(34),
 
-            TokenKind::Ident => match sources.source(self) {
+            TokenKind::Ident => match sources.source(&token) {
                 s if s.eq_ignore_ascii_case("dot") => Precedence::Some(16),
                 s if s.eq_ignore_ascii_case("cross") => Precedence::Some(16),
                 s if s.eq_ignore_ascii_case("clockwisefrom") => Precedence::Some(24),
@@ -489,12 +491,12 @@ impl AnyToken {
             _ => Precedence::None,
         }
     }
+}
 
-    fn is_compound_assignment(&self, sources: &LexedSources<'_>) -> bool {
-        // This is a little bit cursed, but the level of cursedness here is minor compared to
-        // UnrealScript as a whole.
-        sources.span_is_followed_by(self, '=')
-    }
+fn is_compound_assignment(token: AnyToken, sources: &LexedSources<'_>) -> bool {
+    // This is a little bit cursed, but the level of cursedness here is minor compared to
+    // UnrealScript as a whole.
+    sources.span_is_followed_by(&token, '=')
 }
 
 /// Specialized version of [`Option<T>`] that's built for handling precedence levels.
@@ -539,7 +541,7 @@ impl From<Precedence> for Option<u8> {
 }
 
 impl Parse for Expr {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         // If you want to override is_stmt, call Expr::precedence_parse manually.
         Expr::precedence_parse(parser, Precedence::EXPR, false)
     }

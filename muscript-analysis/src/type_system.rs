@@ -3,11 +3,9 @@ mod subtyping;
 
 use std::fmt;
 
-use muscript_foundation::{
-    ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet},
-};
-use muscript_syntax::{cst, sources::LexedSources};
+use muscript_foundation::ident::CaseInsensitive;
+use muscript_lexer::sources::LexedSources;
+use muscript_syntax::cst;
 
 use crate::{ClassId, TypeId};
 

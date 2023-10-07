@@ -5,7 +5,7 @@ use muscript_foundation::{
 };
 use muscript_syntax::{
     cst,
-    lexis::token::{Ident, NameLit},
+    token::{Ident, NameLit},
 };
 
 use crate::{
@@ -26,7 +26,7 @@ impl<'a> Compiler<'a> {
         name_lit: NameLit,
     ) -> RegisterId {
         let class_name = self.sources.source(&class_ident);
-        let object_name = name_lit.parse(self.sources);
+        let object_name = name_lit.parse(&self.sources.as_borrowed()).to_owned();
 
         if CaseInsensitive::new(class_name) == CaseInsensitive::new("class") {
             // Classes, despite being objects like any other, need to be special-cased because they
@@ -57,7 +57,7 @@ impl<'a> Compiler<'a> {
             }
 
             if let Some(class_id) =
-                self.lookup_class(builder.source_file_id, object_name, name_lit.span())
+                self.lookup_class(builder.source_file_id, &object_name, name_lit.span())
             {
                 let class_type_id = self.class_type_id(class_id);
                 let class_package = self.class_package(class_id);

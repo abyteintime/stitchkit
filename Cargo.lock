@@ -331,6 +331,7 @@ dependencies = [
  "clap",
  "muscript-analysis",
  "muscript-foundation",
+ "muscript-lexer",
  "muscript-syntax",
  "tracing",
  "tracing-chrome",
@@ -347,6 +348,7 @@ dependencies = [
  "indexmap",
  "indoc",
  "muscript-foundation",
+ "muscript-lexer",
  "muscript-syntax",
  "tracing",
 ]
@@ -362,12 +364,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "muscript-lexer"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "indoc",
+ "muscript-foundation",
+ "thiserror",
+]
+
+[[package]]
 name = "muscript-syntax"
 version = "0.1.0"
 dependencies = [
  "bitflags",
  "indoc",
  "muscript-foundation",
+ "muscript-lexer",
  "muscript-syntax-derive",
  "thiserror",
  "tracing",

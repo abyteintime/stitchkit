@@ -1,10 +1,10 @@
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
+    errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
     source::SourceFileId,
     span::Spanned,
 };
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_syntax::{cst, token::Ident};
 use tracing::{trace, trace_span};
 
 use crate::{
@@ -72,7 +72,7 @@ impl<'a> Compiler<'a> {
         self.env.emit(
             Diagnostic::error(format!(
                 "cannot find type `{}` in this scope",
-                ty.path.pretty_print(self.sources)
+                ty.path.pretty_print(&self.sources.as_borrowed())
             ))
             .with_label(Label::primary(&ty.path, "")),
         );

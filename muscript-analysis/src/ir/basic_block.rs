@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use muscript_syntax::lexis::token::TokenSpan;
+use muscript_lexer::token::TokenSpan;
 
 use crate::ir::Terminator;
 

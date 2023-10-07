@@ -1,10 +1,11 @@
 use indoc::indoc;
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{AnyToken, FloatLit, IntLit, NameLit, StringLit, Token},
-    Parse, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, FloatLit, IntLit, NameLit, StringLit},
+    Parse, Parser, PredictiveParse,
 };
 
 keyword!(KNone = "none");
@@ -32,12 +33,12 @@ pub enum Lit {
     Name(NameLit),
 }
 
-fn bool_lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn bool_lit_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("boolean `true` or `false` expected")
         .with_label(Label::primary(token, "this token is not a boolean"))
 }
 
-fn lit_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn lit_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("literal expected")
         .with_label(Label::primary(token, "this token is not a literal"))
         .with_note(indoc!(

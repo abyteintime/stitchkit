@@ -1,11 +1,12 @@
 //! Specifier keywords.
 
+use muscript_lexer::token_stream::TokenStream;
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{LeftParen, RightParen},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{LeftParen, RightParen},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::Expr;
@@ -23,7 +24,7 @@ pub struct SpecifierArgs {
 }
 
 impl Parse for SpecifierArgs {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
         let (args, close) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(

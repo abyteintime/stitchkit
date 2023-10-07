@@ -1,7 +1,7 @@
 extern crate self as muscript_syntax;
 
 #[macro_use]
-pub mod lexis;
+pub mod token;
 
 #[macro_use]
 mod parsing;
@@ -9,7 +9,6 @@ mod parsing;
 pub mod cst;
 pub mod diagnostics;
 pub mod list;
-pub mod sources;
 
 pub use parsing::*;
 

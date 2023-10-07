@@ -1,11 +1,12 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::token::{AnyToken, Ident, LeftParen, RightParen, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident, LeftParen, RightParen, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{BoolLit, Path, SpecifierArgs};
@@ -106,7 +107,7 @@ pub enum ClassSpecifier {
 }
 
 impl Parse for Class {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let class = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
             Diagnostic::error("class name expected")
@@ -137,13 +138,13 @@ impl Parse for Class {
     }
 }
 
-fn class_kind_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn class_kind_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("`class`, `partial class`, or `interface` expected")
         .with_label(Label::primary(token, ""))
         .with_note("note: the file must start with the kind of type you're declaring")
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error(format!(
         "unknown class specifier `{}`",
         parser.sources.source(token)

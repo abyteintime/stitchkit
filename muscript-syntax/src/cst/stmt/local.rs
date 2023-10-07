@@ -1,10 +1,11 @@
+use muscript_lexer::token_stream::TokenStream;
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Type, VarDef},
     diagnostics,
-    lexis::token::Semi,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::Semi,
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 keyword!(KLocal = "local");
@@ -18,7 +19,7 @@ pub struct StmtLocal {
 }
 
 impl Parse for StmtLocal {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let local = parser.parse()?;
         let ty = parser.parse()?;
         let (vars, semi) = parser.parse_comma_separated_list().map_err(|error| {

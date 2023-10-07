@@ -1,11 +1,15 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{AnyToken, Token},
+    token_stream::TokenStream,
+};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{AnyToken, Greater, Ident, Less, Token},
     list::SeparatedListDiagnostics,
-    sources::LexedSources,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Greater, Ident, Less},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{CppBlob, EnumDef, Path, StructDef};
@@ -46,7 +50,7 @@ pub struct Generic {
 }
 
 impl Parse for Type {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         Ok(Self {
             specifiers: parser.parse_greedy_list()?,
             path: parser.parse()?,
@@ -64,7 +68,7 @@ impl PredictiveParse for Type {
 }
 
 impl Parse for Generic {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let less: Less = parser.parse()?;
         let (args, greater) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(
@@ -100,7 +104,7 @@ impl TypeOrDef {
     }
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error(format!(
         "unknown type specifier `{}`",
         parser.sources.source(token)
@@ -108,7 +112,7 @@ fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &AnyToken) -> D
     .with_label(Label::primary(token, "this specifier is not recognized"))
 }
 
-fn type_or_def_error(_: &Parser<'_, impl ParseStream>, token: &AnyToken) -> Diagnostic<Token> {
+fn type_or_def_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
     Diagnostic::error("type, struct definition, or enum definition expected")
         .with_label(Label::primary(token, "type expected here"))
 }

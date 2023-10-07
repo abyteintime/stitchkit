@@ -224,7 +224,6 @@ impl<'a> Compiler<'a> {
                 // TODO: There should be a better way of suppressing diagnostics within a scope.
                 let num_diagnostics = self.env.diagnostics.len();
                 let type_id = self.type_id(
-                    builder.source_file_id,
                     builder.class_id,
                     &cst::Type {
                         specifiers: vec![],

@@ -1,8 +1,5 @@
 use bitflags::bitflags;
-use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label},
-    source::SourceFileId,
-};
+use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label};
 use muscript_lexer::{sources::LexedSources, token::Token};
 use muscript_syntax::cst::{self, ItemName};
 
@@ -10,7 +7,6 @@ use crate::{diagnostics::notes, ir::interpret::Constant, TypeId};
 
 #[derive(Debug, Clone)]
 pub struct Var {
-    pub source_file_id: SourceFileId,
     pub name: ItemName,
     pub ty: TypeId,
     pub kind: VarKind,
@@ -79,7 +75,6 @@ impl VarFlags {
     pub fn from_cst(
         diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &LexedSources<'_>,
-        source_file_id: SourceFileId,
         specifiers: &[cst::VarSpecifier],
     ) -> Self {
         let mut result = Self::empty();

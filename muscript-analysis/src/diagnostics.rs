@@ -1,21 +1,15 @@
 //! Commonly used diagnostic messages.
 
 use indoc::indoc;
-use muscript_foundation::{
-    errors::{Diagnostic, Label},
-    source::SourceFileId,
-};
+use muscript_foundation::errors::{Diagnostic, Label};
 use muscript_lexer::token::{Token, TokenSpan};
 use muscript_syntax::token;
 
-pub fn unnecessary_semicolon(source_file_id: SourceFileId, semi: token::Semi) -> Diagnostic<Token> {
+pub fn unnecessary_semicolon(semi: token::Semi) -> Diagnostic<Token> {
     Diagnostic::warning("unnecessary semicolon `;`").with_label(Label::primary(&semi, ""))
 }
 
-pub fn stmt_outside_of_function(
-    source_file_id: SourceFileId,
-    span: TokenSpan,
-) -> Diagnostic<Token> {
+pub fn stmt_outside_of_function(span: TokenSpan) -> Diagnostic<Token> {
     Diagnostic::error("statement found outside of function")
         .with_label(Label::primary(&span, "statements are not allowed here"))
         .with_note(indoc!("

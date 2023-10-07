@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use heck::ToPascalCase;
-use muscript_foundation::source::SourceFileId;
 use muscript_syntax::cst;
 
 use crate::type_system::TypeName;
@@ -117,7 +116,6 @@ pub mod cst_level {
     /// [`Borrowed`]: Cow::Borrowed
     pub fn mangled_function_name<'a>(
         sources: &LexedSources<'a>,
-        source_file_id: SourceFileId,
         function: &cst::ItemFunction,
     ) -> Cow<'a, str> {
         let function_name = &sources.source(&function.name);
@@ -139,7 +137,7 @@ pub mod cst_level {
                     }
                 );
                 for param in &function.params.params {
-                    mangled.push_str(&mangled_type_name(sources, source_file_id, &param.ty));
+                    mangled.push_str(&mangled_type_name(sources, &param.ty));
                 }
                 Cow::Owned(mangled)
             }
@@ -155,11 +153,7 @@ pub mod cst_level {
     /// Generics `Generic<Int, Float>` are mangled to `Generic-lInt-cFloat-g`, because they do not need
     /// compatibility with vanilla packages, as no operators ever use generic arguments.
     /// `-l` is meant to represent **l**ess-than, `-c` **c**ommas, and `-g` **g**reater-than.
-    pub fn mangled_type_name<'a>(
-        sources: &LexedSources<'a>,
-        source_file_id: SourceFileId,
-        ty: &cst::Type,
-    ) -> Cow<'a, str> {
+    pub fn mangled_type_name<'a>(sources: &LexedSources<'a>, ty: &cst::Type) -> Cow<'a, str> {
         let ty_name_ident = *ty
             .path
             .components
@@ -173,7 +167,7 @@ pub mod cst_level {
                 if i != 0 {
                     builder.push_str(GENERIC_COMMA);
                 }
-                builder.push_str(&mangled_type_name(sources, source_file_id, arg));
+                builder.push_str(&mangled_type_name(sources, arg));
             }
             builder.push_str(GENERIC_GREATER);
             Cow::Owned(builder)

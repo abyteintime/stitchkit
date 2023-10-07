@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet},
+    source::SourceFileSet,
 };
 use muscript_lexer::{
     sources::LexedSources,
@@ -34,28 +34,24 @@ impl UntypedClassPartition {
                     sources,
                     &mut vars,
                     &partition.vars,
-                    partition.source_file_id,
                 );
                 Self::check_coherence_in_namespace(
                     diagnostics,
                     sources,
                     &mut functions,
                     &partition.functions,
-                    partition.source_file_id,
                 );
                 Self::check_coherence_in_namespace(
                     diagnostics,
                     sources,
                     &mut types,
                     &partition.types,
-                    partition.source_file_id,
                 );
                 Self::check_coherence_in_namespace(
                     diagnostics,
                     sources,
                     &mut states,
                     &partition.states,
-                    partition.source_file_id,
                 );
             }
         }
@@ -66,7 +62,6 @@ impl UntypedClassPartition {
         sources: &LexedSources<'_>,
         joint_namespace: &mut IndexMap<CaseInsensitive<String>, TokenSpan>,
         partition_namespace: &IndexMap<CaseInsensitive<String>, I>,
-        partition_source_file_id: SourceFileId,
     ) where
         I: NamedItem,
     {

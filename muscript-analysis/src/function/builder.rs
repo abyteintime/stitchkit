@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
-use muscript_foundation::{ident::CaseInsensitive, source::SourceFileId};
+use muscript_foundation::ident::CaseInsensitive;
 use muscript_lexer::token::TokenSpan;
 
 use crate::{
@@ -11,7 +11,6 @@ use crate::{
 use super::Function;
 
 pub struct FunctionBuilder {
-    pub source_file_id: SourceFileId,
     pub class_id: ClassId,
     pub function_id: FunctionId,
 
@@ -35,7 +34,6 @@ pub struct IrBuilder {
 impl FunctionBuilder {
     pub fn new(function_id: FunctionId, function: &Function, body_span: TokenSpan) -> Self {
         Self {
-            source_file_id: function.source_file_id,
             class_id: function.class_id,
             function_id,
             return_ty: function.return_ty,

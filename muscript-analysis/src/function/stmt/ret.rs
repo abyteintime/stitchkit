@@ -1,5 +1,5 @@
 use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label, ReplacementSuggestion},
+    errors::{Diagnostic, DiagnosticSink, Label},
     span::Spanned,
 };
 use muscript_syntax::cst;
@@ -45,7 +45,7 @@ impl<'a> Compiler<'a> {
     /// Returns `true` if the return value's presence matches the return type.
     fn check_return_value_presence(
         &mut self,
-        builder: &mut FunctionBuilder,
+        builder: &FunctionBuilder,
         ret: &cst::StmtReturn,
         provided_return_value_ty: TypeId,
     ) -> bool {

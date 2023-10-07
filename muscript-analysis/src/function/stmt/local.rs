@@ -10,7 +10,7 @@ use crate::{
 
 impl<'a> Compiler<'a> {
     pub(super) fn stmt_local(&mut self, builder: &mut FunctionBuilder, stmt: &cst::StmtLocal) {
-        let ty = self.type_id(builder.source_file_id, builder.class_id, &stmt.ty);
+        let ty = self.type_id(builder.class_id, &stmt.ty);
         for var_def in &stmt.vars {
             if let Some(cpptype) = &var_def.cpptype {
                 self.env.emit(
@@ -34,7 +34,6 @@ impl<'a> Compiler<'a> {
             }
 
             let var_id = self.env.register_var(Var {
-                source_file_id: builder.source_file_id,
                 name: ItemName::from_spanned(&var_def.name),
                 ty,
                 kind: VarKind::Var(VarFlags::empty()),

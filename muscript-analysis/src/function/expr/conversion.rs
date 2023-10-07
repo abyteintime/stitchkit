@@ -1,7 +1,6 @@
 use indoc::formatdoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::SourceFileId,
     span::Spanned,
 };
 use muscript_lexer::token::{Token, TokenSpan};
@@ -38,7 +37,6 @@ impl<'a> Compiler<'a> {
                 let inheritance_chain = self.note_inheritance_chain(got_class_id);
                 let diagnostic = self
                     .type_mismatch(
-                        builder.source_file_id,
                         input_node.span,
                         expected_ty,
                         input_register.ty,
@@ -61,12 +59,7 @@ impl<'a> Compiler<'a> {
             && input_register.ty != expected_ty
         {
             // Produce a generic type mismatch in any other case.
-            let diagnostic = self.type_mismatch(
-                builder.source_file_id,
-                input_node.span,
-                expected_ty,
-                input_register.ty,
-            );
+            let diagnostic = self.type_mismatch(input_node.span, expected_ty, input_register.ty);
             self.env.emit(diagnostic)
         }
 
@@ -255,7 +248,6 @@ impl<'a> Compiler<'a> {
 
     fn type_mismatch(
         &self,
-        source_file_id: SourceFileId,
         span: TokenSpan,
         expected_ty: TypeId,
         got_ty: TypeId,

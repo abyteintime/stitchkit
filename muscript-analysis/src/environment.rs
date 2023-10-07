@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use muscript_foundation::{
     errors::{pipe_all_diagnostics_into, Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::SourceFileId,
 };
 use muscript_lexer::token::{Token, TokenSpan};
 use muscript_syntax::cst;
@@ -130,12 +129,7 @@ impl<'a> Compiler<'a> {
     /// Look up a class ID from an identifier.
     ///
     /// Returns `None` and emits a diagnostic if the class cannot be found.
-    pub fn lookup_class(
-        &mut self,
-        source_file_id: SourceFileId,
-        name: &str,
-        error_span: TokenSpan,
-    ) -> Option<ClassId> {
+    pub fn lookup_class(&mut self, name: &str, error_span: TokenSpan) -> Option<ClassId> {
         if self.input.class_exists(name) {
             Some(self.env.get_or_create_class(name))
         } else {
@@ -243,7 +237,6 @@ impl<'a> Compiler<'a> {
                         UntypedClassPartition::from_cst(
                             &mut diagnostics,
                             &self.sources.as_borrowed(),
-                            source_file.id,
                             source_file.parsed,
                         )
                     })
@@ -350,22 +343,12 @@ impl Primitive {
 
 /// # Memoized type lookups
 impl<'a> Compiler<'a> {
-    pub fn type_id(
-        &mut self,
-        source_file_id: SourceFileId,
-        scope: ClassId,
-        ty: &cst::Type,
-    ) -> TypeId {
-        let (_source, type_id) = self.type_id_with_source(source_file_id, scope, ty);
+    pub fn type_id(&mut self, scope: ClassId, ty: &cst::Type) -> TypeId {
+        let (_source, type_id) = self.type_id_with_source(scope, ty);
         type_id
     }
 
-    pub fn type_id_with_source(
-        &mut self,
-        source_file_id: SourceFileId,
-        scope: ClassId,
-        ty: &cst::Type,
-    ) -> (TypeSource, TypeId) {
+    pub fn type_id_with_source(&mut self, scope: ClassId, ty: &cst::Type) -> (TypeSource, TypeId) {
         let type_name = TypeName::from_cst(&self.sources.as_borrowed(), ty);
         if let Some(&type_id) = self
             .env
@@ -377,7 +360,7 @@ impl<'a> Compiler<'a> {
             (TypeSource::Global, type_id)
         } else {
             #[allow(deprecated)]
-            let (source, type_id) = self.find_type_id(source_file_id, scope, ty);
+            let (source, type_id) = self.find_type_id(scope, ty);
             // Only cache the result if the type is correct; in case of erroneous type references
             // we don't want to stop emitting errors at the first one.
             if type_id != TypeId::ERROR {

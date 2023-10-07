@@ -56,9 +56,7 @@ impl<'a> Compiler<'a> {
                 );
             }
 
-            if let Some(class_id) =
-                self.lookup_class(builder.source_file_id, &object_name, name_lit.span())
-            {
+            if let Some(class_id) = self.lookup_class(&object_name, name_lit.span()) {
                 let class_type_id = self.class_type_id(class_id);
                 let class_package = self.class_package(class_id);
                 return builder.ir.append_register(

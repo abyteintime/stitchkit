@@ -3,7 +3,6 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::SourceFileId,
     span::Spanned,
 };
 use muscript_lexer::{sources::LexedSources, token::Token};
@@ -26,7 +25,6 @@ mod stmt;
 
 #[derive(Clone)]
 pub struct Function {
-    pub source_file_id: SourceFileId,
     pub class_id: ClassId,
     pub mangled_name: String,
     pub name: ItemName,
@@ -130,7 +128,6 @@ impl<'a> Compiler<'a> {
     /// Analyzes a function signature from CST.
     pub(crate) fn analyze_function_signature(
         &mut self,
-        source_file_id: SourceFileId,
         class_id: ClassId,
         name: &str,
         cst: &cst::ItemFunction,
@@ -138,7 +135,6 @@ impl<'a> Compiler<'a> {
         let (flags, implementation) = FunctionFlags::from_pre_specifiers(
             self.env,
             &self.sources.as_borrowed(),
-            source_file_id,
             &cst.pre_specifiers,
         );
         let kind = match cst.kind {
@@ -153,17 +149,16 @@ impl<'a> Compiler<'a> {
         let return_ty = cst
             .return_ty
             .as_ref()
-            .map(|ty| self.type_id(source_file_id, class_id, ty))
+            .map(|ty| self.type_id(class_id, ty))
             .unwrap_or(TypeId::VOID);
 
         let mut params = vec![];
         for param in &cst.params.params {
             let (var_flags, param_flags) = flags_from_param_specifiers(&param.specifiers);
-            unsupported_param_specifiers(self.env, source_file_id, &param.specifiers);
+            unsupported_param_specifiers(self.env, &param.specifiers);
 
-            let ty = self.type_id(source_file_id, class_id, &param.ty);
+            let ty = self.type_id(class_id, &param.ty);
             let param_var = self.env.register_var(Var {
-                source_file_id,
                 name: ItemName::from_spanned(&param.name),
                 ty,
                 kind: VarKind::Var(var_flags),
@@ -174,10 +169,9 @@ impl<'a> Compiler<'a> {
             });
         }
 
-        unsupported_post_specifiers(self.env, source_file_id, &cst.post_specifiers);
+        unsupported_post_specifiers(self.env, &cst.post_specifiers);
 
         self.env.register_function(Function {
-            source_file_id,
             class_id,
             mangled_name: name.to_owned(),
             name: cst.name,
@@ -199,11 +193,7 @@ impl<'a> Compiler<'a> {
         )
         .entered();
 
-        let &Function {
-            source_file_id,
-            class_id,
-            ..
-        } = function;
+        let &Function { class_id, .. } = function;
         let name = function.mangled_name.clone();
         let (partition_index, cst) = self
             .untyped_class_partitions_for_theft(class_id)
@@ -279,7 +269,6 @@ impl FunctionFlags {
     fn from_pre_specifiers(
         diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &LexedSources<'_>,
-        source_file_id: SourceFileId,
         specifiers: &[cst::FunctionSpecifier],
     ) -> (FunctionFlags, FunctionImplementation) {
         let mut flags = FunctionFlags::empty();
@@ -380,7 +369,6 @@ impl FunctionFlags {
 
 fn unsupported_post_specifiers(
     diagnostics: &mut dyn DiagnosticSink<Token>,
-    source_file_id: SourceFileId,
     specifiers: &[cst::FunctionSpecifier],
 ) {
     for specifier in specifiers {
@@ -423,7 +411,6 @@ fn flags_from_param_specifiers(specifiers: &[cst::ParamSpecifier]) -> (VarFlags,
 
 fn unsupported_param_specifiers(
     diagnostics: &mut dyn DiagnosticSink<Token>,
-    source_file_id: SourceFileId,
     specifiers: &[cst::ParamSpecifier],
 ) {
     for specifier in specifiers {

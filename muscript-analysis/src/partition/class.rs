@@ -7,7 +7,6 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
     ident::CaseInsensitive,
-    source::SourceFileId,
     span::Spanned,
 };
 use muscript_lexer::{
@@ -37,8 +36,6 @@ pub use structs::*;
 /// `partial`. That's because a single partition corresponds to a single file.
 #[derive(Debug, Clone)]
 pub struct UntypedClassPartition {
-    pub source_file_id: SourceFileId,
-
     pub kind: cst::ClassKind,
     pub name: token::Ident,
     pub extends: Option<token::Ident>,
@@ -86,7 +83,6 @@ impl UntypedClassPartition {
     pub fn from_cst(
         diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &LexedSources<'_>,
-        source_file_id: SourceFileId,
         file: cst::File,
     ) -> Self {
         let class = file.class;
@@ -110,7 +106,7 @@ impl UntypedClassPartition {
 
             match item {
                 cst::Item::Empty(semi) => {
-                    diagnostics.emit(diagnostics::unnecessary_semicolon(source_file_id, semi).with_note(
+                    diagnostics.emit(diagnostics::unnecessary_semicolon(semi).with_note(
                         indoc! {"
                             note: each `var` and `const` declaration needs a single semicolon after it;
                                   having one anywhere else is redundant
@@ -123,7 +119,6 @@ impl UntypedClassPartition {
                             Self::add_to_scope(
                                 diagnostics,
                                 sources,
-                                source_file_id,
                                 &mut types,
                                 TypeCst::Enum(enum_def),
                             );
@@ -132,14 +127,12 @@ impl UntypedClassPartition {
                             let untyped_struct = UntypedStruct::from_cst(
                                 diagnostics,
                                 sources,
-                                source_file_id,
                                 &mut types,
                                 struct_def,
                             );
                             Self::add_to_scope(
                                 diagnostics,
                                 sources,
-                                source_file_id,
                                 &mut types,
                                 TypeCst::Struct(untyped_struct),
                             );
@@ -147,50 +140,28 @@ impl UntypedClassPartition {
                         None => (),
                     }
                     for var in ItemSingleVar::lower(item_var) {
-                        Self::add_to_scope(
-                            diagnostics,
-                            sources,
-                            source_file_id,
-                            &mut vars,
-                            VarCst::Var(var),
-                        );
+                        Self::add_to_scope(diagnostics, sources, &mut vars, VarCst::Var(var));
                     }
                 }
                 cst::Item::Const(item_const) => {
-                    Self::add_to_scope(
-                        diagnostics,
-                        sources,
-                        source_file_id,
-                        &mut vars,
-                        VarCst::Const(item_const),
-                    );
+                    Self::add_to_scope(diagnostics, sources, &mut vars, VarCst::Const(item_const));
                 }
                 cst::Item::Simulated(_) => unreachable!("handled by lower_simulated earlier"),
                 cst::Item::Function(item_function) => {
                     Self::add_to_scope_with_name(
                         diagnostics,
                         sources,
-                        source_file_id,
                         &mut functions,
                         Box::new(item_function),
-                        |item_function| {
-                            mangled_function_name(sources, source_file_id, item_function)
-                                .into_owned()
-                        },
+                        |item_function| mangled_function_name(sources, item_function).into_owned(),
                     );
                 }
                 cst::Item::Struct(item_struct) => {
-                    let untyped_struct = UntypedStruct::from_cst(
-                        diagnostics,
-                        sources,
-                        source_file_id,
-                        &mut types,
-                        item_struct.def,
-                    );
+                    let untyped_struct =
+                        UntypedStruct::from_cst(diagnostics, sources, &mut types, item_struct.def);
                     Self::add_to_scope(
                         diagnostics,
                         sources,
-                        source_file_id,
                         &mut types,
                         TypeCst::Struct(untyped_struct),
                     );
@@ -199,19 +170,12 @@ impl UntypedClassPartition {
                     Self::add_to_scope(
                         diagnostics,
                         sources,
-                        source_file_id,
                         &mut types,
                         TypeCst::Enum(item_enum.def),
                     );
                 }
                 cst::Item::State(item_state) => {
-                    Self::add_to_scope(
-                        diagnostics,
-                        sources,
-                        source_file_id,
-                        &mut states,
-                        item_state,
-                    );
+                    Self::add_to_scope(diagnostics, sources, &mut states, item_state);
                 }
                 cst::Item::DefaultProperties(item_default_properties) => {
                     default_properties = Some(item_default_properties);
@@ -237,16 +201,12 @@ impl UntypedClassPartition {
                         .with_label(Label::primary(&item_struct_cpp_text.cpptext, "")),
                 ),
                 cst::Item::Stmt(stmt) => {
-                    diagnostics.emit(diagnostics::stmt_outside_of_function(
-                        source_file_id,
-                        stmt.span(),
-                    ));
+                    diagnostics.emit(diagnostics::stmt_outside_of_function(stmt.span()));
                 }
             }
         }
 
         Self {
-            source_file_id,
             kind: class.class,
             name: class.name,
             extends: class.extends.map(|x| {
@@ -274,13 +234,12 @@ impl UntypedClassPartition {
     fn add_to_scope<I>(
         diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &LexedSources<'_>,
-        source_file_id: SourceFileId,
         scope: &mut IndexMap<CaseInsensitive<String>, I>,
         item: I,
     ) where
         I: NamedItem,
     {
-        Self::add_to_scope_with_name(diagnostics, sources, source_file_id, scope, item, |item| {
+        Self::add_to_scope_with_name(diagnostics, sources, scope, item, |item| {
             sources.source(&item.name()).to_owned()
         })
     }
@@ -288,7 +247,6 @@ impl UntypedClassPartition {
     fn add_to_scope_with_name<I>(
         diagnostics: &mut dyn DiagnosticSink<Token>,
         sources: &LexedSources<'_>,
-        source_file_id: SourceFileId,
         scope: &mut IndexMap<CaseInsensitive<String>, I>,
         item: I,
         get_name: impl FnOnce(&I) -> String,
@@ -427,29 +385,21 @@ impl NamedItem for TypeCst {
 }
 
 pub trait UntypedClassPartitionsExt {
-    fn find_var(&self, name: &str) -> Option<(SourceFileId, &VarCst)>;
-    fn find_type(&self, name: &str) -> Option<(SourceFileId, &TypeCst)>;
+    fn find_var(&self, name: &str) -> Option<&VarCst>;
+    fn find_type(&self, name: &str) -> Option<&TypeCst>;
 
     fn index_of_partition_with_function(&self, name: &str) -> Option<usize>;
 }
 
 impl UntypedClassPartitionsExt for &[UntypedClassPartition] {
-    fn find_var(&self, name: &str) -> Option<(SourceFileId, &VarCst)> {
-        self.iter().find_map(|partition| {
-            partition
-                .vars
-                .get(CaseInsensitive::new_ref(name))
-                .map(|cst| (partition.source_file_id, cst))
-        })
+    fn find_var(&self, name: &str) -> Option<&VarCst> {
+        self.iter()
+            .find_map(|partition| partition.vars.get(CaseInsensitive::new_ref(name)))
     }
 
-    fn find_type(&self, name: &str) -> Option<(SourceFileId, &TypeCst)> {
-        self.iter().find_map(|partition| {
-            partition
-                .types
-                .get(CaseInsensitive::new_ref(name))
-                .map(|cst| (partition.source_file_id, cst))
-        })
+    fn find_type(&self, name: &str) -> Option<&TypeCst> {
+        self.iter()
+            .find_map(|partition| partition.types.get(CaseInsensitive::new_ref(name)))
     }
 
     fn index_of_partition_with_function(&self, name: &str) -> Option<usize> {

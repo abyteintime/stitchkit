@@ -9,11 +9,8 @@ mod source;
 pub mod type_system;
 
 pub use environment::*;
-use muscript_foundation::{source::SourceFileSet, source_arena::SourceArena};
 pub use package::*;
 pub use source::*;
-
-use muscript_lexer::{sources::LexedSources, token::Token};
 
 /// Full compiler state.
 pub struct Compiler<'a> {

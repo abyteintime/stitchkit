@@ -9,8 +9,6 @@ impl UntypedClassPartition {
     /// go against the philosophy of only analyzing what you use and would thus render a lot more
     /// code uncompilable.
     pub fn check_item_support(&self, diagnostics: &mut dyn DiagnosticSink<Token>) {
-        let &UntypedClassPartition { source_file_id, .. } = self;
-
         if let Some(within) = self.within {
             diagnostics.emit(
                 Diagnostic::error("`within` is not yet supported by the compiler")

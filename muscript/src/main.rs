@@ -172,7 +172,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     let (input, mut env, classes_to_compile) = {
         let _span = info_span!("compiler_input").entered();
 
-        let mut input = Input::new(&source_file_set);
+        let mut input = Input::new();
         let mut env = Environment::new();
         let mut classes_to_compile = vec![];
         for (source_file_id, source_file) in source_file_set.iter() {

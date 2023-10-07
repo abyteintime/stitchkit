@@ -1,12 +1,8 @@
 use std::rc::Rc;
 
 use muscript_analysis::OwnedSources;
-use muscript_foundation::{
-    errors::{pipe_all_diagnostics_into, DiagnosticSink},
-    source::{SourceFileId, SourceFileSet},
-    source_arena::SourceArena,
-};
-use muscript_lexer::{sources::LexedSources, token::Token, token_stream::TokenSpanCursor, Lexer};
+use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
+use muscript_lexer::{token::Token, token_stream::TokenSpanCursor, Lexer};
 use muscript_syntax::{Parse, Parser};
 use tracing::info_span;
 

@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
 use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput, OwnedSources};
-use muscript_foundation::{
-    errors::DiagnosticSink,
-    ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet},
-};
+use muscript_foundation::{errors::DiagnosticSink, ident::CaseInsensitive, source::SourceFileId};
 use muscript_lexer::token::Token;
 
 use crate::parse::parse_source;
@@ -14,15 +10,13 @@ struct Sources {
     source_files: Vec<SourceFileId>,
 }
 
-pub struct Input<'a> {
-    source_file_set: &'a SourceFileSet,
+pub struct Input {
     class_sources: HashMap<CaseInsensitive<String>, Sources>,
 }
 
-impl<'a> Input<'a> {
-    pub fn new(source_file_set: &'a SourceFileSet) -> Self {
+impl Input {
+    pub fn new() -> Self {
         Self {
-            source_file_set,
             class_sources: Default::default(),
         }
     }
@@ -44,7 +38,7 @@ impl<'a> Input<'a> {
     }
 }
 
-impl<'a> CompilerInput for Input<'a> {
+impl CompilerInput for Input {
     fn class_exists(&self, class_name: &str) -> bool {
         self.class_sources
             .contains_key(CaseInsensitive::new_ref(class_name))

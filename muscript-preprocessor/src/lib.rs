@@ -147,12 +147,7 @@ where
     T: TokenStream,
 {
     fn parse_macro_invocation(&mut self, accent: AnyToken) {
-        let Some(macro_name_ident) = self.expect_token(TokenKind::Ident, |token| {
-            Diagnostic::error("macro name expected").with_label(Label::primary(
-                &token,
-                format!("macro name expected, but got {}", token.kind.name()),
-            ))
-        }) else {
+        let Some(macro_name_ident) = self.parse_macro_name() else {
             return;
         };
 
@@ -171,6 +166,35 @@ where
                 Diagnostic::bug("custom macro invocations are not yet implemented")
                     .with_label(Label::primary(&macro_name_ident, "")),
             ),
+        }
+    }
+
+    fn parse_macro_name(&mut self) -> Option<AnyToken> {
+        fn macro_name_expected(token: AnyToken) -> Diagnostic<Token> {
+            Diagnostic::error("macro name expected")
+                .with_label(Label::primary(&token, "identifier expected here"))
+        }
+
+        let name_or_left_brace = self.tokens.next();
+        match name_or_left_brace.kind {
+            TokenKind::Ident => Some(name_or_left_brace),
+            TokenKind::LeftBrace => {
+                let Some(name) = self.expect_token(TokenKind::Ident, macro_name_expected) else {
+                    return None;
+                };
+                let Some(_right_brace) = self.expect_token(TokenKind::RightBrace, |token| {
+                    Diagnostic::error("`}` expected after the braced macro name")
+                        .with_label(Label::primary(&token, "`}` expected here"))
+                }) else {
+                    return None;
+                };
+                Some(name)
+            }
+            _ => {
+                self.diagnostics
+                    .emit(macro_name_expected(name_or_left_brace));
+                None
+            }
         }
     }
 

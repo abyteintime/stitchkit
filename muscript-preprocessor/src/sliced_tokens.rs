@@ -119,7 +119,8 @@ impl<'a> TokenStream for SlicedTokenStream<'a> {
         } else {
             AnyToken {
                 kind: TokenKind::EndOfFile,
-                id: self.slice_cursor, // ??
+                // Maybe not the best idea to have the last output token pretend to be EOF?
+                id: self.slice_cursor,
             }
         };
         result

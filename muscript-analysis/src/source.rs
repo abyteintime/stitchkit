@@ -1,50 +1,6 @@
-use muscript_foundation::{
-    errors::{DiagnosticSink, ReplacementSuggestion},
-    source::{SourceFileId, SourceFileSet},
-    source_arena::SourceArena,
-    span::{Span, Spanned},
-};
-use muscript_lexer::{sources::LexedSources, token::Token};
+use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
+use muscript_lexer::{sources::OwnedSources, token::Token};
 use muscript_syntax::cst;
-
-pub struct OwnedSources<'a> {
-    pub source_file_set: &'a SourceFileSet,
-    pub token_arena: SourceArena<Token>,
-}
-
-impl<'a> OwnedSources<'a> {
-    pub fn as_borrowed(&self) -> LexedSources<'_> {
-        LexedSources {
-            source_file_set: self.source_file_set,
-            token_arena: &self.token_arena,
-        }
-    }
-
-    pub fn source(&self, tokens: &impl Spanned<Token>) -> &'a str {
-        // Needs to be copy-pasted from LexedSources' implementation rather than calling
-        // .as_borrowed().source() because otherwise the borrow checker sees that the returned string
-        // does not live for 'a but for '_.
-        match tokens.span() {
-            Span::Empty => "",
-            Span::Spanning { start, end } => {
-                let source_file_id = self.token_arena.source_file_id(start);
-                let start = self.token_arena.element(start);
-                let end = self.token_arena.element(end);
-                &self.source_file_set.source(source_file_id)
-                    [start.source_range.start..end.source_range.end]
-            }
-        }
-    }
-
-    pub fn replacement_suggestion(
-        &self,
-        tokens: &impl Spanned<Token>,
-        replacement: impl Into<String>,
-    ) -> Option<ReplacementSuggestion> {
-        self.as_borrowed()
-            .replacement_suggestion(tokens, replacement)
-    }
-}
 
 /// Collection of source files for a class.
 #[derive(Debug, Clone)]

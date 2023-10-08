@@ -30,6 +30,7 @@ macro_rules! expand_tokens {
     ($x:path) => {
         $x! {
             Comment = "comment",
+            NewLine = "newline",
 
             Ident = "identifier",
 
@@ -105,6 +106,14 @@ macro_rules! token_kind_enum {
         pub enum TokenKind {
             $($name),*
         }
+
+        impl TokenKind {
+            pub fn name(&self) -> &'static str {
+                match self {
+                    $(Self::$name => $pretty_name,)*
+                }
+            }
+        }
     }
 }
 
@@ -140,6 +149,7 @@ impl TokenKind {
     pub const fn channel(&self) -> Channel {
         match self {
             TokenKind::Comment => Channel::COMMENT,
+            TokenKind::NewLine => Channel::SPACE,
             TokenKind::FailedExp => Channel::MACRO,
             TokenKind::Error => Channel::ERROR,
             _ => Channel::CODE,

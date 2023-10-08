@@ -13,11 +13,13 @@ bitflags! {
         const CODE    = 0x1;
         /// Comments only. This is not used by the parser, but it may be used by external tools.
         const COMMENT = 0x2;
+        /// Whitespace tokens. This is used by the preprocessor to know when linefeeds occur.
+        const SPACE   = 0x4;
         /// Empty macro output. Some rules in the parser recognize this for better error recovery.
-        const MACRO   = 0x4;
+        const MACRO   = 0x8;
         /// Lexis errors. Skipped by the parser entirely, though diagnostics from these tokens
         /// are replicated into the output sink.
-        const ERROR   = 0x8;
+        const ERROR   = 0x16;
     }
 }
 
@@ -38,6 +40,13 @@ pub trait TokenStream {
     fn position(&self) -> Self::Position;
 
     fn set_position(&mut self, position: Self::Position);
+
+    fn peek(&mut self) -> AnyToken {
+        let position = self.position();
+        let token = self.next();
+        self.set_position(position);
+        token
+    }
 
     /// Can be used to add token stream-known context to parser diagnostics.
     fn contextualize_diagnostic(&self, diagnostic: Diagnostic<Token>) -> Diagnostic<Token> {

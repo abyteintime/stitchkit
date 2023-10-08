@@ -1,0 +1,10 @@
+[package]
+name = "muscript-preprocessor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indoc.workspace = true
+muscript-foundation.workspace = true
+muscript-lexer.workspace = true
+tracing.workspace = true

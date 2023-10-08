@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput, OwnedSources};
+use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput};
 use muscript_foundation::{errors::DiagnosticSink, ident::CaseInsensitive, source::SourceFileId};
-use muscript_lexer::token::Token;
+use muscript_lexer::{sources::OwnedSources, token::Token};
 
 use crate::parse::parse_source;
 

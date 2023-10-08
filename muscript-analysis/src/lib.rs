@@ -9,6 +9,7 @@ mod source;
 pub mod type_system;
 
 pub use environment::*;
+use muscript_lexer::sources::OwnedSources;
 pub use package::*;
 pub use source::*;
 

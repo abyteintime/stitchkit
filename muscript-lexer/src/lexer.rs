@@ -74,7 +74,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_whitespace(&mut self) {
-        while let Some(' ' | '\t' | '\r' | '\n') = self.current_char() {
+        while let Some(' ' | '\t' | '\r') = self.current_char() {
             self.advance_char();
         }
     }
@@ -87,8 +87,6 @@ impl<'a> Lexer<'a> {
                 while !matches!(self.current_char(), None | Some('\n')) {
                     self.advance_char();
                 }
-                // Skip the \n at the end.
-                self.advance_char();
                 self.create_token(TokenKind::Comment, self.range(start))
             }
             Some('*') => {
@@ -410,6 +408,7 @@ impl<'a> Lexer<'a> {
                     '#' => self.single_char_token(TokenKind::Hash),
                     '`' => self.single_char_token(TokenKind::Accent),
                     '\\' => self.single_char_token(TokenKind::Backslash),
+                    '\n' => self.single_char_token(TokenKind::NewLine),
                     unknown => {
                         let unrecognized_character =
                             self.create_token(TokenKind::Error, self.range(start));

@@ -15,4 +15,5 @@ walkdir = { workspace = true }
 muscript-analysis.workspace = true
 muscript-lexer.workspace = true
 muscript-foundation.workspace = true
+muscript-preprocessor.workspace = true
 muscript-syntax.workspace = true

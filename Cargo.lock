@@ -332,6 +332,7 @@ dependencies = [
  "muscript-analysis",
  "muscript-foundation",
  "muscript-lexer",
+ "muscript-preprocessor",
  "muscript-syntax",
  "tracing",
  "tracing-chrome",
@@ -371,6 +372,16 @@ dependencies = [
  "indoc",
  "muscript-foundation",
  "thiserror",
+]
+
+[[package]]
+name = "muscript-preprocessor"
+version = "0.1.0"
+dependencies = [
+ "indoc",
+ "muscript-foundation",
+ "muscript-lexer",
+ "tracing",
 ]
 
 [[package]]

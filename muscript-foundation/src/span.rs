@@ -76,6 +76,10 @@ impl<T> Span<T> {
             },
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Span::Empty)
+    }
 }
 
 impl<T> fmt::Debug for Span<T> {

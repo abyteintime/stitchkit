@@ -43,7 +43,7 @@ impl<T> SourceArena<T> {
         self.source_file_id_mapping.push((start, source_file_id));
         SourceArenaBuilder {
             source_arena: self,
-            start,
+            span: Span::Empty,
         }
     }
 
@@ -71,13 +71,14 @@ impl<T> Default for SourceArena<T> {
 #[derive(Debug)]
 pub struct SourceArenaBuilder<'a, T> {
     source_arena: &'a mut SourceArena<T>,
-    start: SourceId<T>,
+    span: Span<T>,
 }
 
 impl<'a, T> SourceArenaBuilder<'a, T> {
     pub fn push(&mut self, element: T) -> SourceId<T> {
         let id = self.source_arena.current_element_id();
         self.source_arena.elements.push(element);
+        self.span = self.span.join(&Span::single(id));
         id
     }
 
@@ -86,16 +87,12 @@ impl<'a, T> SourceArenaBuilder<'a, T> {
     }
 
     pub fn finish(self) -> Span<T> {
-        let end = self.source_arena.current_element_id();
-        Span::Spanning {
-            start: self.start,
-            end,
-        }
+        self.span
     }
 }
 
 impl<T> SourceId<T> {
-    pub fn successor(self) -> Self {
+    fn successor(self) -> Self {
         Self {
             index: self.index.saturating_add(1),
             _phantom_data: PhantomData,

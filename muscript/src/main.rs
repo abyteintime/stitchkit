@@ -6,12 +6,13 @@ use std::{collections::HashSet, path::PathBuf, rc::Rc};
 use anyhow::{anyhow, bail, Context};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
-use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, OwnedSources, Package};
+use muscript_analysis::{ir::dump::DumpFunction, Compiler, Environment, Package};
 use muscript_foundation::{
     errors::{DiagnosticConfig, Severity},
     source::{SourceFile, SourceFileSet},
     source_arena::SourceArena,
 };
+use muscript_lexer::sources::OwnedSources;
 use muscript_syntax::cst;
 use parse::parse_source;
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};

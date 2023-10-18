@@ -39,6 +39,17 @@ impl<T> Span<T> {
         Self::Spanning { start, end }
     }
 
+    pub fn spanning_len(start: SourceId<T>, count: u32) -> Self {
+        if count > 0 {
+            Self::Spanning {
+                start,
+                end: SourceId::new(start.index.saturating_add(count)),
+            }
+        } else {
+            Self::Empty
+        }
+    }
+
     pub fn start(&self) -> Option<SourceId<T>> {
         if let Span::Spanning { start, .. } = self {
             Some(*start)

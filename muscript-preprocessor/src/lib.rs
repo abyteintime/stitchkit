@@ -1,6 +1,6 @@
 pub mod sliced_tokens;
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use indoc::indoc;
 use muscript_foundation::{
@@ -10,7 +10,7 @@ use muscript_foundation::{
 use muscript_lexer::{
     sources::LexedSources,
     token::{AnyToken, Token, TokenKind, TokenSpan},
-    token_stream::TokenStream,
+    token_stream::{TokenSpanCursor, TokenStream},
 };
 use sliced_tokens::SlicedTokens;
 
@@ -39,30 +39,40 @@ pub struct Definition {
 ///
 /// In general MuScript's improved ergonomics should be preferred over abusing the preprocessor
 /// as is typical in UnrealScript programming.
-pub struct Preprocessor<'a, T> {
-    pub definitions: &'a mut Definitions,
+pub struct Preprocessor<'a> {
+    global_definitions: &'a mut Definitions,
+    local_definitions: Definitions,
     sources: LexedSources<'a>,
-    tokens: T,
+    tokens: TokenSpanCursor<'a>,
     diagnostics: &'a mut dyn DiagnosticSink<Token>,
     out_tokens: &'a mut SlicedTokens,
     current_span: TokenSpan,
+    if_stack: Vec<If>,
 }
 
-impl<'a, T> Preprocessor<'a, T> {
+#[derive(Debug, Clone, Copy)]
+struct If {
+    condition: bool,
+    if_ident: AnyToken,
+}
+
+impl<'a> Preprocessor<'a> {
     pub fn new(
         definitions: &'a mut Definitions,
         sources: LexedSources<'a>,
-        in_tokens: T,
+        in_tokens: TokenSpanCursor<'a>,
         out_tokens: &'a mut SlicedTokens,
         diagnostics: &'a mut dyn DiagnosticSink<Token>,
     ) -> Self {
         Self {
-            definitions,
+            global_definitions: definitions,
+            local_definitions: Definitions::default(),
             sources,
             tokens: in_tokens,
             diagnostics,
             out_tokens,
             current_span: TokenSpan::Empty,
+            if_stack: vec![],
         }
     }
 
@@ -75,10 +85,7 @@ impl<'a, T> Preprocessor<'a, T> {
 }
 
 /// # Parsing primitives
-impl<'a, T> Preprocessor<'a, T>
-where
-    T: TokenStream,
-{
+impl<'a> Preprocessor<'a> {
     fn expect_token(
         &mut self,
         kind: TokenKind,
@@ -142,10 +149,7 @@ where
 }
 
 /// # The parser
-impl<'a, T> Preprocessor<'a, T>
-where
-    T: TokenStream,
-{
+impl<'a> Preprocessor<'a> {
     fn parse_macro_invocation(&mut self, accent: AnyToken) {
         let Some(macro_name_ident) = self.parse_macro_name() else {
             return;
@@ -161,11 +165,11 @@ where
             _ if macro_name.eq_ignore_ascii_case("notdefined") => {
                 self.parse_isdefined(accent, true)
             }
+            _ if macro_name.eq_ignore_ascii_case("if") => self.parse_if(macro_name_ident),
+            _ if macro_name.eq_ignore_ascii_case("else") => self.parse_else(macro_name_ident),
+            _ if macro_name.eq_ignore_ascii_case("endif") => self.parse_endif(macro_name_ident),
             _ if macro_name.eq_ignore_ascii_case("include") => self.parse_include(macro_name_ident),
-            _ => self.diagnostics.emit(
-                Diagnostic::bug("custom macro invocations are not yet implemented")
-                    .with_label(Label::primary(&macro_name_ident, "")),
-            ),
+            _ => self.parse_user_macro(macro_name_ident),
         }
     }
 
@@ -239,7 +243,7 @@ where
         }
 
         let macro_name = self.sources.source(&macro_name_ident);
-        if let Some(_old) = self.definitions.map.insert(
+        if let Some(_old) = self.global_definitions.map.insert(
             CaseInsensitive::new(String::from(macro_name)),
             Definition {
                 source_span: span,
@@ -280,7 +284,7 @@ where
 
         let macro_name = self.sources.source(&macro_name);
         if self
-            .definitions
+            .global_definitions
             .map
             .remove(CaseInsensitive::new_ref(macro_name))
             .is_none()
@@ -330,7 +334,7 @@ where
 
         let macro_name = self.sources.source(&macro_name_ident);
         let is_defined = self
-            .definitions
+            .global_definitions
             .map
             .contains_key(CaseInsensitive::new_ref(macro_name));
         let emit_non_empty = if not { !is_defined } else { is_defined };
@@ -343,6 +347,173 @@ where
         } else {
             self.out_tokens
                 .push(TokenSlice::Empty { source: accent.id });
+        }
+    }
+
+    fn parse_if(&mut self, if_ident: AnyToken) {
+        let Some(left_paren) = self.expect_token(TokenKind::LeftParen, |token| {
+            Diagnostic::error("`(` expected after `if")
+                .with_label(Label::primary(&token, "`(` expected here"))
+        }) else {
+            return;
+        };
+
+        // Find the condition. Initially we want to find out which tokens we should run through
+        // a sub-preprocessor; for that we need to handle nesting, as `if(`isdefined(MACRO)) has
+        // nested parentheses and we do not want to stop parsing at the first `)`.
+        let condition_start = self.tokens.position();
+        let mut token_count = 0;
+        let mut nesting: u32 = 1;
+        let right_paren = loop {
+            let token = self.tokens.next();
+            token_count += 1;
+            match token.kind {
+                TokenKind::LeftParen => nesting += 1,
+                TokenKind::RightParen => {
+                    nesting -= 1;
+                    if nesting == 0 {
+                        token_count -= 1;
+                        break token;
+                    }
+                }
+                TokenKind::EndOfFile => {
+                    self.diagnostics.emit(
+                        Diagnostic::error("missing `)` to close `if condition").with_label(
+                            Label::primary(&left_paren, "this `(` does not have a matching `)`"),
+                        ),
+                    );
+                    return;
+                }
+                _ => (),
+            }
+        };
+        let past_condition = self.tokens.position();
+        self.tokens.set_position(condition_start);
+
+        // Preprocess the condition to expand any macros inside of it and find out whether
+        // the resulting token stream is empty.
+        let is_condition_empty = {
+            if let Some(cursor) = TokenSpanCursor::new(
+                self.sources.token_arena,
+                TokenSpan::spanning_len(condition_start, token_count),
+            ) {
+                let condition_tokens = {
+                    let mut condition_tokens = SlicedTokens::new();
+                    let mut sub_preprocessor = Preprocessor::new(
+                        self.global_definitions,
+                        self.sources,
+                        cursor,
+                        &mut condition_tokens,
+                        self.diagnostics,
+                    );
+                    sub_preprocessor.preprocess();
+                    condition_tokens
+                };
+                // We only need to check one token; if we have one, the part inside parentheses is
+                // not empty.
+                let condition_token = condition_tokens
+                    .stream(self.sources.token_arena)
+                    .map(|mut stream| stream.next());
+                matches!(
+                    condition_token,
+                    // None can happen if the preprocessor didn't produce any tokens (which would be
+                    // weird, but let's err on the side of caution.)
+                    None | Some(AnyToken {
+                        // EndOfFile can happen only in case of `if();
+                        // FailedExp happens if any macro inside expands to nothing.
+                        kind: TokenKind::EndOfFile | TokenKind::FailedExp,
+                        ..
+                    })
+                )
+            } else {
+                true
+            }
+        };
+
+        self.tokens.set_position(past_condition);
+
+        // Push the `if onto the stack, so that `else, `endif, and EndOfFile know what to do.
+        self.if_stack.push(If {
+            condition: !is_condition_empty,
+            if_ident,
+        });
+
+        if is_condition_empty {
+            let Ok(()) = self.skip_until_macro(
+                |name| name.eq_ignore_ascii_case("else") || name.eq_ignore_ascii_case("endif"),
+                || {
+                    Diagnostic::error("missing `else or `endif to close `if")
+                        .with_label(Label::primary(&if_ident, "this `if is never closed"))
+                },
+            ) else {
+                return;
+            };
+        }
+    }
+
+    fn parse_else(&mut self, else_ident: AnyToken) {
+        if let Some(last_if) = self.if_stack.last() {
+            let if_ident = last_if.if_ident;
+            if last_if.condition {
+                let Ok(()) = self.skip_until_macro(
+                    |name| name.eq_ignore_ascii_case("endif"),
+                    || {
+                        Diagnostic::error("missing `endif to close `else")
+                            .with_label(Label::primary(&else_ident, "this `else is never closed"))
+                            .with_label(Label::primary(&if_ident, "this is the `else's `if"))
+                    },
+                ) else {
+                    return;
+                };
+            }
+        } else {
+            self.diagnostics.emit(
+                Diagnostic::error("`else without a matching `if")
+                    .with_label(Label::primary(&else_ident, "stray `else here")),
+            );
+        }
+    }
+
+    fn skip_until_macro(
+        &mut self,
+        cond: impl Fn(&str) -> bool,
+        eof_error: impl FnOnce() -> Diagnostic<Token>,
+    ) -> Result<(), EndOfFile> {
+        let mut nesting: u32 = 0;
+        loop {
+            let at_token = self.tokens.position();
+            let token = self.tokens.next();
+            match token.kind {
+                TokenKind::Accent => {
+                    let Some(macro_name_ident) = self.parse_macro_name() else {
+                        continue;
+                    };
+                    let macro_name = self.sources.source(&macro_name_ident);
+                    if macro_name.eq_ignore_ascii_case("if") {
+                        nesting += 1;
+                    } else if nesting > 0 && macro_name.eq_ignore_ascii_case("endif") {
+                        nesting -= 1;
+                    } else if nesting == 0 && cond(macro_name) {
+                        self.tokens.set_position(at_token);
+                        break;
+                    }
+                }
+                TokenKind::EndOfFile => {
+                    self.diagnostics.emit(eof_error());
+                    return Err(EndOfFile);
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_endif(&mut self, endif_ident: AnyToken) {
+        if self.if_stack.pop().is_none() {
+            self.diagnostics.emit(
+                Diagnostic::error("`endif without a matching `if")
+                    .with_label(Label::primary(&endif_ident, "stray `endif here")),
+            )
         }
     }
 
@@ -386,6 +557,136 @@ where
         };
     }
 
+    fn definition(&self, name: &str) -> Option<&Definition> {
+        self.local_definitions
+            .map
+            .get(CaseInsensitive::new_ref(name))
+            .or_else(|| {
+                self.global_definitions
+                    .map
+                    .get(CaseInsensitive::new_ref(name))
+            })
+    }
+
+    fn parse_user_macro(&mut self, macro_name_ident: AnyToken) {
+        let mut arguments = if self.tokens.peek().kind == TokenKind::LeftParen {
+            let open = self.tokens.next();
+            let (arguments, _close) = self.parse_comma_separated(open, |preprocessor| {
+                let mut span = TokenSpan::Empty;
+                let mut nesting = 0;
+                loop {
+                    let token = preprocessor.tokens.peek();
+                    match token.kind {
+                        TokenKind::LeftParen => {
+                            _ = preprocessor.tokens.next();
+                            nesting += 1;
+                        }
+                        TokenKind::RightParen => {
+                            if nesting > 0 {
+                                _ = preprocessor.tokens.next();
+                                nesting -= 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        TokenKind::Comma if nesting == 0 => break,
+                        TokenKind::EndOfFile => break,
+                        _ => {
+                            let token = preprocessor.tokens.next();
+                            span = span.join(&TokenSpan::single(token.id));
+                        }
+                    }
+                }
+                Definition {
+                    source_span: span,
+                    parameters: None,
+                }
+            });
+            Some(arguments)
+        } else {
+            None
+        };
+
+        let macro_name = self.sources.source(&macro_name_ident);
+        if let Some(definition) = self.definition(macro_name) {
+            if let Some(tokens) =
+                TokenSpanCursor::new(self.sources.token_arena, definition.source_span)
+            {
+                let argument_count = arguments.as_ref().map(|list| list.len());
+                let parameter_count = definition.parameters.as_ref().map(|list| list.len());
+                match (parameter_count, argument_count) {
+                    (None, Some(got)) => {
+                        self.diagnostics.emit(
+                            Diagnostic::error(format!(
+                                "macro expected no arguments, but {got} were provided"
+                            ))
+                            .with_label(Label::primary(&macro_name_ident, "")),
+                        );
+                        self.out_tokens.push(TokenSlice::Empty {
+                            source: macro_name_ident.id,
+                        });
+                        return;
+                    }
+                    (Some(expected), None) => {
+                        self.diagnostics.emit(
+                            Diagnostic::error(format!(
+                                "macro expected {expected} arguments, but none were provided"
+                            ))
+                            .with_label(Label::primary(&macro_name_ident, "")),
+                        );
+                        self.out_tokens.push(TokenSlice::Empty {
+                            source: macro_name_ident.id,
+                        });
+                        return;
+                    }
+                    _ => (),
+                }
+
+                if let (Some(arguments), Some(parameter_count), Some(argument_count)) =
+                    (&mut arguments, parameter_count, argument_count)
+                {
+                    match argument_count.cmp(&parameter_count) {
+                        Ordering::Equal => (),
+                        // In case not enough arguments were provided, pad them with empty
+                        // definitions.
+                        Ordering::Less => arguments.resize_with(parameter_count, || Definition {
+                            source_span: TokenSpan::Empty,
+                            parameters: None,
+                        }),
+                        // In case too many arguments were provided, treat the extra ones as one
+                        // big argument.
+                        Ordering::Greater => {
+                            let trailing = arguments.split_off(parameter_count - 1);
+                            let first = trailing.first().expect("argument_count > parameter_count");
+                            let last = trailing.last().expect("argument_count > parameter_count");
+                            arguments.push(Definition {
+                                source_span: first.source_span.join(&last.source_span),
+                                parameters: None,
+                            })
+                        }
+                    }
+                }
+
+                let mut sub_preprocessor = Preprocessor::new(
+                    self.global_definitions,
+                    self.sources,
+                    tokens,
+                    self.out_tokens,
+                    self.diagnostics,
+                );
+
+                sub_preprocessor.preprocess();
+            } else {
+                // The macro is defined as empty; this is fine.
+                // This case does not result in a failed expansion.
+            }
+        } else {
+            self.out_tokens.push(TokenSlice::Empty {
+                source: macro_name_ident.id,
+            });
+        }
+    }
+
     pub fn preprocess(&mut self) {
         loop {
             let token = self.tokens.next();
@@ -404,3 +705,6 @@ where
         self.flush();
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+struct EndOfFile;

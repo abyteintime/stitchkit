@@ -1,8 +1,7 @@
 use bitflags::bitflags;
 use muscript_foundation::{errors::Diagnostic, source_arena::SourceArena, span::Span};
-use thiserror::Error;
 
-use crate::token::{AnyToken, TokenId, TokenSpan};
+use crate::token::{AnyToken, TokenId, TokenKind, TokenSpan};
 
 use super::token::Token;
 
@@ -92,7 +91,7 @@ impl<'a> TokenSpanCursor<'a> {
             Span::Spanning { start, end } => Some(Self {
                 token_arena,
                 cursor: start,
-                end,
+                end: end.successor(),
             }),
         }
     }
@@ -102,18 +101,26 @@ impl<'a> TokenStream for TokenSpanCursor<'a> {
     type Position = TokenId;
 
     fn next(&mut self) -> AnyToken {
-        let id = self.cursor;
-        let token = self.token_arena.element(id);
-        if let Some(successor) = self
-            .cursor
-            .successor_in(TokenSpan::spanning(self.cursor, self.end))
-        {
-            self.cursor = successor;
-        }
-        AnyToken {
-            kind: token.kind,
-            id,
-        }
+        let token = {
+            let id = self.cursor;
+            if let Some(successor) = self
+                .cursor
+                .successor_in(TokenSpan::spanning(self.cursor, self.end))
+            {
+                let token = self.token_arena.element(id);
+                self.cursor = successor;
+                AnyToken {
+                    kind: token.kind,
+                    id,
+                }
+            } else {
+                AnyToken {
+                    kind: TokenKind::EndOfFile,
+                    id: self.cursor.predecessor().unwrap(),
+                }
+            }
+        };
+        token
     }
 
     fn position(&self) -> Self::Position {
@@ -124,7 +131,3 @@ impl<'a> TokenStream for TokenSpanCursor<'a> {
         self.cursor = position;
     }
 }
-
-#[derive(Debug, Error)]
-#[error("end of file reached")]
-pub struct EofReached;

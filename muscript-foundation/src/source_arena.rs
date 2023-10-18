@@ -9,7 +9,7 @@ use crate::{source::SourceFileId, span::Span};
 
 /// ID of an element within a [`SourceArena<T>`].
 pub struct SourceId<T> {
-    index: NonZeroU32,
+    pub(crate) index: NonZeroU32,
     _phantom_data: PhantomData<T>,
 }
 
@@ -92,11 +92,19 @@ impl<'a, T> SourceArenaBuilder<'a, T> {
 }
 
 impl<T> SourceId<T> {
-    fn successor(self) -> Self {
+    pub(crate) fn new(index: NonZeroU32) -> Self {
         Self {
-            index: self.index.saturating_add(1),
+            index,
             _phantom_data: PhantomData,
         }
+    }
+
+    pub fn successor(self) -> Self {
+        Self::new(self.index.saturating_add(1))
+    }
+
+    pub fn predecessor(self) -> Option<Self> {
+        NonZeroU32::new(self.index.get() - 1).map(Self::new)
     }
 
     pub fn successor_in(self, span: Span<T>) -> Option<Self> {

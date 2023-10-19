@@ -14,12 +14,11 @@ pub fn parse_source<T>(
 where
     T: Parse,
 {
-    let _span = info_span!("parse_source").entered();
-
     let source_file = sources.source_file_set.get(id);
+    let _span = info_span!("parse_source", source_file.filename).entered();
 
     let (token_span, lexer_errors) = {
-        let _span = info_span!("lex", source_file.filename).entered();
+        let _span = info_span!("lex").entered();
         let lexer = Lexer::new(
             sources.token_arena.build_source_file(id),
             id,
@@ -29,7 +28,7 @@ where
     };
 
     let preprocessed = {
-        let _span = info_span!("preprocess", source_file.filename).entered();
+        let _span = info_span!("preprocess").entered();
         let mut definitions = Definitions::default();
         let mut preprocessed = SlicedTokens::new();
         let mut preprocessor = Preprocessor::new(
@@ -45,7 +44,7 @@ where
     };
 
     let result = {
-        let _span = info_span!("parse", source_file.filename).entered();
+        let _span = info_span!("parse").entered();
         let tokens = preprocessed
             .stream(&sources.token_arena)
             .expect("token slices emitted by preprocessor must not be empty");

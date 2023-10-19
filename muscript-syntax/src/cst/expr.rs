@@ -102,7 +102,8 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq, Eq, Spanned)]
 pub struct InfixOperator {
     pub token: AnyToken,
-    pub assign: Option<Assign>,
+    pub token2: Option<AnyToken>,
+    // TODO: Unsigned right shift >>> is unsupported.
 }
 
 /// Optional function argument.
@@ -359,27 +360,32 @@ impl Expr {
         })
     }
 
+    fn are_one_token_when_hugging(left: TokenKind, right: TokenKind) -> bool {
+        matches!(
+            (left, right),
+            (TokenKind::Greater, TokenKind::Greater) | (_, TokenKind::Assign)
+        )
+    }
+
     fn next_infix_operator(
         parser: &mut Parser<'_, impl TokenStream>,
     ) -> Result<InfixOperator, ParseError> {
-        use crate::token::SingleToken;
-
         let token = parser.next_token();
-        let possibly_assign = parser.peek_token();
-        if possibly_assign.kind == TokenKind::Assign
+        let possibly_token2 = parser.peek_token();
+        if Self::are_one_token_when_hugging(token.kind, possibly_token2.kind)
             && parser
                 .sources
-                .tokens_are_hugging_each_other(token.id, possibly_assign.id)
+                .tokens_are_hugging_each_other(token.id, possibly_token2.id)
         {
-            let assign = parser.next_token();
+            let token2 = parser.next_token();
             Ok(InfixOperator {
                 token,
-                assign: Some(Assign::default_from_id(assign.id)),
+                token2: Some(token2),
             })
         } else {
             Ok(InfixOperator {
                 token,
-                assign: None,
+                token2: None,
             })
         }
     }
@@ -439,7 +445,7 @@ impl Precedence {
         // would make parsing insanely hard.
         match token.kind {
             _ if token.kind.is_overloadable_operator()
-                && is_compound_assignment(token, sources) =>
+                && sources.span_is_followed_by(&token, '=') =>
             {
                 Precedence::ASSIGN
             }
@@ -464,7 +470,13 @@ impl Precedence {
             TokenKind::Equal => Precedence::Some(24),
             TokenKind::Less => Precedence::Some(24),
             TokenKind::LessEqual => Precedence::Some(24),
-            TokenKind::Greater => Precedence::Some(24),
+            TokenKind::Greater => {
+                if sources.span_is_followed_by(&token, '>') {
+                    Precedence::Some(22)
+                } else {
+                    Precedence::Some(24)
+                }
+            }
             TokenKind::GreaterEqual => Precedence::Some(24),
             TokenKind::ApproxEqual => Precedence::Some(24),
             // Weird thing: != has lower precedence than ==.
@@ -491,12 +503,6 @@ impl Precedence {
             _ => Precedence::None,
         }
     }
-}
-
-fn is_compound_assignment(token: AnyToken, sources: &LexedSources<'_>) -> bool {
-    // This is a little bit cursed, but the level of cursedness here is minor compared to
-    // UnrealScript as a whole.
-    sources.span_is_followed_by(&token, '=')
 }
 
 /// Specialized version of [`Option<T>`] that's built for handling precedence levels.

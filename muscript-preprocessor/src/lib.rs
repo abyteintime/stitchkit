@@ -364,7 +364,7 @@ impl<'a> Preprocessor<'a> {
         let condition_start = self.tokens.position();
         let mut token_count = 0;
         let mut nesting: u32 = 1;
-        let right_paren = loop {
+        loop {
             let token = self.tokens.next();
             token_count += 1;
             match token.kind {
@@ -373,7 +373,7 @@ impl<'a> Preprocessor<'a> {
                     nesting -= 1;
                     if nesting == 0 {
                         token_count -= 1;
-                        break token;
+                        break;
                     }
                 }
                 TokenKind::EndOfFile => {
@@ -386,7 +386,7 @@ impl<'a> Preprocessor<'a> {
                 }
                 _ => (),
             }
-        };
+        }
         let past_condition = self.tokens.position();
         self.tokens.set_position(condition_start);
 

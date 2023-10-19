@@ -14,7 +14,7 @@ use crate::{
     cst::{Block, Expr, KConst, Path, Type},
     diagnostics::{labels, notes},
     list::SeparatedListDiagnostics,
-    token::{AnyToken, Assign, Ident, IntLit, LeftParen, RightParen, Semi},
+    token::{AnyToken, Assign, Greater, Ident, IntLit, LeftParen, RightParen, Semi},
     Parse, ParseError, Parser, PredictiveParse,
 };
 
@@ -232,12 +232,18 @@ impl Parse for ItemFunction {
                     // NOTE: Don't return a parse error here, just continue on parsing to maybe
                     // find another error.
                 }
-                let assign = parser.parse::<Option<Assign>>();
-                let span = if let Ok(Some(assign)) = assign {
-                    operator.span().join(&assign.span())
-                } else {
-                    operator.span()
-                };
+                let mut span = operator.span();
+                if let Some(assign) = parser.parse::<Option<Assign>>()? {
+                    span = span.join(&assign.span());
+                } else if let (true, Some(greater)) = (
+                    operator.kind == TokenKind::Greater,
+                    parser.parse::<Option<Greater>>()?,
+                ) {
+                    span = span.join(&greater.span());
+                    if let Some(greater) = parser.parse::<Option<Greater>>()? {
+                        span = span.join(&greater.span());
+                    }
+                }
                 (
                     Some(Type {
                         specifiers: vec![],

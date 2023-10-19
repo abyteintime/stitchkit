@@ -44,6 +44,10 @@ pub struct Args {
     #[clap(long)]
     dump_analysis_output: bool,
 
+    /// Print global preprocessor definitions (those gathered from `.uci` files).
+    #[clap(long)]
+    dump_global_definitions: bool,
+
     /// Print function IRs.
     #[clap(long)]
     dump_ir: bool,
@@ -204,6 +208,13 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
             );
         }
     };
+
+    if args.dump_global_definitions {
+        for (name, definition) in &input.global_definitions.map {
+            let source = sources.source(&definition.source_span);
+            println!("define {name:?} = {source:?}");
+        }
+    }
 
     let compiler = &mut Compiler {
         sources: &mut sources,

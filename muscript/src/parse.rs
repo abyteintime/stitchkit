@@ -8,6 +8,7 @@ use tracing::info_span;
 
 pub fn parse_source<T>(
     sources: &mut OwnedSources<'_>,
+    definitions: &mut Definitions,
     id: SourceFileId,
     diagnostics: &mut dyn DiagnosticSink<Token>,
 ) -> Result<T, muscript_syntax::ParseError>
@@ -29,10 +30,9 @@ where
 
     let preprocessed = {
         let _span = info_span!("preprocess").entered();
-        let mut definitions = Definitions::default();
         let mut preprocessed = SlicedTokens::new();
         let mut preprocessor = Preprocessor::new(
-            &mut definitions,
+            definitions,
             sources.as_borrowed(),
             TokenSpanCursor::new(&sources.token_arena, token_span)
                 .expect("token span emitted by lexer must not be empty"),

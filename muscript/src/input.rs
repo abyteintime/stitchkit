@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use muscript_analysis::{ClassSourceFile, ClassSources, CompilerInput};
 use muscript_foundation::{errors::DiagnosticSink, ident::CaseInsensitive, source::SourceFileId};
 use muscript_lexer::{sources::OwnedSources, token::Token};
+use muscript_preprocessor::Definitions;
 
 use crate::parse::parse_source;
 
@@ -12,12 +13,14 @@ struct Sources {
 
 pub struct Input {
     class_sources: HashMap<CaseInsensitive<String>, Sources>,
+    pub global_definitions: Definitions,
 }
 
 impl Input {
     pub fn new() -> Self {
         Self {
             class_sources: Default::default(),
+            global_definitions: Definitions::default(),
         }
     }
 
@@ -63,7 +66,12 @@ impl CompilerInput for Input {
                     .source_files
                     .iter()
                     .flat_map(|&id| {
-                        let result = parse_source(owned_sources, id, diagnostics);
+                        let result = parse_source(
+                            owned_sources,
+                            &mut self.global_definitions.clone(),
+                            id,
+                            diagnostics,
+                        );
                         result.map(|file| ClassSourceFile { id, parsed: file })
                     })
                     .collect()

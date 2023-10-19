@@ -170,7 +170,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
         token_arena: SourceArena::new(),
     };
 
-    let (input, mut env, classes_to_compile) = {
+    let (mut input, mut env, classes_to_compile) = {
         let _span = info_span!("compiler_input").entered();
 
         let mut input = Input::new();
@@ -196,7 +196,12 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
 
         for &source_file_id in &include_file_ids {
             // TODO: Don't ignore the CST, do something with it.
-            let _cst = parse_source::<cst::BareFile>(&mut sources, source_file_id, &mut env);
+            let _cst = parse_source::<cst::BareFile>(
+                &mut sources,
+                &mut input.global_definitions,
+                source_file_id,
+                &mut env,
+            );
         }
     };
 

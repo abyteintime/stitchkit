@@ -1,5 +1,3 @@
-use muscript_foundation::source::SourceFileSet;
-
 pub mod class;
 mod diagnostics;
 mod environment;
@@ -11,12 +9,13 @@ mod source;
 pub mod type_system;
 
 pub use environment::*;
+use muscript_lexer::sources::OwnedSources;
 pub use package::*;
 pub use source::*;
 
 /// Full compiler state.
 pub struct Compiler<'a> {
-    pub sources: &'a SourceFileSet,
+    pub sources: &'a mut OwnedSources<'a>,
     pub env: &'a mut Environment,
     pub input: &'a dyn CompilerInput,
 }

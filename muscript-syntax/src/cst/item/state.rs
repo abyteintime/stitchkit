@@ -1,11 +1,12 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{sources::LexedSources, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Extends, KSimulated},
-    lexis::token::{Ident, LeftBrace, RightBrace, Semi, Token},
     list::{SeparatedListDiagnostics, TerminatedListErrorKind},
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident, LeftBrace, RightBrace, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{Item, VarEditor};
@@ -38,7 +39,7 @@ pub struct Ignores {
 }
 
 impl Parse for ItemState {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let auto = parser.parse()?;
         let state = parser.parse()?;
         let editor = parser.parse()?;
@@ -49,9 +50,8 @@ impl Parse for ItemState {
         let (items, close) = parser.parse_terminated_list().map_err(|error| {
             if let TerminatedListErrorKind::MissingTerminator = error.kind {
                 parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `}` to close state body").with_label(
-                        Label::primary(open.span, "this is where the state body begins"),
-                    ),
+                    Diagnostic::error("missing `}` to close state body")
+                        .with_label(Label::primary(&open, "this is where the state body begins")),
                 )
             }
             error.parse
@@ -73,13 +73,13 @@ impl Parse for ItemState {
 
 impl PredictiveParse for ItemState {
     #[allow(deprecated)]
-    fn started_by(token: &Token, input: &str) -> bool {
-        KState::started_by(token, input) || KAuto::started_by(token, input)
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool {
+        KState::started_by(token, sources) || KAuto::started_by(token, sources)
     }
 }
 
 impl Parse for Ignores {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let ignores = parser.parse()?;
         let (events, semi) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(

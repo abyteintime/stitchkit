@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use muscript_foundation::{
     errors::{pipe_all_diagnostics_into, Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::SourceFileId,
 };
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_lexer::token::{Token, TokenSpan};
+use muscript_syntax::cst;
 use tracing::trace;
 
 use crate::{
@@ -31,7 +31,7 @@ pub struct FunctionId(u32);
 
 #[derive(Debug, Default)]
 pub struct Environment {
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<Diagnostic<Token>>,
 
     class_ids_by_name: HashMap<CaseInsensitive<String>, ClassId>,
     class_names_by_id: Vec<CaseInsensitive<String>>,
@@ -68,10 +68,6 @@ impl Environment {
         };
         env.register_fundamental_types();
         env
-    }
-
-    pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.diagnostics
     }
 }
 
@@ -133,14 +129,13 @@ impl<'a> Compiler<'a> {
     /// Look up a class ID from an identifier.
     ///
     /// Returns `None` and emits a diagnostic if the class cannot be found.
-    pub fn lookup_class(&mut self, source_file_id: SourceFileId, ident: Ident) -> Option<ClassId> {
-        let name = self.sources.span(source_file_id, &ident);
+    pub fn lookup_class(&mut self, name: &str, error_span: TokenSpan) -> Option<ClassId> {
         if self.input.class_exists(name) {
             Some(self.env.get_or_create_class(name))
         } else {
             self.env.emit(
-                Diagnostic::error(source_file_id, format!("class `{name}` does not exist"))
-                    .with_label(Label::primary(ident.span, "")),
+                Diagnostic::error(format!("class `{name}` does not exist"))
+                    .with_label(Label::primary(&error_span, "")),
             );
             None
         }
@@ -208,8 +203,8 @@ impl Environment {
     }
 }
 
-impl DiagnosticSink for Environment {
-    fn emit(&mut self, diagnostic: Diagnostic) {
+impl DiagnosticSink<Token> for Environment {
+    fn emit(&mut self, diagnostic: Diagnostic<Token>) {
         self.diagnostics.push(diagnostic);
     }
 }
@@ -223,12 +218,15 @@ impl<'a> Compiler<'a> {
     ) -> Option<&[UntypedClassPartition]> {
         if self.env.untyped_class_partitions.get(&class_id).is_none() {
             let class_name = self.env.class_name(class_id).to_owned();
-            if let Some(class_sources) = self.input.parsed_class_sources(&class_name, self.env) {
+            if let Some(class_sources) =
+                self.input
+                    .parsed_class_sources(self.sources, &class_name, self.env)
+            {
                 let mut diagnostics = vec![];
 
                 UntypedClassPartition::check_package_coherence(
                     &mut diagnostics,
-                    self.sources,
+                    self.sources.source_file_set,
                     &class_sources,
                 );
 
@@ -238,15 +236,14 @@ impl<'a> Compiler<'a> {
                     .map(|source_file| {
                         UntypedClassPartition::from_cst(
                             &mut diagnostics,
-                            self.sources,
-                            source_file.id,
+                            &self.sources.as_borrowed(),
                             source_file.parsed,
                         )
                     })
                     .collect();
                 UntypedClassPartition::check_namespace_coherence(
                     &mut diagnostics,
-                    self.sources,
+                    &self.sources.as_borrowed(),
                     &partitions,
                 );
 
@@ -283,7 +280,7 @@ impl<'a> Compiler<'a> {
             .input
             .class_source_ids(self.env.class_name(class_id))
             .unwrap();
-        &self.sources.get(source_ids[0]).package
+        &self.sources.source_file_set.get(source_ids[0]).package
     }
 }
 
@@ -346,23 +343,13 @@ impl Primitive {
 
 /// # Memoized type lookups
 impl<'a> Compiler<'a> {
-    pub fn type_id(
-        &mut self,
-        source_file_id: SourceFileId,
-        scope: ClassId,
-        ty: &cst::Type,
-    ) -> TypeId {
-        let (_source, type_id) = self.type_id_with_source(source_file_id, scope, ty);
+    pub fn type_id(&mut self, scope: ClassId, ty: &cst::Type) -> TypeId {
+        let (_source, type_id) = self.type_id_with_source(scope, ty);
         type_id
     }
 
-    pub fn type_id_with_source(
-        &mut self,
-        source_file_id: SourceFileId,
-        scope: ClassId,
-        ty: &cst::Type,
-    ) -> (TypeSource, TypeId) {
-        let type_name = TypeName::from_cst(self.sources, source_file_id, ty);
+    pub fn type_id_with_source(&mut self, scope: ClassId, ty: &cst::Type) -> (TypeSource, TypeId) {
+        let type_name = TypeName::from_cst(&self.sources.as_borrowed(), ty);
         if let Some(&type_id) = self
             .env
             .scoped_type_ids_by_name
@@ -373,7 +360,7 @@ impl<'a> Compiler<'a> {
             (TypeSource::Global, type_id)
         } else {
             #[allow(deprecated)]
-            let (source, type_id) = self.find_type_id(source_file_id, scope, ty);
+            let (source, type_id) = self.find_type_id(scope, ty);
             // Only cache the result if the type is correct; in case of erroneous type references
             // we don't want to stop emitting errors at the first one.
             if type_id != TypeId::ERROR {

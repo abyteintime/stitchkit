@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use muscript_foundation::source::Span;
+use muscript_lexer::token::TokenSpan;
 
 use crate::ir::Terminator;
 
@@ -14,11 +14,11 @@ pub struct BasicBlock {
     pub label: Cow<'static, str>,
     pub flow: Vec<NodeId>,
     pub terminator: Terminator,
-    pub span: Span,
+    pub span: TokenSpan,
 }
 
 impl BasicBlock {
-    pub fn new(label: impl Into<Cow<'static, str>>, span: Span) -> Self {
+    pub fn new(label: impl Into<Cow<'static, str>>, span: TokenSpan) -> Self {
         Self {
             label: label.into(),
             flow: vec![],

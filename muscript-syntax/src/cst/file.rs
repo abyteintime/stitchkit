@@ -1,9 +1,9 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::token_stream::TokenStream;
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    diagnostics::notes, lexis::token::EndOfFile, list::TerminatedListErrorKind, Parse, ParseError,
-    ParseStream, Parser,
+    diagnostics::notes, list::TerminatedListErrorKind, token::EndOfFile, Parse, ParseError, Parser,
 };
 
 use super::{Class, Item};
@@ -21,14 +21,14 @@ pub struct BareFile {
 }
 
 impl Parse for BareFile {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let (items, eof) = parser.parse_terminated_list().map_err(|error| {
             match error.kind {
                 TerminatedListErrorKind::Parse => (),
                 TerminatedListErrorKind::MissingTerminator => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "end of file expected after items")
+                    Diagnostic::error("end of file expected after items")
                         .with_label(Label::primary(
-                            error.parse.span,
+                            &error.parse.span,
                             "this is where the file should end",
                         ))
                         .with_note(notes::PARSER_BUG),

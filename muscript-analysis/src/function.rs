@@ -3,9 +3,10 @@ use indoc::indoc;
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, SourceFileSet, Spanned},
+    span::Spanned,
 };
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_lexer::{sources::LexedSources, token::Token};
+use muscript_syntax::cst::{self, ItemName};
 use tracing::info_span;
 
 use crate::{
@@ -24,10 +25,9 @@ mod stmt;
 
 #[derive(Clone)]
 pub struct Function {
-    pub source_file_id: SourceFileId,
     pub class_id: ClassId,
     pub mangled_name: String,
-    pub name_ident: Ident,
+    pub name: ItemName,
 
     pub return_ty: TypeId,
     pub params: Vec<Param>,
@@ -128,15 +128,13 @@ impl<'a> Compiler<'a> {
     /// Analyzes a function signature from CST.
     pub(crate) fn analyze_function_signature(
         &mut self,
-        source_file_id: SourceFileId,
         class_id: ClassId,
         name: &str,
         cst: &cst::ItemFunction,
     ) -> FunctionId {
         let (flags, implementation) = FunctionFlags::from_pre_specifiers(
             self.env,
-            self.sources,
-            source_file_id,
+            &self.sources.as_borrowed(),
             &cst.pre_specifiers,
         );
         let kind = match cst.kind {
@@ -151,18 +149,17 @@ impl<'a> Compiler<'a> {
         let return_ty = cst
             .return_ty
             .as_ref()
-            .map(|ty| self.type_id(source_file_id, class_id, ty))
+            .map(|ty| self.type_id(class_id, ty))
             .unwrap_or(TypeId::VOID);
 
         let mut params = vec![];
         for param in &cst.params.params {
             let (var_flags, param_flags) = flags_from_param_specifiers(&param.specifiers);
-            unsupported_param_specifiers(self.env, source_file_id, &param.specifiers);
+            unsupported_param_specifiers(self.env, &param.specifiers);
 
-            let ty = self.type_id(source_file_id, class_id, &param.ty);
+            let ty = self.type_id(class_id, &param.ty);
             let param_var = self.env.register_var(Var {
-                source_file_id,
-                name: param.name,
+                name: ItemName::from_spanned(&param.name),
                 ty,
                 kind: VarKind::Var(var_flags),
             });
@@ -172,13 +169,12 @@ impl<'a> Compiler<'a> {
             });
         }
 
-        unsupported_post_specifiers(self.env, source_file_id, &cst.post_specifiers);
+        unsupported_post_specifiers(self.env, &cst.post_specifiers);
 
         self.env.register_function(Function {
-            source_file_id,
             class_id,
             mangled_name: name.to_owned(),
-            name_ident: cst.name,
+            name: cst.name,
             return_ty,
             params,
             flags,
@@ -197,11 +193,7 @@ impl<'a> Compiler<'a> {
         )
         .entered();
 
-        let &Function {
-            source_file_id,
-            class_id,
-            ..
-        } = function;
+        let &Function { class_id, .. } = function;
         let name = function.mangled_name.clone();
         let (partition_index, cst) = self
             .untyped_class_partitions_for_theft(class_id)
@@ -237,8 +229,8 @@ impl<'a> Compiler<'a> {
                 ) || function.kind == FunctionKind::Event;
                 if !can_be_stubbed_out {
                     self.env.emit(
-                        Diagnostic::error(source_file_id, "function body expected")
-                            .with_label(Label::primary(semi.span, ""))
+                        Diagnostic::error("function body expected")
+                            .with_label(Label::primary(semi, ""))
                             .with_note("note: functions can only be stubbed out when they're in interfaces, or when they're `native`"),
                     )
                 }
@@ -251,8 +243,8 @@ impl<'a> Compiler<'a> {
         // Give the last emitted block a terminator, which would normally be `unreachable`.
         // We `return void` for now because TODO: definite return analysis.
         let end_token_span = match &cst.body {
-            cst::Body::Stub(semi) => semi.span,
-            cst::Body::Impl(block) => block.close.span,
+            cst::Body::Stub(semi) => semi.span(),
+            cst::Body::Impl(block) => block.close.span(),
         };
         let function = self.env.get_function(function_id);
         let returned_void = builder.ir.append_register(
@@ -275,9 +267,8 @@ impl<'a> Compiler<'a> {
 
 impl FunctionFlags {
     fn from_pre_specifiers(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
-        source_file_id: SourceFileId,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         specifiers: &[cst::FunctionSpecifier],
     ) -> (FunctionFlags, FunctionImplementation) {
         let mut flags = FunctionFlags::empty();
@@ -312,15 +303,14 @@ impl FunctionFlags {
                     continue;
                 }
                 cst::FunctionSpecifier::Native(_, Some(opcode_index_cst)) => {
-                    let input = sources.source(source_file_id);
                     let opcode_index =
                         opcode_index_cst
                             .number
-                            .parse(input, diagnostics, source_file_id);
+                            .parse(sources, diagnostics);
                     if !(0..=4095).contains(&opcode_index) {
                         diagnostics.emit(
-                            Diagnostic::error(source_file_id, "`native` index out of range")
-                                .with_label(Label::primary(opcode_index_cst.number.span, ""))
+                            Diagnostic::error("`native` index out of range")
+                                .with_label(Label::primary(&opcode_index_cst.number, ""))
                                 .with_note("note: indices of native functions bound to opcodes must lie within the [0, 4095] range"),
                         )
                     }
@@ -330,10 +320,9 @@ impl FunctionFlags {
 
                 cst::FunctionSpecifier::Const(ident) => diagnostics.emit(
                     Diagnostic::error(
-                        source_file_id,
                         "`const` specifier must be placed after the function's parameters",
                     )
-                    .with_label(Label::primary(ident.span, ""))
+                    .with_label(Label::primary(ident, ""))
                     .with_note(indoc!{"
                         note: even if placed there, `const` is ignored because it's only relevant for exporting
                               C++ headers, which MuScript does not support
@@ -350,8 +339,8 @@ impl FunctionFlags {
             }
 
             if flags == previous_flags {
-                let mut diagnostic = Diagnostic::warning(source_file_id, "specifier is ignored")
-                    .with_label(Label::primary(specifier.span(), ""));
+                let mut diagnostic = Diagnostic::warning("specifier is ignored")
+                    .with_label(Label::primary(specifier, ""));
 
                 match specifier {
                     cst::FunctionSpecifier::Coerce(_) => {
@@ -379,15 +368,14 @@ impl FunctionFlags {
 }
 
 fn unsupported_post_specifiers(
-    diagnostics: &mut dyn DiagnosticSink,
-    source_file_id: SourceFileId,
+    diagnostics: &mut dyn DiagnosticSink<Token>,
     specifiers: &[cst::FunctionSpecifier],
 ) {
     for specifier in specifiers {
         if let cst::FunctionSpecifier::Const(ident) = specifier {
             diagnostics.emit(
-                Diagnostic::warning(source_file_id, "`const` specifier is ignored")
-                    .with_label(Label::primary(ident.span, ""))
+                Diagnostic::warning("`const` specifier is ignored")
+                    .with_label(Label::primary(ident, ""))
                     .with_note(indoc! {"
                         note: `const` after the function's parameters is only relevant for exporting C++ headers,
                               which MuScript does not support
@@ -395,12 +383,9 @@ fn unsupported_post_specifiers(
             )
         } else {
             diagnostics.emit(
-                Diagnostic::error(
-                    source_file_id,
-                    "specifiers other than `const` are not allowed here",
-                )
-                .with_label(Label::primary(specifier.span(), ""))
-                .with_note("help: try placing the specifier before `function`"),
+                Diagnostic::error("specifiers other than `const` are not allowed here")
+                    .with_label(Label::primary(specifier, ""))
+                    .with_note("help: try placing the specifier before `function`"),
             )
         }
     }
@@ -425,15 +410,14 @@ fn flags_from_param_specifiers(specifiers: &[cst::ParamSpecifier]) -> (VarFlags,
 }
 
 fn unsupported_param_specifiers(
-    diagnostics: &mut dyn DiagnosticSink,
-    source_file_id: SourceFileId,
+    diagnostics: &mut dyn DiagnosticSink<Token>,
     specifiers: &[cst::ParamSpecifier],
 ) {
     for specifier in specifiers {
         if let cst::ParamSpecifier::Skip(ident) = specifier {
             diagnostics.emit(
-                Diagnostic::warning(source_file_id, "`skip` specifier is ignored")
-                    .with_label(Label::primary(ident.span, ""))
+                Diagnostic::warning("`skip` specifier is ignored")
+                    .with_label(Label::primary(ident, ""))
                     .with_note("note: MuScript currently does not support the `skip` specifier on non-`native` functions"),
             );
         }

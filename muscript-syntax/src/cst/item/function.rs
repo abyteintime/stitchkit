@@ -1,16 +1,24 @@
 use indoc::indoc;
-use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_foundation::{
+    errors::{Diagnostic, Label},
+    span::Spanned,
+};
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{Token, TokenKind},
+    token_stream::TokenStream,
+};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Block, Expr, KConst, Path, Type},
     diagnostics::{labels, notes},
-    lexis::token::{Assign, Ident, IntLit, LeftParen, RightParen, Semi, Token, TokenKind},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Assign, Greater, Ident, IntLit, LeftParen, RightParen, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
-use super::VarArray;
+use super::{ItemName, VarArray};
 
 #[derive(Debug, Clone, Spanned)]
 pub struct ItemFunction {
@@ -18,7 +26,7 @@ pub struct ItemFunction {
     pub kind: FunctionKind,
     pub post_specifiers: Vec<FunctionSpecifier>,
     pub return_ty: Option<Type>,
-    pub name: Ident,
+    pub name: ItemName,
     pub params: Params,
     pub kconst: Option<KConst>,
     pub body: Body,
@@ -148,17 +156,17 @@ pub enum Body {
 }
 
 impl ItemFunction {
-    fn parse_name(parser: &mut Parser<'_, impl ParseStream>) -> Result<Ident, ParseError> {
+    fn parse_name(parser: &mut Parser<'_, impl TokenStream>) -> Result<Ident, ParseError> {
         parser.parse_with_error::<Ident>(|parser, span| {
-            Diagnostic::error(parser.file, "function name expected")
-                .with_label(labels::invalid_identifier(span, parser.input))
+            Diagnostic::error("function name expected")
+                .with_label(labels::invalid_identifier(span, &parser.sources))
                 .with_note(notes::IDENTIFIER_CHARS)
         })
     }
 }
 
 impl Parse for ItemFunction {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let pre_specifiers = parser.parse_greedy_list()?;
         let function = parser.parse()?;
         let post_specifiers = parser.parse_greedy_list()?;
@@ -169,8 +177,13 @@ impl Parse for ItemFunction {
                 // possible to do predictively, which is very nice.) This would've been easier if
                 // return types weren't optional, but alas.
                 let name_or_type = Self::parse_name(parser)?;
-                if parser.peek_token()?.kind == TokenKind::LeftParen {
-                    (None, name_or_type)
+                if parser.peek_token().kind == TokenKind::LeftParen {
+                    (
+                        None,
+                        ItemName {
+                            span: name_or_type.span(),
+                        },
+                    )
                 } else {
                     let path = Path::continue_parsing(parser, name_or_type)?;
                     let generic = parser.parse()?;
@@ -181,7 +194,9 @@ impl Parse for ItemFunction {
                             generic,
                             cpptemplate: None,
                         }),
-                        Self::parse_name(parser)?,
+                        ItemName {
+                            span: Self::parse_name(parser)?.span(),
+                        },
                     )
                 }
             }
@@ -193,17 +208,14 @@ impl Parse for ItemFunction {
                 // For practical reasons we still make it pose as an identifier, but the lexer
                 // doesn't see it exactly that way.
                 let return_ty = parser.parse()?;
-                let operator = parser.next_token()?;
+                let operator = parser.next_token();
                 if !operator.kind.is_overloadable_operator() {
                     parser.emit_diagnostic(
-                        Diagnostic::error(
-                            parser.file,
-                            format!(
-                                "`{}` is not an overloadable operator",
-                                operator.span.get_input(parser.input)
-                            ),
-                        )
-                        .with_label(Label::primary(operator.span, "operator expected here"))
+                        Diagnostic::error(format!(
+                            "`{}` is not an overloadable operator",
+                            parser.sources.source(&operator)
+                        ))
+                        .with_label(Label::primary(&operator, "operator expected here"))
                         .with_note(indoc!(
                             r#"
                                 note: overloadable operators include:
@@ -220,12 +232,18 @@ impl Parse for ItemFunction {
                     // NOTE: Don't return a parse error here, just continue on parsing to maybe
                     // find another error.
                 }
-                let assign = parser.parse::<Option<Assign>>();
-                let span = if let Ok(Some(assign)) = assign {
-                    operator.span.join(&assign.span)
-                } else {
-                    operator.span
-                };
+                let mut span = operator.span();
+                if let Some(assign) = parser.parse::<Option<Assign>>()? {
+                    span = span.join(&assign.span());
+                } else if let (true, Some(greater)) = (
+                    operator.kind == TokenKind::Greater,
+                    parser.parse::<Option<Greater>>()?,
+                ) {
+                    span = span.join(&greater.span());
+                    if let Some(greater) = parser.parse::<Option<Greater>>()? {
+                        span = span.join(&greater.span());
+                    }
+                }
                 (
                     Some(Type {
                         specifiers: vec![],
@@ -235,7 +253,7 @@ impl Parse for ItemFunction {
                         generic: None,
                         cpptemplate: None,
                     }),
-                    Ident { span },
+                    ItemName { span },
                 )
             }
         };
@@ -258,14 +276,14 @@ impl Parse for ItemFunction {
 
 impl PredictiveParse for ItemFunction {
     #[allow(deprecated)]
-    fn started_by(token: &Token, input: &str) -> bool {
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool {
         // Kind of sub-optimal that we have to check here each and every single identifier.
-        FunctionKind::started_by(token, input) || FunctionSpecifier::started_by(token, input)
+        FunctionKind::started_by(token, sources) || FunctionSpecifier::started_by(token, sources)
     }
 }
 
 impl Parse for Params {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let open: LeftParen = parser.parse()?;
         let (params, close) = parser.parse_comma_separated_list().map_err(|error| {
             parser.emit_separated_list_diagnostic(
@@ -291,7 +309,7 @@ impl Parse for Params {
 }
 
 impl Parse for Param {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         Ok(Self {
             specifiers: parser.parse_greedy_list()?,
             ty: parser.parse()?,
@@ -304,57 +322,48 @@ impl Parse for Param {
 
 impl PredictiveParse for Param {
     #[allow(deprecated)]
-    fn started_by(token: &Token, input: &str) -> bool {
-        Ident::started_by(token, input)
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool {
+        Ident::started_by(token, sources)
     }
 }
 
-fn function_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown function specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn function_specifier_error(
+    parser: &Parser<'_, impl TokenStream>,
+    token: &AnyToken,
+) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown function specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
     .with_note("note: notable function specifiers include `static` and `final`")
 }
 
-fn param_specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown parameter specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn param_specifier_error(
+    parser: &Parser<'_, impl TokenStream>,
+    token: &AnyToken,
+) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown parameter specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
     .with_note("note: notable parameter specifiers include `optional` and `out`")
 }
 
-fn kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        "`function`, `event`, `preoperator`, or `operator` expected",
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this token does not start a function",
-    ))
-    .with_note("help: maybe you typo'd a specifier?")
+fn kind_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("`function`, `event`, `preoperator`, or `operator` expected")
+        .with_label(Label::primary(
+            token,
+            "this token does not start a function",
+        ))
+        .with_note("help: maybe you typo'd a specifier?")
 }
 
-fn body_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "function body `{ .. }` expected")
-    .with_label(Label::primary(token.span, "`{` expected here"))
-    .with_note(
-        "note: functions can also be stubbed out using `;`, but it's probably not what you want"
-    )
+fn body_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("function body `{ .. }` expected")
+        .with_label(Label::primary(token, "`{` expected here"))
+        .with_note(
+            "note: functions can also be stubbed out using `;`, but it's probably not what you want"
+        )
 }

@@ -15,7 +15,13 @@ pub fn derive_spanned_impl(item: Item) -> syn::Result<TokenStream> {
     }
 }
 
+fn spanned_trait() -> TokenStream {
+    quote! { ::muscript_foundation::span::Spanned<::muscript_lexer::token::Token> }
+}
+
 fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
+    let spanned_trait = spanned_trait();
+
     if item.fields.is_empty() {
         return Err(syn::Error::new_spanned(
             item.ident,
@@ -33,7 +39,7 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
         let field_name = field_name(i, field);
         let ty = &field.ty;
         let get_field_span = quote! {
-            <#ty as ::muscript_foundation::source::Spanned>::span(&self.#field_name)
+            <#ty as #spanned_trait>::span(&self.#field_name)
         };
         if i == 0 {
             get_span.extend(get_field_span);
@@ -46,8 +52,8 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
     let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics ::muscript_foundation::source::Spanned for #type_name #type_generics #where_clause {
-            fn span(&self) -> ::muscript_foundation::source::Span {
+        impl #impl_generics #spanned_trait for #type_name #type_generics #where_clause {
+            fn span(&self) -> ::muscript_lexer::token::TokenSpan {
                 #get_span
             }
         }
@@ -55,6 +61,8 @@ fn for_struct(item: ItemStruct) -> syn::Result<TokenStream> {
 }
 
 fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
+    let spanned_trait = spanned_trait();
+
     let mut arms = TokenStream::new();
     for (_, variant) in item.variants.iter().enumerate() {
         let mut get_span = TokenStream::new();
@@ -64,7 +72,7 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
             let destructured_var_name = Ident::new(&format!("__span_{i}"), field.ident.span());
             let ty = &field.ty;
             let get_field_span = quote! {
-                <#ty as ::muscript_foundation::source::Spanned>::span(&#destructured_var_name)
+                <#ty as #spanned_trait>::span(&#destructured_var_name)
             };
             if i == 0 {
                 get_span.extend(get_field_span);
@@ -85,8 +93,8 @@ fn for_enum(item: ItemEnum) -> syn::Result<TokenStream> {
     let (impl_generics, type_generics, where_clause) = item.generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics ::muscript_foundation::source::Spanned for #type_name #type_generics #where_clause {
-            fn span(&self) -> ::muscript_foundation::source::Span {
+        impl #impl_generics #spanned_trait for #type_name #type_generics #where_clause {
+            fn span(&self) -> ::muscript_lexer::token::TokenSpan {
                 match self {
                     #arms
                 }

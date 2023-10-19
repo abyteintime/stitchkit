@@ -1,10 +1,10 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::{
     cst,
-    lexis::token::{FloatLit, IntLit, NameLit, StringLit},
+    token::{FloatLit, IntLit, NameLit, StringLit},
 };
 
 use crate::{
@@ -52,7 +52,6 @@ impl<'a> Compiler<'a> {
         lit: &IntLit,
     ) -> RegisterId {
         // NOTE: Int literals coerce to floats automatically.
-        let input = self.sources.source(builder.source_file_id);
         let type_id = if context.expected_type.is_exactly(TypeId::FLOAT) {
             TypeId::FLOAT
         } else if context.expected_type.is_exactly(TypeId::BYTE) {
@@ -60,9 +59,9 @@ impl<'a> Compiler<'a> {
         } else {
             TypeId::INT
         };
-        let i = lit.parse(input, self.env, builder.source_file_id);
+        let i = lit.parse(&self.sources.as_borrowed(), self.env);
         builder.ir.append_register(
-            lit.span,
+            lit.span(),
             "lit_int",
             type_id,
             if type_id == TypeId::FLOAT {
@@ -71,8 +70,8 @@ impl<'a> Compiler<'a> {
                 let byte = u8::try_from(i);
                 if byte.is_err() {
                     self.env.emit(
-                        Diagnostic::error(builder.source_file_id, "byte value out of range")
-                            .with_label(Label::primary(lit.span, ""))
+                        Diagnostic::error("byte value out of range")
+                            .with_label(Label::primary(lit, ""))
                             .with_note("note: byte literals must fit in the range [0, 255]"),
                     )
                 }
@@ -84,27 +83,24 @@ impl<'a> Compiler<'a> {
     }
 
     fn expr_lit_float(&mut self, builder: &mut FunctionBuilder, lit: &FloatLit) -> RegisterId {
-        let input = self.sources.source(builder.source_file_id);
-        let f = lit.parse(input, self.env, builder.source_file_id);
+        let f = lit.parse(&self.sources.as_borrowed(), self.env);
         builder
             .ir
-            .append_register(lit.span, "lit_float", TypeId::FLOAT, Value::Float(f))
+            .append_register(lit.span(), "lit_float", TypeId::FLOAT, Value::Float(f))
     }
 
     fn expr_lit_string(&mut self, builder: &mut FunctionBuilder, lit: &StringLit) -> RegisterId {
-        let input = self.sources.source(builder.source_file_id);
-        let s = lit.parse(input, self.env, builder.source_file_id);
+        let s = lit.parse(&self.sources.as_borrowed(), self.env);
         builder
             .ir
-            .append_register(lit.span, "lit_string", TypeId::STRING, Value::String(s))
+            .append_register(lit.span(), "lit_string", TypeId::STRING, Value::String(s))
     }
 
     fn expr_lit_name(&mut self, builder: &mut FunctionBuilder, lit: &NameLit) -> RegisterId {
-        let input = self.sources.source(builder.source_file_id);
-        let n = lit.parse(input).to_string();
+        let n = lit.parse(&self.sources.as_borrowed()).to_string();
         builder
             .ir
-            .append_register(lit.span, "lit_name", TypeId::NAME, Value::Name(n))
+            .append_register(lit.span(), "lit_name", TypeId::NAME, Value::Name(n))
     }
 
     fn expr_lit_none(
@@ -127,6 +123,6 @@ impl<'a> Compiler<'a> {
         };
         builder
             .ir
-            .append_register(lit.span, "lit_none", ty, Value::None)
+            .append_register(lit.span(), "lit_none", ty, Value::None)
     }
 }

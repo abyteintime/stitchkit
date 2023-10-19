@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use heck::ToPascalCase;
-use muscript_foundation::source::{SourceFileId, SourceFileSet};
 use muscript_syntax::cst;
 
 use crate::type_system::TypeName;
@@ -92,6 +91,8 @@ pub fn mangled_type_name(type_name: &TypeName) -> Cow<'_, str> {
 
 /// CST-level mangling; performed at partitioning time to disambiguate operators.
 pub mod cst_level {
+    use muscript_lexer::sources::LexedSources;
+
     use super::*;
 
     // NOTE: Code here is largely a duplicate of the outer module because I'm lazy.
@@ -114,12 +115,10 @@ pub mod cst_level {
     /// [`Owned`]: Cow::Owned
     /// [`Borrowed`]: Cow::Borrowed
     pub fn mangled_function_name<'a>(
-        sources: &'a SourceFileSet,
-        source_file_id: SourceFileId,
+        sources: &LexedSources<'a>,
         function: &cst::ItemFunction,
     ) -> Cow<'a, str> {
-        let source = &sources.get(source_file_id).source;
-        let function_name = function.name.span.get_input(source);
+        let function_name = &sources.source(&function.name);
         match function.kind {
             // Not sure if delegates should be mangled or not.
             cst::FunctionKind::Function(_)
@@ -138,7 +137,7 @@ pub mod cst_level {
                     }
                 );
                 for param in &function.params.params {
-                    mangled.push_str(&mangled_type_name(sources, source_file_id, &param.ty));
+                    mangled.push_str(&mangled_type_name(sources, &param.ty));
                 }
                 Cow::Owned(mangled)
             }
@@ -154,19 +153,13 @@ pub mod cst_level {
     /// Generics `Generic<Int, Float>` are mangled to `Generic-lInt-cFloat-g`, because they do not need
     /// compatibility with vanilla packages, as no operators ever use generic arguments.
     /// `-l` is meant to represent **l**ess-than, `-c` **c**ommas, and `-g` **g**reater-than.
-    pub fn mangled_type_name<'a>(
-        sources: &'a SourceFileSet,
-        source_file_id: SourceFileId,
-        ty: &cst::Type,
-    ) -> Cow<'a, str> {
-        // NOTE: The implementation is
-        let source = &sources.get(source_file_id).source;
-        let ty_name_ident = ty
+    pub fn mangled_type_name<'a>(sources: &LexedSources<'a>, ty: &cst::Type) -> Cow<'a, str> {
+        let ty_name_ident = *ty
             .path
             .components
             .last()
             .expect("path must have more than zero components");
-        let ty_name = ty_name_ident.span.get_input(source);
+        let ty_name = sources.source(&ty_name_ident);
         if let Some(generic) = &ty.generic {
             let mut builder = String::from(ty_name);
             builder.push_str(GENERIC_LESS);
@@ -174,7 +167,7 @@ pub mod cst_level {
                 if i != 0 {
                     builder.push_str(GENERIC_COMMA);
                 }
-                builder.push_str(&mangled_type_name(sources, source_file_id, arg));
+                builder.push_str(&mangled_type_name(sources, arg));
             }
             builder.push_str(GENERIC_GREATER);
             Cow::Owned(builder)

@@ -1,16 +1,13 @@
 use bitflags::bitflags;
-use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label},
-    source::{SourceFileId, SourceFileSet, Spanned},
-};
-use muscript_syntax::{cst, lexis::token::Ident};
+use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label};
+use muscript_lexer::{sources::LexedSources, token::Token};
+use muscript_syntax::cst::{self, ItemName};
 
 use crate::{diagnostics::notes, ir::interpret::Constant, TypeId};
 
 #[derive(Debug, Clone)]
 pub struct Var {
-    pub source_file_id: SourceFileId,
-    pub name: Ident,
+    pub name: ItemName,
     pub ty: TypeId,
     pub kind: VarKind,
 }
@@ -76,9 +73,8 @@ bitflags! {
 
 impl VarFlags {
     pub fn from_cst(
-        diagnostics: &mut dyn DiagnosticSink,
-        sources: &SourceFileSet,
-        source_file_id: SourceFileId,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
+        sources: &LexedSources<'_>,
         specifiers: &[cst::VarSpecifier],
     ) -> Self {
         let mut result = Self::empty();
@@ -135,9 +131,8 @@ impl VarFlags {
 
             if ignored {
                 diagnostics.emit({
-                    let mut diagnostic =
-                        Diagnostic::warning(source_file_id, "specifier is ignored")
-                            .with_label(Label::primary(specifier.span(), ""));
+                    let mut diagnostic = Diagnostic::warning("specifier is ignored")
+                        .with_label(Label::primary(specifier, ""));
                     match specifier {
                         cst::VarSpecifier::NotForConsole(_) => {
                             diagnostic =
@@ -161,14 +156,11 @@ impl VarFlags {
             } else if result == before_modification {
                 // TODO: Maybe better tracking so that we can show where the specifier occurs first?
                 diagnostics.emit(
-                    Diagnostic::warning(
-                        source_file_id,
-                        format!(
-                            "repeated `{}` specifier",
-                            sources.span(source_file_id, specifier)
-                        ),
-                    )
-                    .with_label(Label::primary(specifier.span(), "")),
+                    Diagnostic::warning(format!(
+                        "repeated `{}` specifier",
+                        sources.source(specifier)
+                    ))
+                    .with_label(Label::primary(specifier, "")),
                 )
             }
         }

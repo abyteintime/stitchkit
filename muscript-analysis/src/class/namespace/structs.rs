@@ -3,9 +3,9 @@ use std::{collections::HashMap, rc::Rc};
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::{SourceFileId, Spanned},
+    span::Spanned,
 };
-use muscript_syntax::cst;
+use muscript_syntax::cst::{self, ItemName};
 
 use crate::{
     class::{Var, VarFlags, VarKind},
@@ -37,16 +37,13 @@ impl<'a> Compiler<'a> {
         &'x mut self,
         class_id: ClassId,
         struct_name: &str,
-    ) -> Option<(SourceFileId, &'x UntypedStruct)> {
+    ) -> Option<&'x UntypedStruct> {
         if let Some(partitions) = self.untyped_class_partitions(class_id) {
-            let source_file_and_cst = partitions.iter().find_map(|partition| {
-                partition
-                    .types
-                    .get(CaseInsensitive::new_ref(struct_name))
-                    .map(|cst| (partition.source_file_id, cst))
-            });
-            if let Some((source_file_id, TypeCst::Struct(cst))) = source_file_and_cst {
-                return Some((source_file_id, cst));
+            let cst = partitions
+                .iter()
+                .find_map(|partition| partition.types.get(CaseInsensitive::new_ref(struct_name)));
+            if let Some(TypeCst::Struct(cst)) = cst {
+                return Some(cst);
             }
         }
         None
@@ -99,19 +96,18 @@ impl<'a> Compiler<'a> {
                 .fields
                 .contains_key(CaseInsensitive::new_ref(field_name))
             {
-                let var_id = if let Some((source_file_id, untyped_struct)) =
-                    self.untyped_struct(class_id, struct_name)
-                {
-                    untyped_struct
-                        .vars
-                        .get(CaseInsensitive::new_ref(field_name))
-                        // Somewhat annoyed at the fact we have to clone here, but at least the
-                        // result is memoized.
-                        .cloned()
-                        .map(|item_var| self.create_struct_var(source_file_id, class_id, item_var))
-                } else {
-                    None
-                };
+                let var_id =
+                    if let Some(untyped_struct) = self.untyped_struct(class_id, struct_name) {
+                        untyped_struct
+                            .vars
+                            .get(CaseInsensitive::new_ref(field_name))
+                            // Somewhat annoyed at the fact we have to clone here, but at least the
+                            // result is memoized.
+                            .cloned()
+                            .map(|item_var| self.create_struct_var(class_id, item_var))
+                    } else {
+                        None
+                    };
                 let class_struct = self.class_struct_mut(class_id, struct_name).unwrap();
                 class_struct
                     .fields
@@ -129,34 +125,23 @@ impl<'a> Compiler<'a> {
             })
     }
 
-    fn create_struct_var(
-        &mut self,
-        source_file_id: SourceFileId,
-        class_id: ClassId,
-        cst: ItemSingleVar,
-    ) -> VarId {
-        self.check_struct_var_specifiers(source_file_id, &cst.specifiers);
+    fn create_struct_var(&mut self, class_id: ClassId, cst: ItemSingleVar) -> VarId {
+        self.check_struct_var_specifiers(&cst.specifiers);
         let var = Var {
-            source_file_id,
-            name: cst.variable.name,
-            ty: self.type_id(source_file_id, class_id, &cst.ty),
+            name: ItemName::from_spanned(&cst.variable.name),
+            ty: self.type_id(class_id, &cst.ty),
             // For now we reuse class flags despite some of them not being
             // meaningful in structs.
             kind: VarKind::Var(VarFlags::from_cst(
                 self.env,
-                self.sources,
-                source_file_id,
+                &self.sources.as_borrowed(),
                 &cst.specifiers,
             )),
         };
         self.env.register_var(var)
     }
 
-    fn check_struct_var_specifiers(
-        &mut self,
-        source_file_id: SourceFileId,
-        specifiers: &[cst::VarSpecifier],
-    ) {
+    fn check_struct_var_specifiers(&mut self, specifiers: &[cst::VarSpecifier]) {
         for specifier in specifiers {
             match specifier {
                 // NOTE: This list may be inaccurate. This is just a guess as to which specifiers
@@ -200,14 +185,11 @@ impl<'a> Compiler<'a> {
                     // Could probably use better error messages explaining why a particular
                     // specifier is banned.
                     self.env.emit(
-                        Diagnostic::error(
-                            source_file_id,
-                            "specifier cannot be used in struct variables",
-                        )
-                        .with_label(Label::primary(
-                            specifier.span(),
-                            "this specifier cannot be used in a struct",
-                        )),
+                        Diagnostic::error("specifier cannot be used in struct variables")
+                            .with_label(Label::primary(
+                                specifier,
+                                "this specifier cannot be used in a struct",
+                            )),
                     )
                 }
             }
@@ -223,13 +205,10 @@ impl<'a> Compiler<'a> {
             .class_struct_mut(class_id, struct_name)
             .map(|x| &x.super_struct)
         {
-            if let Some((source_file_id, untyped_struct)) =
-                self.untyped_struct(class_id, struct_name)
-            {
+            if let Some(untyped_struct) = self.untyped_struct(class_id, struct_name) {
                 if let Some(extends) = untyped_struct.extends.clone() {
                     let span = extends.span();
                     let ty = self.type_id(
-                        source_file_id,
                         class_id,
                         &cst::Type {
                             specifiers: vec![],
@@ -242,11 +221,8 @@ impl<'a> Compiler<'a> {
                         // TODO: Tell the user here what the type actually is?
                         // TODO: Point to the declaration of the mismatched type?
                         self.env.emit(
-                            Diagnostic::error(
-                                source_file_id,
-                                "base type of a struct must also be a struct",
-                            )
-                            .with_label(Label::primary(span, "this is not a struct type")),
+                            Diagnostic::error("base type of a struct must also be a struct")
+                                .with_label(Label::primary(&span, "this is not a struct type")),
                         );
                         let class_struct = self
                             .class_struct_mut(class_id, struct_name)

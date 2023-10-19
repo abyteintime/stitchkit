@@ -1,12 +1,14 @@
 use std::fmt::Write as _;
 
 use muscript_foundation::{
+    self,
     errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
-    source::{Span, Spanned},
+    span::Spanned,
 };
+use muscript_lexer::token::{Token, TokenSpan};
 use muscript_syntax::{
     cst::{self, InfixOperator},
-    lexis::token::{LeftParen, RightParen, Token},
+    token::{AnyToken, LeftParen, RightParen},
 };
 
 use crate::{
@@ -33,14 +35,12 @@ impl<'a> Compiler<'a> {
         &mut self,
         builder: &mut FunctionBuilder,
         context: ExprContext,
-        outer_span: Span,
-        operator: &dyn Spanned,
+        outer_span: TokenSpan,
+        operator: &dyn Spanned<Token>,
         is_prefix: bool,
         arguments: &[RegisterId],
     ) -> RegisterId {
-        let operator_str = operator
-            .span()
-            .get_input(self.sources.source(builder.source_file_id));
+        let operator_str = self.sources.source(&operator.span());
         let operator_function_name = mangled_operator_function_name(Operator {
             operator: operator_str,
             argument_types: arguments
@@ -82,8 +82,8 @@ impl<'a> Compiler<'a> {
                     _ = write!(error, "`{type_name}`");
                 }
                 self.env.emit(
-                    Diagnostic::error(builder.source_file_id, error)
-                        .with_label(Label::primary(operator.span(), ""))
+                    Diagnostic::error( error)
+                        .with_label(Label::primary(&operator.span(), ""))
                         .with_note(Note {
                             kind: NoteKind::Debug,
                             text: format!("this operator's mangled name is `{}`, which was not found in this scope", operator_function_name),
@@ -105,7 +105,7 @@ impl<'a> Compiler<'a> {
         builder: &mut FunctionBuilder,
         context: ExprContext,
         outer: &cst::Expr,
-        operator: &Token,
+        operator: &AnyToken,
         right: &cst::Expr,
     ) -> RegisterId {
         // TODO: Specialize negation here so that it's interpreted as if it were a part of
@@ -125,7 +125,7 @@ impl<'a> Compiler<'a> {
         builder: &mut FunctionBuilder,
         context: ExprContext,
         outer: &cst::Expr,
-        operator: &Token,
+        operator: &AnyToken,
         left: &cst::Expr,
     ) -> RegisterId {
         let left = self.expr(
@@ -186,30 +186,24 @@ impl<'a> Compiler<'a> {
         } = syntax;
 
         if let cst::Expr::Ident(ident) = function {
-            let name = self.sources.span(builder.source_file_id, ident);
+            let name = self.sources.source(ident);
             if let Some(function_id) = self.lookup_function(builder.class_id, name) {
                 let num_params = self.env.get_function(function_id).params.len();
 
                 if args.len() > num_params {
                     let function = self.env.get_function(function_id);
                     self.env.emit(
-                        Diagnostic::error(
-                            builder.source_file_id,
-                            format!(
-                                "too many parameters; expected {num_params}, but got {}",
-                                args.len()
-                            ),
-                        )
-                        .with_label(Label::primary(args[num_params].span(), ""))
-                        .with_label(
-                            Label::secondary(function.name_ident.span, "function declared here")
-                                .in_file(function.source_file_id),
-                        ),
+                        Diagnostic::error(format!(
+                            "too many parameters; expected {num_params}, but got {}",
+                            args.len()
+                        ))
+                        .with_label(Label::primary(&args[num_params], ""))
+                        .with_label(Label::secondary(&function.name, "function declared here")),
                     );
                 }
 
                 let mut arguments = vec![];
-                let last_omitted = cst::Arg::Omitted(close.span);
+                let last_omitted = cst::Arg::Omitted(close.span());
                 for i in 0..num_params {
                     let arg = args.get(i).unwrap_or(&last_omitted);
                     let arg = self.expr_call_arg(builder, function_id, arg, i);
@@ -230,7 +224,6 @@ impl<'a> Compiler<'a> {
                 // TODO: There should be a better way of suppressing diagnostics within a scope.
                 let num_diagnostics = self.env.diagnostics.len();
                 let type_id = self.type_id(
-                    builder.source_file_id,
                     builder.class_id,
                     &cst::Type {
                         specifiers: vec![],
@@ -247,18 +240,13 @@ impl<'a> Compiler<'a> {
                         if let cst::Arg::Provided(value_expr) = arg {
                             return self.expr_cast(builder, outer, function, type_id, value_expr);
                         } else {
-                            self.env.emit(Diagnostic::error(
-                                builder.source_file_id,
-                                "type cast argument cannot be omitted",
-                            ))
+                            self.env
+                                .emit(Diagnostic::error("type cast argument cannot be omitted"))
                         }
                     } else {
                         self.env.emit(
-                            Diagnostic::error(
-                                builder.source_file_id,
-                                "type cast expects one argument",
-                            )
-                            .with_label(Label::primary(open.span.join(&close.span), "")),
+                            Diagnostic::error("type cast expects one argument")
+                                .with_label(Label::primary(&open.span().join(&close.span()), "")),
                         )
                     }
                 } else {
@@ -266,26 +254,22 @@ impl<'a> Compiler<'a> {
                         .diagnostics
                         .resize_with(num_diagnostics, || unreachable!("must only shrink"));
                     self.env.emit(
-                        Diagnostic::error(
-                            builder.source_file_id,
-                            format!("function `{name}` could not be found in this scope"),
-                        )
-                        .with_label(Label::primary(ident.span, "")),
+                        Diagnostic::error(format!(
+                            "function `{name}` could not be found in this scope"
+                        ))
+                        .with_label(Label::primary(ident, "")),
                     )
                 }
             }
         } else {
             self.env.emit(
-                Diagnostic::error(builder.source_file_id, "expression cannot be called")
+                Diagnostic::error("expression cannot be called")
                     .with_label(Label::primary(
-                        function.span(),
+                        function,
                         "this expression does not denote a function",
                     ))
-                    .with_label(Label::secondary(
-                        open.span,
-                        "this `(` begins a function call",
-                    ))
-                    .with_label(Label::secondary(close.span, "")),
+                    .with_label(Label::secondary(&open, "this `(` begins a function call"))
+                    .with_label(Label::secondary(&close, "")),
                 // TODO: Examples.
                 // TODO: In case LHS is a macro, this needs a better error message.
                 // .with_note("note: the left hand side of a function call must be:"),
@@ -326,32 +310,25 @@ impl<'a> Compiler<'a> {
                     && !builder.ir.is_place(value)
                 {
                     self.env.emit(
-                        Diagnostic::error(
-                            builder.source_file_id,
-                            "expression passed to `out` parameter must be a place",
-                        )
-                        .with_label(Label::primary(expr.span(), "this is not a place in memory")),
+                        Diagnostic::error("expression passed to `out` parameter must be a place")
+                            .with_label(Label::primary(expr, "this is not a place in memory")),
                     );
                 }
                 self.coerce_expr(builder, value, param_ty)
             }
             cst::Arg::Omitted(span) => {
                 let param = &self.env.get_function(function_id).params[param_index];
-                let param_name = self.sources.span(param_var.source_file_id, &param_var.name);
+                let param_name = self.sources.source(&param_var.name);
                 if !param.flags.contains(ParamFlags::OPTIONAL) {
                     self.env.emit(
-                        Diagnostic::error(
-                            builder.source_file_id,
-                            format!("required argument `{param_name}` was not provided"),
-                        )
-                        .with_label(Label::primary(*span, "argument expected here..."))
-                        .with_label(
-                            Label::primary(
-                                param_var.name.span,
-                                "...to provide a value for this parameter",
-                            )
-                            .in_file(param_var.source_file_id),
-                        ),
+                        Diagnostic::error(format!(
+                            "required argument `{param_name}` was not provided"
+                        ))
+                        .with_label(Label::primary(span, "argument expected here..."))
+                        .with_label(Label::primary(
+                            &param_var.name,
+                            "...to provide a value for this parameter",
+                        )),
                     )
                 }
                 builder

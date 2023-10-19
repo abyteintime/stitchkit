@@ -10,6 +10,8 @@ members = [
     "muscript",
     "muscript-analysis",
     "muscript-foundation",
+    "muscript-lexer",
+    "muscript-preprocessor",
     "muscript-syntax",
     "muscript-syntax-derive",
 ]
@@ -36,5 +38,7 @@ stitchkit-uscript = { path = "stitchkit-uscript" }
 
 muscript-analysis = { path = "muscript-analysis" }
 muscript-foundation = { path = "muscript-foundation" }
+muscript-lexer = { path = "muscript-lexer" }
+muscript-preprocessor = { path = "muscript-preprocessor" }
 muscript-syntax = { path = "muscript-syntax" }
 muscript-syntax-derive = { path = "muscript-syntax-derive" }

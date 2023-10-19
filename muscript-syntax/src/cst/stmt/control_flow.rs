@@ -1,10 +1,11 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::{Expr, Precedence},
-    lexis::token::{Colon, LeftParen, RightParen, Semi, Token},
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Colon, LeftParen, RightParen, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{Block, Stmt};
@@ -125,7 +126,7 @@ pub struct StmtContinue {
 }
 
 impl Parse for StmtForEach {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let foreach = parser.parse()?;
         let iterator = Expr::precedence_parse(parser, Precedence::BELOW_CALL, false)?;
         let stmt = Box::new(parser.parse()?);
@@ -137,7 +138,7 @@ impl Parse for StmtForEach {
     }
 }
 
-fn _return_value_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(parser.file, "return value or `;` expected")
-        .with_label(Label::primary(token.span, "return value expected here"))
+fn _return_value_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("return value or `;` expected")
+        .with_label(Label::primary(token, "return value expected here"))
 }

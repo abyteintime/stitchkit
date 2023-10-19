@@ -1,118 +1,12 @@
 //! Types for representing source code.
 
 use std::{
-    fmt,
-    ops::{Deref, Range},
     path::{Path, PathBuf},
     rc::Rc,
 };
 
 use codespan_reporting::files::Files;
 use thiserror::Error;
-
-/// Represents a span of characters within the source code.
-///
-/// While conceptually this is very similar to [`Range<usize>`], it avoids the huge pitfall of
-/// [`Range`] not implementing [`Copy`], and is therefore a lot easier to handle.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Span {
-    pub start: u32,
-    pub end: u32,
-}
-
-impl Span {
-    pub const EMPTY: Self = Self { start: 0, end: 0 };
-
-    /// Converts the span to a [`Range`].
-    pub fn to_range(self) -> Range<u32> {
-        Range::from(self)
-    }
-
-    pub fn to_usize_range(self) -> Range<usize> {
-        self.start as usize..self.end as usize
-    }
-
-    /// Joins two spans together, forming one big span that includes both `self` and `other`.
-    pub fn join(&self, other: &Span) -> Span {
-        if *self == Self::EMPTY {
-            *other
-        } else if *other == Self::EMPTY {
-            *self
-        } else {
-            Span {
-                start: self.start.min(other.start),
-                end: self.end.max(other.end),
-            }
-        }
-    }
-
-    /// Returns the slice of the original input string that this span represents.
-    pub fn get_input<'a>(&self, input: &'a str) -> &'a str {
-        &input[self.to_usize_range()]
-    }
-}
-
-impl From<Span> for Range<u32> {
-    fn from(value: Span) -> Self {
-        value.start..value.end
-    }
-}
-
-impl From<Range<u32>> for Span {
-    fn from(value: Range<u32>) -> Self {
-        Self {
-            start: value.start,
-            end: value.end,
-        }
-    }
-}
-
-impl fmt::Debug for Span {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&Range::from(*self), f)
-    }
-}
-
-/// Implemented by all types that have a source code span attached.
-pub trait Spanned {
-    fn span(&self) -> Span;
-}
-
-impl Spanned for Span {
-    fn span(&self) -> Span {
-        *self
-    }
-}
-
-impl<T> Spanned for Option<T>
-where
-    T: Spanned,
-{
-    fn span(&self) -> Span {
-        self.as_ref().map(|x| x.span()).unwrap_or(Span::EMPTY)
-    }
-}
-
-impl<T> Spanned for Box<T>
-where
-    T: Spanned,
-{
-    fn span(&self) -> Span {
-        self.deref().span()
-    }
-}
-
-impl<T> Spanned for Vec<T>
-where
-    T: Spanned,
-{
-    fn span(&self) -> Span {
-        self.first()
-            .zip(self.last())
-            .map(|(first, last)| first.span().join(&last.span()))
-            .unwrap_or(Span::EMPTY)
-    }
-}
 
 /// Represents a single source file.
 #[derive(Debug, Clone)]
@@ -229,10 +123,6 @@ impl SourceFileSet {
 
     pub fn source(&self, file: SourceFileId) -> &str {
         &self.get(file).source
-    }
-
-    pub fn span(&self, file: SourceFileId, spanned: &impl Spanned) -> &str {
-        spanned.span().get_input(&self.get(file).source)
     }
 }
 

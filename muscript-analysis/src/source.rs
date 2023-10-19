@@ -1,4 +1,5 @@
 use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
+use muscript_lexer::{sources::OwnedSources, token::Token};
 use muscript_syntax::cst;
 
 /// Collection of source files for a class.
@@ -32,7 +33,8 @@ pub trait CompilerInput {
     /// irrecoverably fail to parse should not be included in the output.
     fn parsed_class_sources(
         &self,
+        sources: &mut OwnedSources<'_>,
         class_name: &str,
-        diagnostics: &mut dyn DiagnosticSink,
+        diagnostics: &mut dyn DiagnosticSink<Token>,
     ) -> Option<ClassSources>;
 }

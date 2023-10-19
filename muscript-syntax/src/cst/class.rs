@@ -1,11 +1,12 @@
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     diagnostics::{labels, notes},
-    lexis::token::{Ident, LeftParen, RightParen, Semi, Token},
     list::TerminatedListErrorKind,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident, LeftParen, RightParen, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{BoolLit, Path, SpecifierArgs};
@@ -106,11 +107,11 @@ pub enum ClassSpecifier {
 }
 
 impl Parse for Class {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let class = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "class name expected")
-                .with_label(labels::invalid_identifier(span, parser.input))
+            Diagnostic::error("class name expected")
+                .with_label(labels::invalid_identifier(span, &parser.sources))
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let extends = parser.parse()?;
@@ -119,11 +120,9 @@ impl Parse for Class {
             match error.kind {
                 TerminatedListErrorKind::Parse => (),
                 TerminatedListErrorKind::MissingTerminator => parser.emit_diagnostic(
-                    Diagnostic::error(parser.file, "missing `;` after class specifier list")
-                        .with_label(Label::primary(
-                            error.parse.span,
-                            "this was expected to be `;`",
-                        )),
+                    Diagnostic::error("missing `;` after class specifier list").with_label(
+                        Label::primary(&error.parse.span, "this was expected to be `;`"),
+                    ),
                 ),
             }
             error.parse
@@ -139,26 +138,17 @@ impl Parse for Class {
     }
 }
 
-fn class_kind_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        "`class`, `partial class`, or `interface` expected",
-    )
-    .with_label(Label::primary(token.span, ""))
-    .with_note("note: the file must start with the kind of type you're declaring")
+fn class_kind_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("`class`, `partial class`, or `interface` expected")
+        .with_label(Label::primary(token, ""))
+        .with_note("note: the file must start with the kind of type you're declaring")
 }
 
-fn specifier_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        format!(
-            "unknown class specifier `{}`",
-            token.span.get_input(parser.input)
-        ),
-    )
-    .with_label(Label::primary(
-        token.span,
-        "this specifier is not recognized",
+fn specifier_error(parser: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error(format!(
+        "unknown class specifier `{}`",
+        parser.sources.source(token)
     ))
+    .with_label(Label::primary(token, "this specifier is not recognized"))
     .with_note("note: notable class specifiers include `placeable` and `abstract`")
 }

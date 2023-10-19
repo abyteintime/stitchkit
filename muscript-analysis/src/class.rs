@@ -1,9 +1,9 @@
 use bitflags::bitflags;
-use muscript_syntax::lexis::token::Ident;
 
 mod namespace;
 mod var;
 
+use muscript_syntax::token::Ident;
 pub use namespace::*;
 pub use var::*;
 

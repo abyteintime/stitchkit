@@ -1,10 +1,7 @@
 use muscript_foundation::ident::CaseInsensitive;
 use tracing::{info_span, trace};
 
-use crate::{
-    partition::{UntypedClassPartition, UntypedClassPartitionsExt},
-    ClassId, Compiler, FunctionId,
-};
+use crate::{partition::UntypedClassPartitionsExt, ClassId, Compiler, FunctionId};
 
 /// # Functions
 impl<'a> Compiler<'a> {
@@ -22,14 +19,8 @@ impl<'a> Compiler<'a> {
                         .functions
                         .remove_entry(CaseInsensitive::new_ref(name))
                         .expect("index_of_partition_with_function returned Some for a reason");
-                    let &mut UntypedClassPartition { source_file_id, .. } = partition;
 
-                    let function_id = self.analyze_function_signature(
-                        source_file_id,
-                        class_id,
-                        name,
-                        &stolen_cst,
-                    );
+                    let function_id = self.analyze_function_signature(class_id, name, &stolen_cst);
 
                     // As per our "theft" contract (which does not really involve theft - this is a
                     // pacifist run) - give it back.

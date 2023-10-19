@@ -1,22 +1,29 @@
+mod lazy;
 mod recovery;
 
-use muscript_foundation::{
-    errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind},
-    source::{SourceFileId, Span},
-};
+use std::collections::HashMap;
 
-use crate::lexis::{
-    token::{SingleToken, Token},
-    Channel, LexError, LexicalContext, TokenStream,
+use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind};
+use muscript_lexer::{
+    sources::LexedSources,
+    token::{AnyToken, Token, TokenId, TokenKind, TokenSpan},
+    token_stream::{Channel, TokenStream},
 };
+use tracing::warn;
 
+pub use lazy::*;
 pub use recovery::*;
 
+use crate::token::SingleToken;
+
 pub struct Parser<'a, T> {
-    pub file: SourceFileId,
-    pub input: &'a str,
+    pub sources: LexedSources<'a>,
+    lexer_errors: &'a HashMap<TokenId, Diagnostic<Token>>,
     pub tokens: T,
-    diagnostics: &'a mut dyn DiagnosticSink,
+    diagnostics: &'a mut dyn DiagnosticSink<Token>,
+
+    delimiter_stack: Vec<TokenKind>,
+
     // TODO: This should probably be a &mut because with how it's done currently creating a sub
     // parser involves cloning the vector.
     #[cfg(feature = "parse-traceback")]
@@ -25,16 +32,19 @@ pub struct Parser<'a, T> {
 
 impl<'a, T> Parser<'a, T> {
     pub fn new(
-        file: SourceFileId,
-        input: &'a str,
+        sources: LexedSources<'a>,
+        lexer_errors: &'a HashMap<TokenId, Diagnostic<Token>>,
         tokens: T,
-        diagnostics: &'a mut dyn DiagnosticSink,
+        diagnostics: &'a mut dyn DiagnosticSink<Token>,
     ) -> Self {
         Self {
-            file,
-            input,
+            sources,
+            lexer_errors,
             tokens,
             diagnostics,
+
+            delimiter_stack: vec![],
+
             #[cfg(feature = "parse-traceback")]
             rule_traceback: Vec::with_capacity(32),
         }
@@ -42,18 +52,21 @@ impl<'a, T> Parser<'a, T> {
 
     pub fn sub<'b>(
         &'b mut self,
-        diagnostics: Option<&'b mut dyn DiagnosticSink>,
+        diagnostics: Option<&'b mut dyn DiagnosticSink<Token>>,
     ) -> Parser<'b, &mut T> {
         Parser {
-            file: self.file,
-            input: self.input,
+            sources: self.sources,
             tokens: &mut self.tokens,
+            lexer_errors: self.lexer_errors,
             diagnostics: diagnostics
                 .map(|r| {
-                    let d: &mut dyn DiagnosticSink = r;
+                    let d: &mut dyn DiagnosticSink<Token> = r;
                     d
                 })
                 .unwrap_or(self.diagnostics),
+
+            delimiter_stack: vec![],
+
             #[cfg(feature = "parse-traceback")]
             rule_traceback: self.rule_traceback.clone(),
         }
@@ -75,16 +88,20 @@ where
         }
     }
 
-    pub fn make_error(&self, span: Span) -> ParseError {
+    pub fn make_error(&self, span: TokenSpan) -> ParseError {
         ParseError::new(span, self.rule_traceback())
     }
 
-    pub fn bail<TT>(&mut self, error_span: Span, error: Diagnostic) -> Result<TT, ParseError> {
+    pub fn bail<TT>(
+        &mut self,
+        error_span: TokenSpan,
+        error: Diagnostic<Token>,
+    ) -> Result<TT, ParseError> {
         self.emit_diagnostic(error);
         Err(self.make_error(error_span))
     }
 
-    pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic) {
+    pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic<Token>) {
         #[cfg(feature = "parse-traceback")]
         let diagnostic = diagnostic.with_note(Note {
             kind: NoteKind::Debug,
@@ -105,84 +122,90 @@ where
 
 impl<'a, T> Parser<'a, T>
 where
-    T: ParseStream,
+    T: TokenStream,
 {
-    pub fn next_token_from(
-        &mut self,
-        context: LexicalContext,
-        channel: Channel,
-    ) -> Result<Token, ParseError> {
-        self.tokens
-            .next_from(context, channel)
-            .map_err(|LexError { span, diagnostics }| {
-                for diagnostic in diagnostics {
-                    self.emit_diagnostic(diagnostic);
+    pub fn next_token_from(&mut self, channel: Channel) -> AnyToken {
+        loop {
+            let token = self.tokens.next_from(channel);
+            if token.kind.channel() == Channel::ERROR && !channel.contains(Channel::ERROR) {
+                if let Some(diagnostic) = self.lexer_errors.get(&token.id) {
+                    self.diagnostics.emit(diagnostic.clone());
+                } else {
+                    warn!(?token, "error token without corresponding diagnostic");
                 }
-                self.make_error(span)
-            })
+            } else {
+                if let Some(closing_kind) = token.kind.closed_by() {
+                    self.delimiter_stack.push(closing_kind);
+                }
+                if token.kind.closes().is_some() {
+                    // We want to consume delimiters until we hit a matching one, unless we never actually
+                    // hit a matching one.
+                    // - In `{{}}`, at the first `}` the stack will be `{{` and so everything will
+                    //   be popped.
+                    // - In `{[}`, the `}` will pop both `[` and `{` because the `[` is astray and should
+                    //   not be here.
+                    // - `{[}]` is a similar case to the above, but the last `]` will not pop anything
+                    //   because the stack is empty.
+                    // This mechanism can be tweaked in the future to include eg. a "weakness" mechanism,
+                    // where certain delimiters can be considered stronger than others, so that eg. `}`
+                    // can pop `(`, but `)` cannot pop `{`.
+                    if let Some(i) = self.delimiter_stack.iter().rposition(|&k| k == token.kind) {
+                        self.delimiter_stack.resize_with(i, || unreachable!());
+                    }
+                }
+
+                return token;
+            }
+        }
     }
 
-    pub fn next_token(&mut self) -> Result<Token, ParseError> {
-        self.next_token_from(LexicalContext::Default, Channel::CODE)
+    pub fn next_token(&mut self) -> AnyToken {
+        self.next_token_from(Channel::CODE)
     }
 
-    pub fn peek_token_from(
-        &mut self,
-        context: LexicalContext,
-        channel: Channel,
-    ) -> Result<Token, ParseError> {
-        self.tokens
-            .peek_from(context, channel)
-            .map_err(|LexError { span, .. }| self.make_error(span))
+    pub fn peek_token_from(&mut self, channel: Channel) -> AnyToken {
+        let position = self.tokens.position();
+        let token = loop {
+            let token = self.next_token_from(channel);
+            if channel.contains(token.kind.channel()) || token.kind == TokenKind::EndOfFile {
+                break token;
+            }
+        };
+        self.tokens.set_position(position);
+        token
     }
 
-    pub fn peek_token(&mut self) -> Result<Token, ParseError> {
-        self.peek_token_from(LexicalContext::Default, Channel::CODE)
+    pub fn peek_token(&mut self) -> AnyToken {
+        self.peek_token_from(Channel::CODE)
     }
 
-    pub fn expect_token_from<Tok>(
-        &mut self,
-        context: LexicalContext,
-        channel: Channel,
-    ) -> Result<Tok, ParseError>
+    pub fn expect_token_from<Tok>(&mut self, channel: Channel) -> Result<Tok, ParseError>
     where
         Tok: SingleToken,
     {
-        match self.next_token_from(context, channel | Tok::LISTEN_TO_CHANNELS) {
-            Ok(token) => {
-                let input = token.span.get_input(self.input);
-                Tok::try_from_token(token.clone(), input).map_err(|error| {
-                    self.emit_diagnostic(
-                        Diagnostic::error(self.file, format!("{} expected", Tok::NAME))
-                            .with_label(Label::primary(
-                                error.span,
-                                format!("{} expected here", Tok::NAME),
-                            ))
-                            .with_note(Note {
-                                kind: NoteKind::Debug,
-                                text: format!("at token {token:?}"),
-                                suggestion: None,
-                            }),
-                    );
-                    ParseError::new(error.span, self.rule_traceback())
-                })
-            }
-            Err(ParseError {
-                span,
-                rule_traceback: _,
-            }) => {
-                // Try to recover from the lexis error and keep on parsing beyond this point.
-                // We fabricate the token from the reported span.
-                Ok(Tok::default_from_span(span))
-            }
-        }
+        let token = self.next_token_from(channel | Tok::LISTEN_TO_CHANNELS);
+        Tok::try_from_token(token, &self.sources).map_err(|error| {
+            self.emit_diagnostic(
+                Diagnostic::error(format!("{} expected", Tok::NAME))
+                    .with_label(Label::primary(
+                        &TokenSpan::single(error.token_id),
+                        format!("{} expected here", Tok::NAME),
+                    ))
+                    .with_note(Note {
+                        kind: NoteKind::Debug,
+                        text: format!("at token {token:?}"),
+                        suggestion: None,
+                    }),
+            );
+            ParseError::new(TokenSpan::single(error.token_id), self.rule_traceback())
+        })
     }
 
     pub fn expect_token<Tok>(&mut self) -> Result<Tok, ParseError>
     where
         Tok: SingleToken,
     {
-        self.expect_token_from(LexicalContext::Default, Channel::CODE)
+        self.expect_token_from(Channel::CODE)
     }
 
     /// Returns whether the next token starts `N` without advancing the token stream.
@@ -190,15 +213,9 @@ where
     where
         N: PredictiveParse,
     {
-        if let Ok(next_token) = self.peek_token_from(
-            LexicalContext::Default,
-            Channel::CODE | N::LISTEN_TO_CHANNELS,
-        ) {
-            #[allow(deprecated)]
-            N::started_by(&next_token, self.input)
-        } else {
-            false
-        }
+        let next_token = self.peek_token_from(Channel::CODE | N::LISTEN_TO_CHANNELS);
+        #[allow(deprecated)]
+        N::started_by(&next_token, &self.sources)
     }
 
     pub fn scope_mut<R>(&mut self, name: &'static str, f: impl FnOnce(&mut Self) -> R) -> R {
@@ -228,7 +245,7 @@ where
 
     pub fn parse_with_error<N>(
         &mut self,
-        diagnostic: impl FnOnce(&Self, Span) -> Diagnostic,
+        diagnostic: impl FnOnce(&Self, TokenSpan) -> Diagnostic<Token>,
     ) -> Result<N, ParseError>
     where
         N: Parse,
@@ -243,30 +260,16 @@ where
 /// The AST node could not be parsed.
 #[derive(Debug, Clone)]
 pub struct ParseError {
-    pub span: Span,
+    pub span: TokenSpan,
     pub rule_traceback: Vec<&'static str>,
 }
 
 impl ParseError {
-    pub fn new(span: Span, rule_traceback: Vec<&'static str>) -> Self {
+    pub fn new(span: TokenSpan, rule_traceback: Vec<&'static str>) -> Self {
         Self {
             span,
             rule_traceback,
         }
-    }
-}
-
-/// Token stream which can provide data for error recovery.
-pub trait ParseStream: TokenStream {
-    fn nesting_level(&self) -> usize;
-}
-
-impl<T> ParseStream for &mut T
-where
-    T: ParseStream,
-{
-    fn nesting_level(&self) -> usize {
-        <T as ParseStream>::nesting_level(self)
     }
 }
 
@@ -275,14 +278,14 @@ pub trait Parse: Sized {
     /// processing or error recovery.
     /// You generally want to use [`Parser::parse`] instead of this.
     #[deprecated(note = "use [`Parser::parse`] instead of this")]
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError>;
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError>;
 }
 
 impl<T> Parse for Box<T>
 where
     T: Parse,
 {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         Ok(Box::new(parser.parse()?))
     }
 }
@@ -293,14 +296,14 @@ pub trait PredictiveParse: Parse {
 
     /// Returns `true` if this rule starts with the given token.
     #[deprecated = "use [`Parser::next_matches`] instead"]
-    fn started_by(token: &Token, input: &str) -> bool;
+    fn started_by(token: &AnyToken, sources: &LexedSources<'_>) -> bool;
 }
 
 impl<N> Parse for Option<N>
 where
     N: PredictiveParse,
 {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         if parser.next_matches::<N>() {
             Ok(Some(parser.parse()?))
         } else {

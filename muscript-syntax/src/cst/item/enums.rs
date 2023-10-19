@@ -1,12 +1,13 @@
 use muscript_foundation::errors::Diagnostic;
+use muscript_lexer::token_stream::TokenStream;
 use muscript_syntax_derive::Spanned;
 
 use crate::{
     cst::Meta,
     diagnostics::{labels, notes},
-    lexis::token::{Ident, LeftBrace, RightBrace, Semi},
     list::SeparatedListDiagnostics,
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Ident, LeftBrace, RightBrace, Semi},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 keyword!(KEnum = "enum");
@@ -33,11 +34,11 @@ pub struct EnumVariant {
 }
 
 impl Parse for EnumDef {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let kenum = parser.parse()?;
         let name = parser.parse_with_error(|parser, span| {
-            Diagnostic::error(parser.file, "enum name expected")
-                .with_label(labels::invalid_identifier(span, parser.input))
+            Diagnostic::error("enum name expected")
+                .with_label(labels::invalid_identifier(span, &parser.sources))
                 .with_note(notes::IDENTIFIER_CHARS)
         })?;
         let open = parser.parse()?;

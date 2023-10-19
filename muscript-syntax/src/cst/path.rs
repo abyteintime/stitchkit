@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 
+use muscript_lexer::{sources::LexedSources, token::TokenKind, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    lexis::token::{Ident, Token, TokenKind},
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{AnyToken, Ident},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 #[derive(Debug, Clone, Spanned)]
@@ -18,27 +19,27 @@ impl Path {
     }
 
     pub fn continue_parsing(
-        parser: &mut Parser<'_, impl ParseStream>,
+        parser: &mut Parser<'_, impl TokenStream>,
         root: Ident,
     ) -> Result<Self, ParseError> {
         let mut components = vec![root];
-        while parser.peek_token()?.kind == TokenKind::Dot {
-            let _dot = parser.next_token()?;
+        while parser.peek_token().kind == TokenKind::Dot {
+            let _dot = parser.next_token();
             components.push(parser.parse()?);
         }
         Ok(Self::new(components))
     }
 
-    pub fn pretty_print<'a>(&self, input: &'a str) -> Cow<'a, str> {
+    pub fn pretty_print<'a>(&self, sources: &LexedSources<'a>) -> Cow<'a, str> {
         if let [first] = &self.components[..] {
-            Cow::Borrowed(first.span.get_input(input))
+            Cow::Borrowed(sources.source(first))
         } else {
             let mut buffer = String::new();
             for (i, component) in self.components.iter().enumerate() {
                 if i != 0 {
                     buffer.push('.');
                 }
-                buffer.push_str(component.span.get_input(input));
+                buffer.push_str(sources.source(component));
             }
             Cow::Owned(buffer)
         }
@@ -52,14 +53,14 @@ impl From<Ident> for Path {
 }
 
 impl Parse for Path {
-    fn parse(parser: &mut Parser<'_, impl ParseStream>) -> Result<Self, ParseError> {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let root = parser.parse()?;
         Self::continue_parsing(parser, root)
     }
 }
 
 impl PredictiveParse for Path {
-    fn started_by(token: &Token, _: &str) -> bool {
+    fn started_by(token: &AnyToken, _: &LexedSources<'_>) -> bool {
         token.kind == TokenKind::Ident
     }
 }

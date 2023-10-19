@@ -2,19 +2,23 @@
 
 use std::marker::PhantomData;
 
-use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_foundation::{
+    errors::{Diagnostic, Label},
+    span::Span,
+};
+use muscript_lexer::{
+    token::TokenKind,
+    token_stream::{Channel, TokenStream},
+};
 
 use crate::{
-    lexis::{
-        token::{Comma, SingleToken, TokenKind},
-        Channel, LexicalContext, TokenStream,
-    },
-    Parse, ParseError, ParseStream, Parser, PredictiveParse,
+    token::{Comma, SingleToken},
+    Parse, ParseError, Parser, PredictiveParse,
 };
 
 impl<'a, T> Parser<'a, T>
 where
-    T: ParseStream,
+    T: TokenStream,
 {
     pub fn parse_greedy_list<E>(&mut self) -> Result<Vec<E>, ParseError>
     where
@@ -46,18 +50,16 @@ where
 
         let mut elements = vec![];
         let terminator = loop {
-            let token = self
-                .peek_token()
-                .map_err(error(TerminatedListErrorKind::Parse))?;
+            let token = self.peek_token();
             match token.kind {
-                _ if R::matches(&token, token.span.get_input(self.input)) => {
-                    self.next_token().expect("the token was already parsed");
-                    break R::default_from_span(token.span);
+                _ if R::matches(&token, &self.sources) => {
+                    self.next_token();
+                    break R::default_from_id(token.id);
                 }
                 TokenKind::EndOfFile => {
                     return Err(TerminatedListError {
                         kind: TerminatedListErrorKind::MissingTerminator,
-                        parse: self.make_error(token.span),
+                        parse: self.make_error(Span::single(token.id)),
                     })
                 }
                 _ => (),
@@ -101,45 +103,39 @@ where
             // Type was chosen here because of generic lists, which are terminated with `>` and thus
             // `>>` need to be treated as disjoint tokens. But will we ever need a separated list
             // terminated with `>>` (RightShift)?
-            let token = self
-                .peek_token_from(LexicalContext::Type, Channel::CODE)
-                .map_err(error(SeparatedListErrorKind::Parse))?;
+            let token = self.peek_token_from(Channel::CODE);
             match token.kind {
                 TokenKind::EndOfFile => {
                     return Err(SeparatedListError {
                         kind: SeparatedListErrorKind::MissingRight,
-                        parse: self.make_error(token.span),
+                        parse: self.make_error(Span::single(token.id)),
                         _phantom: PhantomData,
                     });
                 }
-                _ if R::matches(&token, token.span.get_input(self.input)) => {
+                _ if R::matches(&token, &self.sources) => {
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
-                    self.next_token_from(LexicalContext::Type, Channel::CODE)
-                        .map_err(error(SeparatedListErrorKind::Parse))?;
-                    break R::default_from_span(token.span);
+                    self.next_token_from(Channel::CODE);
+                    break R::default_from_id(token.id);
                 }
                 _ => (),
             }
             // TODO: Have some better error recovery in case parsing the element or any delimiting
             // tokens fails.
             elements.push(self.parse().map_err(error(SeparatedListErrorKind::Parse))?);
-            match self
-                .next_token_from(LexicalContext::Type, Channel::CODE)
-                .map_err(error(SeparatedListErrorKind::Parse))?
-            {
-                token if S::matches(&token, token.span.get_input(self.input)) => (),
-                token if R::matches(&token, token.span.get_input(self.input)) => {
+            match self.next_token_from(Channel::CODE) {
+                token if S::matches(&token, &self.sources) => (),
+                token if R::matches(&token, &self.sources) => {
                     // Use default_from_span instead of try_from_token here, since we know the token
                     // is valid. Hopefully this doesn't backfire if at some point we decide that
                     // tokens may store more metadata than just the span.
-                    break R::default_from_span(token.span);
+                    break R::default_from_id(token.id);
                 }
                 unexpected => {
                     return Err(SeparatedListError {
                         kind: SeparatedListErrorKind::MissingSeparator,
-                        parse: self.make_error(unexpected.span),
+                        parse: self.make_error(Span::single(unexpected.id)),
                         _phantom: PhantomData,
                     });
                 }
@@ -229,20 +225,16 @@ where
         match error.kind {
             SeparatedListErrorKind::Parse => (),
             SeparatedListErrorKind::MissingRight => self.emit_diagnostic(
-                Diagnostic::error(self.file, diagnostics.missing_right).with_label(
-                    Label::secondary(open.span(), diagnostics.missing_right_label),
-                ),
+                Diagnostic::error(diagnostics.missing_right)
+                    .with_label(Label::secondary(open, diagnostics.missing_right_label)),
             ),
             SeparatedListErrorKind::MissingSeparator => self.emit_diagnostic(
-                Diagnostic::error(self.file, diagnostics.missing_comma)
+                Diagnostic::error(diagnostics.missing_comma)
                     .with_label(Label::primary(
-                        error.parse.span,
+                        &error.parse.span,
                         diagnostics.missing_comma_token,
                     ))
-                    .with_label(Label::secondary(
-                        open.span(),
-                        diagnostics.missing_comma_open,
-                    ))
+                    .with_label(Label::secondary(open, diagnostics.missing_comma_open))
                     .with_note(diagnostics.missing_comma_note),
             ),
         }

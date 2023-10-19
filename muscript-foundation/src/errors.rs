@@ -5,14 +5,25 @@
 
 mod sink;
 
+use std::ops::Range;
+
 use codespan_reporting::{
     term,
     term::termcolor::{ColorChoice, StandardStream},
 };
 
-use crate::source::{SourceFileId, SourceFileSet, Span};
+use crate::{
+    source::{SourceFileId, SourceFileSet},
+    source_arena::SourceArena,
+    span::{Span, Spanned},
+};
 
 pub use sink::*;
+
+/// Trait for types which span across a range of source characters.
+pub trait SourceRange {
+    fn source_range(&self) -> Range<usize>;
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LabelStyle {
@@ -23,26 +34,33 @@ pub enum LabelStyle {
 }
 
 /// Labels allow you to attach information about where in the code an error occurred.
-#[derive(Debug, Clone)]
-pub struct Label {
+#[derive(Debug)]
+pub struct Label<T> {
     /// The style of the label; `Primary` should be used for the crux of the problem, and
     /// `Secondary` may be used for extra annotations shown alongside primary labels.
     pub style: LabelStyle,
     /// The span this label labels.
-    pub span: Span,
+    pub span: Span<T>,
     /// The message attached to the label.
     pub message: String,
-    /// The file in which the label should appear. If [`None`], the file is inherited from the
-    /// enclosing [`Diagnostic`].
-    pub file: Option<SourceFileId>,
 }
 
-impl Label {
+impl<T> Clone for Label<T> {
+    fn clone(&self) -> Self {
+        Self {
+            style: self.style,
+            span: self.span,
+            message: self.message.clone(),
+        }
+    }
+}
+
+impl<T> Label<T> {
     /// Create a label passing the style as an argument.
     ///
     /// You should generally prefer the helper functions [`Label::primary`] and [`Label::secondary`]
     /// instead of this.
-    pub fn new<O, M>(style: LabelStyle, span: Span, message: O) -> Self
+    pub fn new<O, M>(style: LabelStyle, span: &impl Spanned<T>, message: O) -> Self
     where
         O: Into<Option<M>>,
         M: Into<String>,
@@ -51,14 +69,13 @@ impl Label {
         let message = message.map(|x| x.into());
         Self {
             style,
-            span,
+            span: span.span(),
             message: message.unwrap_or_default(),
-            file: None,
         }
     }
 
     /// Creates a primary label placed at the given span, with the given message.
-    pub fn primary<O, M>(span: Span, message: O) -> Self
+    pub fn primary<O, M>(span: &impl Spanned<T>, message: O) -> Self
     where
         O: Into<Option<M>>,
         M: Into<String>,
@@ -67,27 +84,22 @@ impl Label {
     }
 
     /// Creates a secondary label placed at the given span, with the given message.
-    pub fn secondary<O, M>(span: Span, message: O) -> Self
+    pub fn secondary<O, M>(span: &impl Spanned<T>, message: O) -> Self
     where
         O: Into<Option<M>>,
         M: Into<String>,
     {
         Self::new(LabelStyle::Secondary, span, message)
     }
-
-    /// Specifies an explicit file to use for this label. By default, the enclosing diagnostic's
-    /// file is used.
-    pub fn in_file(mut self, file: SourceFileId) -> Self {
-        self.file = Some(file);
-        self
-    }
 }
 
 /// Suggestion for what to replace a span with that might make the diagnostic go away.
 #[derive(Debug, Clone)]
 pub struct ReplacementSuggestion {
+    /// The file within which the replacement should be done.
+    pub file: SourceFileId,
     /// The span of bytes to replace.
-    pub span: Span,
+    pub span: Range<usize>,
     /// The replacement string.
     pub replacement: String,
 }
@@ -131,6 +143,16 @@ impl From<(String, ReplacementSuggestion)> for Note {
     }
 }
 
+impl From<(String, Option<ReplacementSuggestion>)> for Note {
+    fn from((text, suggestion): (String, Option<ReplacementSuggestion>)) -> Self {
+        Self {
+            kind: NoteKind::Normal,
+            text,
+            suggestion,
+        }
+    }
+}
+
 impl From<&str> for Note {
     fn from(text: &str) -> Self {
         Self::from(text.to_string())
@@ -139,6 +161,12 @@ impl From<&str> for Note {
 
 impl From<(&str, ReplacementSuggestion)> for Note {
     fn from((text, suggestion): (&str, ReplacementSuggestion)) -> Self {
+        Self::from((text.to_string(), suggestion))
+    }
+}
+
+impl From<(&str, Option<ReplacementSuggestion>)> for Note {
+    fn from((text, suggestion): (&str, Option<ReplacementSuggestion>)) -> Self {
         Self::from((text.to_string(), suggestion))
     }
 }
@@ -159,25 +187,36 @@ pub enum Severity {
 }
 
 /// Diagnostic describing a problem encountered within the code.
-#[derive(Debug, Clone)]
-pub struct Diagnostic {
+#[derive(Debug)]
+pub struct Diagnostic<T> {
     /// The diagnostic's severity.
     pub severity: Severity,
     /// The diagnostic's error code.
     pub code: Option<String>,
     /// The message describing the issue.
     pub message: String,
-    /// The source file within which the issue occurred.
-    pub source_file: SourceFileId,
     /// Labels attached to the diagnostic.
-    pub labels: Vec<Label>,
+    pub labels: Vec<Label<T>>,
     /// Additional notes providing context.
     pub notes: Vec<Note>,
     /// Diagnostics providing additional context on this diagnostic.
-    pub children: Vec<Diagnostic>,
+    pub children: Vec<Diagnostic<T>>,
 }
 
-impl Diagnostic {
+impl<T> Clone for Diagnostic<T> {
+    fn clone(&self) -> Self {
+        Self {
+            severity: self.severity,
+            code: self.code.clone(),
+            message: self.message.clone(),
+            labels: self.labels.clone(),
+            notes: self.notes.clone(),
+            children: self.children.clone(),
+        }
+    }
+}
+
+impl<T> Diagnostic<T> {
     /// Creates a new diagnostic with the severity passed in as an argument. You should generally
     /// prefer the convenience functions over this:
     /// - [`Diagnostic::bug`]
@@ -185,12 +224,11 @@ impl Diagnostic {
     /// - [`Diagnostic::warning`]
     /// - [`Diagnostic::note`]
     /// - [`Diagnostic::help`]
-    pub fn new(severity: Severity, source_file: SourceFileId, message: impl Into<String>) -> Self {
+    pub fn new(severity: Severity, message: impl Into<String>) -> Self {
         Self {
             severity,
             code: None,
             message: message.into(),
-            source_file,
             labels: vec![],
             notes: vec![],
             children: vec![],
@@ -202,28 +240,28 @@ impl Diagnostic {
     /// Note that unlike other severities, since this may be triggered by an actual bug
     /// (ie. an unhandled external error,) the message passed in may be anything that can be
     /// [`Display`][std::fmt::Display]ed as text.
-    pub fn bug(file: SourceFileId, error: impl ToString) -> Self {
-        Self::new(Severity::Bug, file, error.to_string())
+    pub fn bug(error: impl ToString) -> Self {
+        Self::new(Severity::Bug, error.to_string())
     }
 
     /// Creates a new error-level diagnostic with the given message.
-    pub fn error(file: SourceFileId, message: impl Into<String>) -> Self {
-        Self::new(Severity::Error, file, message)
+    pub fn error(message: impl Into<String>) -> Self {
+        Self::new(Severity::Error, message)
     }
 
     /// Creates a new warning-level diagnostic with the given message.
-    pub fn warning(file: SourceFileId, message: impl Into<String>) -> Self {
-        Self::new(Severity::Warning, file, message)
+    pub fn warning(message: impl Into<String>) -> Self {
+        Self::new(Severity::Warning, message)
     }
 
     /// Creates a new note-level diagnostic with the given message.
-    pub fn note(file: SourceFileId, message: impl Into<String>) -> Self {
-        Self::new(Severity::Note, file, message)
+    pub fn note(message: impl Into<String>) -> Self {
+        Self::new(Severity::Note, message)
     }
 
     /// Creates a new help-level diagnostic with the given message.
-    pub fn help(file: SourceFileId, message: impl Into<String>) -> Self {
-        Self::new(Severity::Help, file, message)
+    pub fn help(message: impl Into<String>) -> Self {
+        Self::new(Severity::Help, message)
     }
 
     /// Sets the diagnostic's error code.
@@ -233,7 +271,7 @@ impl Diagnostic {
     }
 
     /// Adds a label to the diagnostic.
-    pub fn with_label(mut self, label: Label) -> Self {
+    pub fn with_label(mut self, label: Label<T>) -> Self {
         self.labels.push(label);
         self
     }
@@ -244,32 +282,47 @@ impl Diagnostic {
         self
     }
 
-    /// Adds a child to the diagnostic.
-    pub fn with_child(mut self, child: Diagnostic) -> Self {
-        self.children.push(child);
+    /// Adds an optional note to the diagnostic.
+    pub fn with_optional_note(mut self, note: impl Into<Option<Note>>) -> Self {
+        if let Some(note) = note.into() {
+            self.notes.push(note);
+        }
         self
     }
 
+    /// Adds a child to the diagnostic.
+    pub fn with_child(mut self, child: Diagnostic<T>) -> Self {
+        self.children.push(child);
+        self
+    }
+}
+
+impl<T> Diagnostic<T>
+where
+    T: SourceRange,
+{
     /// Emits the diagnostic to standard error.
     pub fn emit_to_stderr(
         &self,
         files: &SourceFileSet,
+        source_arena: &SourceArena<T>,
         config: &DiagnosticConfig,
     ) -> Result<(), codespan_reporting::files::Error> {
         term::emit(
             &mut StandardStream::stderr(ColorChoice::Auto),
             &term::Config::default(),
             files,
-            &self.to_codespan(config),
+            &self.to_codespan(source_arena, config),
         )?;
         for child in &self.children {
-            child.emit_to_stderr(files, config)?;
+            child.emit_to_stderr(files, source_arena, config)?;
         }
         Ok(())
     }
 
     pub fn to_codespan(
         &self,
+        source_arena: &SourceArena<T>,
         config: &DiagnosticConfig,
     ) -> codespan_reporting::diagnostic::Diagnostic<SourceFileId> {
         codespan_reporting::diagnostic::Diagnostic {
@@ -285,16 +338,26 @@ impl Diagnostic {
             labels: self
                 .labels
                 .iter()
-                .map(|label| codespan_reporting::diagnostic::Label {
-                    style: match label.style {
-                        LabelStyle::Primary => codespan_reporting::diagnostic::LabelStyle::Primary,
-                        LabelStyle::Secondary => {
-                            codespan_reporting::diagnostic::LabelStyle::Secondary
-                        }
-                    },
-                    file_id: label.file.unwrap_or(self.source_file),
-                    range: label.span.to_usize_range(),
-                    message: label.message.clone(),
+                .filter_map(|label| match label.span {
+                    Span::Empty => None,
+                    Span::Spanning { start, end } => Some(codespan_reporting::diagnostic::Label {
+                        style: match label.style {
+                            LabelStyle::Primary => {
+                                codespan_reporting::diagnostic::LabelStyle::Primary
+                            }
+                            LabelStyle::Secondary => {
+                                codespan_reporting::diagnostic::LabelStyle::Secondary
+                            }
+                        },
+                        file_id: source_arena.source_file_id(start),
+                        range: {
+                            let start_range = source_arena.element(start).source_range();
+                            let end_range = source_arena.element(end).source_range();
+                            start_range.start.min(end_range.start)
+                                ..start_range.end.max(end_range.end)
+                        },
+                        message: label.message.clone(),
+                    }),
                 })
                 .collect(),
             notes: self

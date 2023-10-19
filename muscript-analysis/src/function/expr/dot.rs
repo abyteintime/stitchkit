@@ -1,11 +1,11 @@
 use muscript_foundation::{
     errors::{Diagnostic, DiagnosticSink, Label},
     ident::CaseInsensitive,
-    source::Spanned,
+    span::Spanned,
 };
 use muscript_syntax::{
     cst,
-    lexis::token::{Dot, Ident},
+    token::{Dot, Ident},
 };
 
 use crate::{
@@ -35,7 +35,7 @@ impl<'a> Compiler<'a> {
         );
         let left_type_id = builder.ir.register(left_register_id).ty;
 
-        let field_name = self.sources.span(builder.source_file_id, &field);
+        let field_name = self.sources.source(&field);
 
         match self.env.get_type(left_type_id) {
             &Type::Object(class_id) => self.expr_dot_on_object(
@@ -67,12 +67,11 @@ impl<'a> Compiler<'a> {
                 if left_type_id != TypeId::ERROR {
                     self.env.emit(
                         Diagnostic::error(
-                            builder.source_file_id,
                             "the `.` operator can only be used on objects, structs, and arrays",
                         )
-                        .with_label(Label::primary(dot.span, ""))
+                        .with_label(Label::primary(&dot, ""))
                         .with_label(Label::secondary(
-                            left.span(),
+                            left,
                             format!(
                                 "this is found to be of type `{}`, which does not have fields",
                                 self.env.type_name(left_type_id)
@@ -99,7 +98,7 @@ impl<'a> Compiler<'a> {
         if let Some(var_id) = self.lookup_class_var(class_id, field_name) {
             let field_ty = self.env.get_var(var_id).ty;
             let field = builder.ir.append_register(
-                field.span,
+                field.span(),
                 field_name.to_owned(),
                 field_ty,
                 Value::Field(var_id),
@@ -116,14 +115,11 @@ impl<'a> Compiler<'a> {
         } else {
             // TODO: If a function with the same name exists, suggest calling it.
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    format!(
-                        "cannot find variable `{field_name}` in class `{}`",
-                        self.env.class_name(class_id)
-                    ),
-                )
-                .with_label(Label::primary(field.span, "")),
+                Diagnostic::error(format!(
+                    "cannot find variable `{field_name}` in class `{}`",
+                    self.env.class_name(class_id)
+                ))
+                .with_label(Label::primary(&field, "")),
             );
             builder
                 .ir
@@ -149,7 +145,7 @@ impl<'a> Compiler<'a> {
         {
             let field_ty = self.env.get_var(var_id).ty;
             let field = builder.ir.append_register(
-                field.span,
+                field.span(),
                 field_name.to_owned(),
                 field_ty,
                 Value::Field(var_id),
@@ -165,14 +161,11 @@ impl<'a> Compiler<'a> {
             )
         } else {
             self.env.emit(
-                Diagnostic::bug(
-                    builder.source_file_id,
-                    format!(
-                        "cannot find variable `{field_name}` in struct `{}`",
-                        self.env.type_name(struct_type)
-                    ),
-                )
-                .with_label(Label::primary(field.span, "")),
+                Diagnostic::bug(format!(
+                    "cannot find variable `{field_name}` in struct `{}`",
+                    self.env.type_name(struct_type)
+                ))
+                .with_label(Label::primary(&field, "")),
             );
             builder
                 .ir
@@ -197,8 +190,8 @@ impl<'a> Compiler<'a> {
             )
         } else {
             self.env.emit(
-                Diagnostic::error(builder.source_file_id, "`Length` expected")
-                    .with_label(Label::primary(field.span, ""))
+                Diagnostic::error("`Length` expected")
+                    .with_label(Label::primary(&field, ""))
                     .with_note("note: arrays do not have properties other than `Length`"),
             );
             builder.ir.append_register(

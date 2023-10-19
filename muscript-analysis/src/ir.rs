@@ -5,12 +5,12 @@ pub mod interpret;
 
 use std::borrow::Cow;
 
-use muscript_foundation::source::Span;
-
 use crate::{TypeId, VarId};
 
 pub use basic_block::*;
 pub use insn::*;
+use muscript_foundation::span::Spanned;
+use muscript_lexer::token::{Token, TokenSpan};
 
 /// Represents the IR of a chunk (a function, or some other unit of execution.)
 #[derive(Clone, Default)]
@@ -50,7 +50,7 @@ pub struct RegisterId(u32);
 pub struct Node {
     pub kind: NodeKind,
     /// The source span that produced this node.
-    pub span: Span,
+    pub span: TokenSpan,
 }
 
 /// The kind of an execution node inside of a function.
@@ -105,7 +105,7 @@ impl Ir {
     #[must_use]
     pub fn create_register(
         &mut self,
-        span: Span,
+        span: TokenSpan,
         name: impl Into<Cow<'static, str>>,
         ty: TypeId,
         value: Value,
@@ -124,7 +124,7 @@ impl Ir {
     }
 
     #[must_use]
-    pub fn create_sink(&mut self, span: Span, sink: Sink) -> NodeId {
+    pub fn create_sink(&mut self, span: TokenSpan, sink: Sink) -> NodeId {
         self.create_node(Node {
             kind: NodeKind::Sink(sink),
             span,
@@ -173,5 +173,11 @@ impl From<RegisterId> for NodeId {
 impl BasicBlockId {
     pub fn to_u32(&self) -> u32 {
         self.0
+    }
+}
+
+impl Spanned<Token> for Node {
+    fn span(&self) -> TokenSpan {
+        self.span
     }
 }

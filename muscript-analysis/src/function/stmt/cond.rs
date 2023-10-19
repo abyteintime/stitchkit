@@ -15,14 +15,11 @@ impl<'a> Compiler<'a> {
             //   `x != 0`.
             // - Same for objects, but could suggest to do `x != none`.
             self.env.emit(
-                Diagnostic::error(
-                    builder.source_file_id,
-                    format!(
-                        "condition must be a `Bool`, but was found to be `{}`",
-                        self.env.type_name(register.ty)
-                    ),
-                )
-                .with_label(Label::primary(builder.ir.node(register_id.into()).span, "")),
+                Diagnostic::error(format!(
+                    "condition must be a `Bool`, but was found to be `{}`",
+                    self.env.type_name(register.ty)
+                ))
+                .with_label(Label::primary(builder.ir.node(register_id.into()), "")),
             );
         }
     }

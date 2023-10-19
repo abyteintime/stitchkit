@@ -1,9 +1,13 @@
 //! Somewhat of a hack to support parsing `simulated function` and `simulated state` predictively.
 
 use muscript_foundation::errors::{Diagnostic, Label};
+use muscript_lexer::{
+    token::{AnyToken, Token},
+    token_stream::TokenStream,
+};
 use muscript_syntax_derive::Spanned;
 
-use crate::{cst::KSimulated, lexis::token::Token, Parse, ParseStream, Parser, PredictiveParse};
+use crate::{cst::KSimulated, Parse, Parser, PredictiveParse};
 
 use super::{ItemFunction, ItemState};
 
@@ -20,13 +24,7 @@ pub enum SimulatedItem {
     State(ItemState),
 }
 
-fn simulated_item_error(parser: &Parser<'_, impl ParseStream>, token: &Token) -> Diagnostic {
-    Diagnostic::error(
-        parser.file,
-        "function or state item expected after `simulated`",
-    )
-    .with_label(Label::primary(
-        token.span,
-        "function or state expected here",
-    ))
+fn simulated_item_error(_: &Parser<'_, impl TokenStream>, token: &AnyToken) -> Diagnostic<Token> {
+    Diagnostic::error("function or state item expected after `simulated`")
+        .with_label(Label::primary(token, "function or state expected here"))
 }

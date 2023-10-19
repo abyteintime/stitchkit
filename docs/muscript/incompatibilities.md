@@ -31,7 +31,35 @@ The main point is that `Texture2D`'s `Format` property will not produce an error
 use it, because the compiler does not process code you do not care about. And the same happens with
 any other item the compiler sees.
 
-## Default properties
+## Syntax
+
+### Preprocessor
+
+The MuScript preprocessor differs from the UnrealScript preprocessor quite significantly, as it
+operates at the lexical level rather than performing a primitive string search and replace before
+the code is passed onto the lexer.
+
+This generally leads to better error messages, though you shouldn't rely on the preprocessor too
+much anyways, since MuScript generally has better ways of handling the common cases where the
+preprocessor is used.
+
+Because the preprocessor operates quite differently, several incompatibilities can be observed:
+
+- `if` expands if the token stream in the parentheses contains at least one token.
+- `isdefined`, expands nothing when the macro is not defined, or _literally_ the tokens
+  <code>\`isdefined(MACRO_NAME)</code> when the macro is defined, and <code>\`</code> is not
+  a valid token in the MuScript syntax. Therefore `isdefined` is only usable inside the `if` macro.
+  - Naturally, the same thing happens with `notdefined`.
+- `include` is ignored. All .uci files are included by default.
+- The preprocessor does not run inside strings. Therefore, macros such as `ShowVar` do not work.
+- Not tested, but the MuScript preprocessor is probably more strict than the UnrealScript
+  preprocessor around some places.
+  - It implements all features such that it can process the entire engine and game source code
+    without errors, but it may not replicate quirks such as allowing mismatched parentheses
+    (though none of these quirks were actually tested for! for what it's worth, UPP might disallow
+    mismatched parentheses. I simply don't know.)
+
+### Default properties
 
 MuScript's `defaultproperties` syntax is a lot more strict than UnrealScript's, since MuScript
 actually integrates `defaultproperties` into its parser. Therefore not all classes from the engine
@@ -76,34 +104,7 @@ defaultproperties
 Wrapping struct and array literals in braces is allowed for backwards compatibility, but not doing
 so should be preferred in modern code.
 
-## Preprocessor
-
-The MuScript preprocessor differs from the UnrealScript preprocessor quite significantly, as it
-operates at the lexical level rather than performing a primitive string search and replace before
-the code is passed onto the lexer.
-
-This generally leads to better error messages, though you shouldn't rely on the preprocessor too
-much anyways, since MuScript generally has better ways of handling the common cases where the
-preprocessor is used.
-
-Because the preprocessor operates quite differently, several incompatibilities can be observed:
-
-- `if` expands if the token stream in the parentheses contains at least one token.
-- `isdefined`, when the provided macro is defined, expands to an unspecified token that is not
-  representable nor valid in human-written source code. Therefore `isdefined` is only usable inside
-  the `if` macro.
-  - Naturally, the same thing happens with `notdefined`.
-- `include` is ignored. All .uci files are included by default.
-- The preprocessor currently does not run inside strings. Therefore, macros such as `ShowVar` do not
-  work.
-- Not tested, but the MuScript preprocessor is probably more strict than the UnrealScript
-  preprocessor around some places.
-  - It implements all features such that it can process the entire engine and game source code
-    without errors, but it may not replicate quirks such as allowing mismatched parentheses
-    (though none of these quirks were actually tested for! for what it's worth, UPP might disallow
-    mismatched parentheses. I simply don't know.)
-
-### Include files
+#### Include files
 
 The behavior around `.uci` files is quite different from vanilla UnrealScript.
 
@@ -115,6 +116,13 @@ each `.uc` file, so macros defined in one `.uc` file will not be visible in any 
 Some `.uci` files also define items such as `enum`s and `const`s. These are read by the parser,
 but not analyzed; therefore these items are not visible in any namespace. This means it is
 impossible to use eg. variables whose type is `EPixelFormat`.
+
+### Unsigned arithmetic right shift `>>>` operator
+
+This operator is parsed correctly inside function definitions, but is not supported in expressions
+due to how limited our current parsing of multi-character operators is. This limitation might be
+lifted in the future (and probably with it, the possibility of overloading your own operators would
+be introduced. Maybe one day.)
 
 ## Type system
 

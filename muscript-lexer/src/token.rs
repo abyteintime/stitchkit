@@ -149,7 +149,7 @@ impl TokenKind {
     pub const fn channel(&self) -> Channel {
         match self {
             TokenKind::Comment => Channel::COMMENT,
-            TokenKind::NewLine => Channel::SPACE,
+            TokenKind::NewLine | TokenKind::Backslash => Channel::SPACE,
             TokenKind::FailedExp => Channel::MACRO,
             TokenKind::Error => Channel::ERROR,
             _ => Channel::CODE,

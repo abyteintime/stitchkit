@@ -35,12 +35,14 @@ impl<T> Context<T> {
 ///
 /// Usage:
 /// ```
+/// #use stitchkit_core::context;
 /// context! {
 ///     let name: i32;
 /// }
 /// ```
 /// Initially, the variable starts out unset, and you can set it in a scope by using `name::with`.
 /// ```
+/// #use stitchkit_core::context;
 /// #context! {
 /// #    let name: i32;
 /// #}

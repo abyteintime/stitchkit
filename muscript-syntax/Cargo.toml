@@ -5,6 +5,8 @@ edition = "2021"
 
 [features]
 
+default = ["parse-traceback"]
+
 # Enables capturing of parse rule tracebacks into diagnostics.
 parse-traceback = []
 

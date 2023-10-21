@@ -7,12 +7,16 @@ use muscript_foundation::{
     span::{Span, Spanned},
 };
 
-use crate::token::{Token, TokenId};
+use crate::{
+    token::{Token, TokenId},
+    LexerErrors,
+};
 
 #[derive(Clone, Copy)]
 pub struct LexedSources<'a> {
     pub source_file_set: &'a SourceFileSet,
     pub token_arena: &'a SourceArena<Token>,
+    pub lexer_errors: &'a LexerErrors,
 }
 
 impl<'a> LexedSources<'a> {
@@ -85,6 +89,7 @@ impl<'a> LexedSources<'a> {
 pub struct OwnedSources<'a> {
     pub source_file_set: &'a SourceFileSet,
     pub token_arena: SourceArena<Token>,
+    pub lexer_errors: LexerErrors,
 }
 
 impl<'a> OwnedSources<'a> {
@@ -92,6 +97,7 @@ impl<'a> OwnedSources<'a> {
         LexedSources {
             source_file_set: self.source_file_set,
             token_arena: &self.token_arena,
+            lexer_errors: &self.lexer_errors,
         }
     }
 

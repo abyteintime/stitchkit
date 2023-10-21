@@ -6,8 +6,9 @@ use muscript_lexer::{token::Token, token_stream::TokenStream};
 use muscript_syntax_derive::Spanned;
 
 use crate::{
+    diagnostics::notes,
     list::TerminatedListErrorKind,
-    token::{AnyToken, LeftBrace, RightBrace, Semi},
+    token::{AnyToken, EndOfFile, LeftBrace, RightBrace, Semi},
     Parse, ParseError, Parser, PredictiveParse,
 };
 
@@ -53,6 +54,13 @@ pub struct Block {
     pub close: RightBrace,
 }
 
+/// [`StmtList`] should be used to parse statements inside a [`LazyBlock`][crate::LazyBlock].
+#[derive(Debug, Clone, Spanned)]
+pub struct StmtList {
+    pub stmts: Vec<Stmt>,
+    pub eof: EndOfFile,
+}
+
 impl Parse for StmtExpr {
     fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
         let expr = Expr::precedence_parse(parser, Precedence::EXPR, true)?;
@@ -83,6 +91,26 @@ impl Parse for Block {
             error.parse
         })?;
         Ok(Self { open, stmts, close })
+    }
+}
+
+impl Parse for StmtList {
+    fn parse(parser: &mut Parser<'_, impl TokenStream>) -> Result<Self, ParseError> {
+        let (stmts, eof) = parser.parse_terminated_list().map_err(|error| {
+            match error.kind {
+                TerminatedListErrorKind::Parse => (),
+                TerminatedListErrorKind::MissingTerminator => parser.emit_diagnostic(
+                    Diagnostic::error("end of file expected after statements")
+                        .with_label(Label::primary(
+                            &error.parse.span,
+                            "this is where the statements should have ended",
+                        ))
+                        .with_note(notes::PARSER_BUG),
+                ),
+            }
+            error.parse
+        })?;
+        Ok(Self { stmts, eof })
     }
 }
 

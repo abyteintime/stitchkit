@@ -1,12 +1,10 @@
 mod lazy;
 mod recovery;
 
-use std::collections::HashMap;
-
 use muscript_foundation::errors::{Diagnostic, DiagnosticSink, Label, Note, NoteKind};
 use muscript_lexer::{
     sources::LexedSources,
-    token::{AnyToken, Token, TokenId, TokenKind, TokenSpan},
+    token::{AnyToken, Token, TokenKind, TokenSpan},
     token_stream::{Channel, TokenStream},
 };
 use tracing::warn;
@@ -18,7 +16,6 @@ use crate::token::SingleToken;
 
 pub struct Parser<'a, T> {
     pub sources: LexedSources<'a>,
-    lexer_errors: &'a HashMap<TokenId, Diagnostic<Token>>,
     pub tokens: T,
     diagnostics: &'a mut dyn DiagnosticSink<Token>,
 
@@ -27,19 +24,17 @@ pub struct Parser<'a, T> {
     // TODO: This should probably be a &mut because with how it's done currently creating a sub
     // parser involves cloning the vector.
     #[cfg(feature = "parse-traceback")]
-    rule_traceback: Vec<&'static str>,
+    pub(crate) rule_traceback: Vec<&'static str>,
 }
 
 impl<'a, T> Parser<'a, T> {
     pub fn new(
         sources: LexedSources<'a>,
-        lexer_errors: &'a HashMap<TokenId, Diagnostic<Token>>,
         tokens: T,
         diagnostics: &'a mut dyn DiagnosticSink<Token>,
     ) -> Self {
         Self {
             sources,
-            lexer_errors,
             tokens,
             diagnostics,
 
@@ -57,7 +52,6 @@ impl<'a, T> Parser<'a, T> {
         Parser {
             sources: self.sources,
             tokens: &mut self.tokens,
-            lexer_errors: self.lexer_errors,
             diagnostics: diagnostics
                 .map(|r| {
                     let d: &mut dyn DiagnosticSink<Token> = r;
@@ -102,6 +96,8 @@ where
     }
 
     pub fn emit_diagnostic(&mut self, diagnostic: Diagnostic<Token>) {
+        eprintln!("--- diagnostic --- {diagnostic:?}");
+
         #[cfg(feature = "parse-traceback")]
         let diagnostic = diagnostic.with_note(Note {
             kind: NoteKind::Debug,
@@ -124,39 +120,43 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream,
 {
-    pub fn next_token_from(&mut self, channel: Channel) -> AnyToken {
+    fn pure_next_token_from(&mut self, channel: Channel) -> AnyToken {
         loop {
             let token = self.tokens.next_from(channel);
             if token.kind.channel() == Channel::ERROR && !channel.contains(Channel::ERROR) {
-                if let Some(diagnostic) = self.lexer_errors.get(&token.id) {
+                if let Some(diagnostic) = self.sources.lexer_errors.get(token.id) {
                     self.diagnostics.emit(diagnostic.clone());
                 } else {
                     warn!(?token, "error token without corresponding diagnostic");
                 }
             } else {
-                if let Some(closing_kind) = token.kind.closed_by() {
-                    self.delimiter_stack.push(closing_kind);
-                }
-                if token.kind.closes().is_some() {
-                    // We want to consume delimiters until we hit a matching one, unless we never actually
-                    // hit a matching one.
-                    // - In `{{}}`, at the first `}` the stack will be `{{` and so everything will
-                    //   be popped.
-                    // - In `{[}`, the `}` will pop both `[` and `{` because the `[` is astray and should
-                    //   not be here.
-                    // - `{[}]` is a similar case to the above, but the last `]` will not pop anything
-                    //   because the stack is empty.
-                    // This mechanism can be tweaked in the future to include eg. a "weakness" mechanism,
-                    // where certain delimiters can be considered stronger than others, so that eg. `}`
-                    // can pop `(`, but `)` cannot pop `{`.
-                    if let Some(i) = self.delimiter_stack.iter().rposition(|&k| k == token.kind) {
-                        self.delimiter_stack.resize_with(i, || unreachable!());
-                    }
-                }
-
                 return token;
             }
         }
+    }
+
+    pub fn next_token_from(&mut self, channel: Channel) -> AnyToken {
+        let token = self.pure_next_token_from(channel);
+        if let Some(closing_kind) = token.kind.closed_by() {
+            self.delimiter_stack.push(closing_kind);
+        }
+        if token.kind.closes().is_some() {
+            // We want to consume delimiters until we hit a matching one, unless we never actually
+            // hit a matching one.
+            // - In `{{}}`, at the first `}` the stack will be `{{` and so everything will
+            //   be popped.
+            // - In `{[}`, the `}` will pop both `[` and `{` because the `[` is astray and should
+            //   not be here.
+            // - `{[}]` is a similar case to the above, but the last `]` will not pop anything
+            //   because the stack is empty.
+            // This mechanism can be tweaked in the future to include eg. a "weakness" mechanism,
+            // where certain delimiters can be considered stronger than others, so that eg. `}`
+            // can pop `(`, but `)` cannot pop `{`.
+            if let Some(i) = self.delimiter_stack.iter().rposition(|&k| k == token.kind) {
+                self.delimiter_stack.resize_with(i, || unreachable!());
+            }
+        }
+        token
     }
 
     pub fn next_token(&mut self) -> AnyToken {
@@ -166,7 +166,7 @@ where
     pub fn peek_token_from(&mut self, channel: Channel) -> AnyToken {
         let position = self.tokens.position();
         let token = loop {
-            let token = self.next_token_from(channel);
+            let token = self.pure_next_token_from(channel);
             if channel.contains(token.kind.channel()) || token.kind == TokenKind::EndOfFile {
                 break token;
             }

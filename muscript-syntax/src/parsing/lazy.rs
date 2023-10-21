@@ -1,8 +1,9 @@
 use muscript_foundation::{
-    errors::{Diagnostic, Label},
+    errors::{Diagnostic, DiagnosticSink, Label},
     span::Spanned,
 };
 use muscript_lexer::{
+    sliced_tokens::SlicedTokens,
     sources::LexedSources,
     token::{AnyToken, Token, TokenKind, TokenSpan},
     token_stream::TokenStream,
@@ -46,10 +47,27 @@ impl Delimiters for Braces {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct LazyBlock<D> {
     pub delimiters: D,
-    pub inner: TokenSpan,
+    pub inner: SlicedTokens,
+}
+
+impl<D> LazyBlock<D> {
+    pub fn parse_inner<'a, P>(
+        &self,
+        sources: LexedSources<'a>,
+        diagnostics: &'a mut dyn DiagnosticSink<Token>,
+    ) -> Result<Option<P>, ParseError>
+    where
+        P: Parse,
+    {
+        let Some(stream) = self.inner.stream(sources.token_arena) else {
+            return Ok(None);
+        };
+        let mut parser = Parser::new(sources, stream, diagnostics);
+        Ok(Some(parser.parse::<P>()?))
+    }
 }
 
 impl<D> Parse for LazyBlock<D>
@@ -60,18 +78,22 @@ where
         let open: D::Open = parser.parse()?;
         let open_nesting_level = parser.nesting_level();
 
-        let mut inner = TokenSpan::Empty;
+        let mut inner = SlicedTokens::new();
         let mut close = None;
 
-        while parser.nesting_level() >= open_nesting_level || open_nesting_level == 0 {
+        while parser.nesting_level() >= open_nesting_level {
             let token = parser.next_token();
+            let nesting_level = parser.nesting_level();
             if let Ok(c) = D::Close::try_from_token(token, &parser.sources) {
                 close = Some(c);
+                if nesting_level < open_nesting_level {
+                    break;
+                }
             } else if token.kind == TokenKind::EndOfFile {
                 parser.emit_diagnostic(missing_closing_delimiter::<D>(&open));
-                return Err(parser.make_error(TokenSpan::single(open.id()).join(&inner)));
+                return Err(parser.make_error(TokenSpan::single(open.id())));
             }
-            inner = inner.join(&TokenSpan::single(token.id));
+            inner.push_token(token.id);
         }
 
         if let Some(close) = close {
@@ -81,7 +103,7 @@ where
             })
         } else {
             parser.emit_diagnostic(missing_closing_delimiter::<D>(&open));
-            Err(parser.make_error(TokenSpan::single(open.id()).join(&inner)))
+            Err(parser.make_error(TokenSpan::single(open.id())))
         }
     }
 }
@@ -119,7 +141,7 @@ where
         self.delimiters
             .open()
             .span()
-            .join(&self.inner)
+            // NOTE: inner is skipped here.
             .join(&self.delimiters.close().span())
     }
 }

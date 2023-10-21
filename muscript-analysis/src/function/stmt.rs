@@ -25,7 +25,7 @@ impl<'a> Compiler<'a> {
                     .with_label(Label::primary(semi, "this semicolon is redundant")),
             ),
             cst::Stmt::Expr(expr) => self.stmt_expr(builder, expr),
-            cst::Stmt::Block(block) => self.stmt_block(builder, block),
+            cst::Stmt::Block(block) => self.stmts(builder, &block.stmts),
 
             cst::Stmt::Local(local) => self.stmt_local(builder, local),
 
@@ -57,9 +57,9 @@ impl<'a> Compiler<'a> {
             .append_sink(stmt.span(), Sink::Discard(register_id));
     }
 
-    pub(crate) fn stmt_block(&mut self, builder: &mut FunctionBuilder, block: &cst::Block) {
+    pub(crate) fn stmts(&mut self, builder: &mut FunctionBuilder, stmts: &[cst::Stmt]) {
         builder.push_local_scope();
-        for stmt in &block.stmts {
+        for stmt in stmts {
             self.stmt(builder, stmt);
         }
         builder.pop_local_scope();

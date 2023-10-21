@@ -12,7 +12,7 @@ use muscript_foundation::{
     source::{SourceFile, SourceFileSet},
     source_arena::SourceArena,
 };
-use muscript_lexer::sources::OwnedSources;
+use muscript_lexer::{sources::OwnedSources, LexerErrors};
 use muscript_syntax::cst;
 use parse::parse_source;
 use tracing::{error, info, info_span, metadata::LevelFilter, warn};
@@ -172,6 +172,7 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     let mut sources = OwnedSources {
         source_file_set: &source_file_set,
         token_arena: SourceArena::new(),
+        lexer_errors: LexerErrors::default(),
     };
 
     let (mut input, mut env, classes_to_compile) = {

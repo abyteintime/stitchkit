@@ -1,8 +1,11 @@
 use std::rc::Rc;
 
 use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
-use muscript_lexer::{sources::OwnedSources, token::Token, token_stream::TokenSpanCursor, Lexer};
-use muscript_preprocessor::{sliced_tokens::SlicedTokens, Definitions, Preprocessor};
+use muscript_lexer::{
+    sliced_tokens::SlicedTokens, sources::OwnedSources, token::Token,
+    token_stream::TokenSpanCursor, Lexer, LexerErrors,
+};
+use muscript_preprocessor::{Definitions, Preprocessor};
 use muscript_syntax::{Parse, Parser};
 use tracing::info_span;
 
@@ -18,12 +21,13 @@ where
     let source_file = sources.source_file_set.get(id);
     let _span = info_span!("parse_source", source_file.filename).entered();
 
-    let (token_span, lexer_errors) = {
+    let token_span = {
         let _span = info_span!("lex").entered();
         let lexer = Lexer::new(
             sources.token_arena.build_source_file(id),
             id,
             Rc::clone(&source_file.source),
+            &mut sources.lexer_errors,
         );
         lexer.lex()
     };
@@ -48,7 +52,7 @@ where
         let tokens = preprocessed
             .stream(&sources.token_arena)
             .expect("token slices emitted by preprocessor must not be empty");
-        let mut parser = Parser::new(sources.as_borrowed(), &lexer_errors, tokens, diagnostics);
+        let mut parser = Parser::new(sources.as_borrowed(), tokens, diagnostics);
         parser.parse::<T>()
     };
 

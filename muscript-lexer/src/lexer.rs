@@ -17,7 +17,22 @@ pub struct Lexer<'a> {
     pub input: Rc<str>,
     pub position: SourceLocation,
 
+    pub errors: &'a mut LexerErrors,
+}
+
+#[derive(Debug, Default)]
+pub struct LexerErrors {
     pub errors: HashMap<TokenId, Diagnostic<Token>>,
+}
+
+impl LexerErrors {
+    pub fn get(&self, token: TokenId) -> Option<&Diagnostic<Token>> {
+        self.errors.get(&token)
+    }
+
+    pub fn set(&mut self, token: TokenId, error: Diagnostic<Token>) {
+        self.errors.insert(token, error);
+    }
 }
 
 // Unnecessary casts are allowed because `SourceLocation` may not end up being a `usize` if we
@@ -28,13 +43,14 @@ impl<'a> Lexer<'a> {
         token_arena: SourceArenaBuilder<'a, Token>,
         file: SourceFileId,
         input: Rc<str>,
+        errors: &'a mut LexerErrors,
     ) -> Self {
         Self {
             token_arena,
             file,
             input,
             position: 0,
-            errors: HashMap::new(),
+            errors,
         }
     }
 
@@ -112,7 +128,7 @@ impl<'a> Lexer<'a> {
                             let comment_start =
                                 self.create_token(TokenKind::Error, start..start + 2);
                             let _rest = self.create_token(TokenKind::Error, self.range(start + 2));
-                            self.errors.insert(
+                            self.errors.set(
                                 comment_start,
                                 Diagnostic::error(
                                     "block comment does not have a matching '*/' terminator",
@@ -173,7 +189,7 @@ impl<'a> Lexer<'a> {
                         }
                         let exponent =
                             self.create_token(TokenKind::Error, self.range(exponent_start));
-                        self.errors.insert(exponent, Diagnostic::error(
+                        self.errors.set(exponent, Diagnostic::error(
                             "'e' in float literal with scientific notation must be followed by an exponent number",
                         )
                         .with_label(Label::primary(
@@ -220,7 +236,7 @@ impl<'a> Lexer<'a> {
             self.identifier();
             let ident_end = self.position;
             let ident_error = self.create_token(TokenKind::Error, self.range(ident_start));
-            self.errors.insert(
+            self.errors.set(
                 ident_error,
                 Diagnostic::error(
                     "number literal must not be immediately followed by an identifier",
@@ -270,7 +286,7 @@ impl<'a> Lexer<'a> {
             if self.current_char().is_none() {
                 let quote = self.create_token(TokenKind::Error, start..start + 1);
                 let unterminated = self.create_token(TokenKind::Error, self.range(start + 1));
-                self.errors.insert(
+                self.errors.set(
                     unterminated,
                     Diagnostic::error("string literal does not have a closing quote `\"`")
                         .with_label(Label::primary(
@@ -292,7 +308,7 @@ impl<'a> Lexer<'a> {
             if self.current_char().is_none() {
                 let quote = self.create_token(TokenKind::Error, start..start + 1);
                 let unterminated = self.create_token(TokenKind::Error, self.range(start + 1));
-                self.errors.insert(
+                self.errors.set(
                     unterminated,
                     Diagnostic::error("name does not have a closing quote `'`")
                         .with_label(Label::primary(&Span::single(quote), "the name starts here")),
@@ -327,7 +343,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn lex(mut self) -> (TokenSpan, HashMap<TokenId, Diagnostic<Token>>) {
+    pub fn lex(mut self) -> TokenSpan {
         loop {
             self.skip_whitespace();
 
@@ -413,7 +429,7 @@ impl<'a> Lexer<'a> {
                         let unrecognized_character =
                             self.create_token(TokenKind::Error, self.range(start));
 
-                        self.errors.insert(
+                        self.errors.set(
                             unrecognized_character,
                             Diagnostic::error(format!("unrecognized character: {unknown:?}"))
                                 .with_label(Label::primary(
@@ -426,7 +442,7 @@ impl<'a> Lexer<'a> {
                 }
             } else {
                 self.create_token(TokenKind::EndOfFile, self.range(start));
-                break (self.token_arena.finish(), self.errors);
+                break self.token_arena.finish();
             };
         }
     }

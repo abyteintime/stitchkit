@@ -1,5 +1,3 @@
-pub mod sliced_tokens;
-
 use std::{cmp::Ordering, collections::HashMap};
 
 use indoc::indoc;
@@ -8,13 +6,11 @@ use muscript_foundation::{
     ident::CaseInsensitive,
 };
 use muscript_lexer::{
+    sliced_tokens::{SlicedTokens, TokenSlice},
     sources::LexedSources,
     token::{AnyToken, Token, TokenKind, TokenSpan},
     token_stream::{TokenSpanCursor, TokenStream},
 };
-use sliced_tokens::SlicedTokens;
-
-use crate::sliced_tokens::TokenSlice;
 
 /// A map of definitions. These may be constructed externally, to provide the preprocessor with
 /// symbols such as `FINAL_RELEASE`.
@@ -78,7 +74,7 @@ impl<'a> Preprocessor<'a> {
 
     fn flush(&mut self) {
         if let TokenSpan::Spanning { start, end } = self.current_span {
-            self.out_tokens.push(TokenSlice::Span { start, end });
+            self.out_tokens.push_slice(TokenSlice::Span { start, end });
             self.current_span = TokenSpan::Empty;
         }
     }
@@ -340,13 +336,13 @@ impl<'a> Preprocessor<'a> {
         let emit_non_empty = if not { !is_defined } else { is_defined };
 
         if emit_non_empty {
-            self.out_tokens.push(TokenSlice::Span {
+            self.out_tokens.push_slice(TokenSlice::Span {
                 start: accent.id,
                 end: right_paren.id,
             });
         } else {
             self.out_tokens
-                .push(TokenSlice::Empty { source: accent.id });
+                .push_slice(TokenSlice::Empty { source: accent.id });
         }
     }
 
@@ -622,7 +618,7 @@ impl<'a> Preprocessor<'a> {
                             ))
                             .with_label(Label::primary(&macro_name_ident, "")),
                         );
-                        self.out_tokens.push(TokenSlice::Empty {
+                        self.out_tokens.push_slice(TokenSlice::Empty {
                             source: macro_name_ident.id,
                         });
                         return;
@@ -634,7 +630,7 @@ impl<'a> Preprocessor<'a> {
                             ))
                             .with_label(Label::primary(&macro_name_ident, "")),
                         );
-                        self.out_tokens.push(TokenSlice::Empty {
+                        self.out_tokens.push_slice(TokenSlice::Empty {
                             source: macro_name_ident.id,
                         });
                         return;
@@ -681,7 +677,7 @@ impl<'a> Preprocessor<'a> {
                 // This case does not result in a failed expansion.
             }
         } else {
-            self.out_tokens.push(TokenSlice::Empty {
+            self.out_tokens.push_slice(TokenSlice::Empty {
                 source: macro_name_ident.id,
             });
         }

@@ -11,11 +11,11 @@ use muscript_lexer::{
 use muscript_syntax_derive::Spanned;
 
 use crate::{
-    cst::{Block, Expr, KConst, Path, Type},
+    cst::{Expr, KConst, Path, Type},
     diagnostics::{labels, notes},
     list::SeparatedListDiagnostics,
     token::{AnyToken, Assign, Greater, Ident, IntLit, LeftParen, RightParen, Semi},
-    Parse, ParseError, Parser, PredictiveParse,
+    Braces, LazyBlock, Parse, ParseError, Parser, PredictiveParse,
 };
 
 use super::{ItemName, VarArray};
@@ -152,7 +152,7 @@ pub struct ParamDefault {
 #[parse(error = "body_error")]
 pub enum Body {
     Stub(Semi),
-    Impl(Block),
+    Impl(LazyBlock<Braces>),
 }
 
 impl ItemFunction {

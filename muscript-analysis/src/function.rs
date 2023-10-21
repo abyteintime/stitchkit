@@ -236,7 +236,11 @@ impl<'a> Compiler<'a> {
                 }
             }
             cst::Body::Impl(block) => {
-                self.stmt_block(&mut builder, block);
+                if let Ok(Some(parsed)) =
+                    block.parse_inner::<cst::StmtList>(self.sources.as_borrowed(), self.env)
+                {
+                    self.stmts(&mut builder, &parsed.stmts);
+                }
             }
         }
 
@@ -244,7 +248,7 @@ impl<'a> Compiler<'a> {
         // We `return void` for now because TODO: definite return analysis.
         let end_token_span = match &cst.body {
             cst::Body::Stub(semi) => semi.span(),
-            cst::Body::Impl(block) => block.close.span(),
+            cst::Body::Impl(block) => block.delimiters.close.span(),
         };
         let function = self.env.get_function(function_id);
         let returned_void = builder.ir.append_register(

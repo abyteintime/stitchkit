@@ -227,7 +227,14 @@ pub fn fallible_main(args: Args) -> anyhow::Result<()> {
     {
         let _span = info_span!("emit_diagnostics").entered();
         for diagnostic in &compiler.env.diagnostics {
-            let is_from_external_package = false;
+            let is_from_external_package = diagnostic.labels.iter().any(|label| {
+                if let Some(start) = label.span.start() {
+                    let source_file = compiler.sources.token_arena.source_file_id(start);
+                    !main_package_source_file_ids.contains(&source_file)
+                } else {
+                    false
+                }
+            });
             // !main_package_source_file_ids.contains(&diagnostic.source_file);
             if diagnostic.severity >= Severity::Error
                 || !is_from_external_package

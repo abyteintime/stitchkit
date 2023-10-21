@@ -3,7 +3,7 @@ use std::rc::Rc;
 use muscript_foundation::{errors::DiagnosticSink, source::SourceFileId};
 use muscript_lexer::{
     sliced_tokens::SlicedTokens, sources::OwnedSources, token::Token,
-    token_stream::TokenSpanCursor, Lexer, LexerErrors,
+    token_stream::TokenSpanCursor, Lexer,
 };
 use muscript_preprocessor::{Definitions, Preprocessor};
 use muscript_syntax::{Parse, Parser};

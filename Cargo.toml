@@ -1,20 +1,5 @@
 [workspace]
-members = [
-    "stitchkit",
-    "stitchkit-archive",
-    "stitchkit-core",
-    "stitchkit-core-derive",
-    "stitchkit-reflection-types",
-    "stitchkit-manifest",
-
-    "muscript",
-    "muscript-analysis",
-    "muscript-foundation",
-    "muscript-lexer",
-    "muscript-preprocessor",
-    "muscript-syntax",
-    "muscript-syntax-derive",
-]
+members = ["crates/*"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -29,16 +14,16 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 thiserror = "1.0.38"
 walkdir = "2.3.2"
 
-stitchkit-archive = { path = "stitchkit-archive" }
-stitchkit-core = { path = "stitchkit-core" }
-stitchkit-core-derive = { path = "stitchkit-core-derive" }
-stitchkit-reflection-types = { path = "stitchkit-reflection-types" }
-stitchkit-manifest = { path = "stitchkit-manifest" }
-stitchkit-uscript = { path = "stitchkit-uscript" }
+stitchkit-archive = { path = "crates/stitchkit-archive" }
+stitchkit-core = { path = "crates/stitchkit-core" }
+stitchkit-core-derive = { path = "crates/stitchkit-core-derive" }
+stitchkit-reflection-types = { path = "crates/stitchkit-reflection-types" }
+stitchkit-manifest = { path = "crates/stitchkit-manifest" }
+stitchkit-uscript = { path = "crates/stitchkit-uscript" }
 
-muscript-analysis = { path = "muscript-analysis" }
-muscript-foundation = { path = "muscript-foundation" }
-muscript-lexer = { path = "muscript-lexer" }
-muscript-preprocessor = { path = "muscript-preprocessor" }
-muscript-syntax = { path = "muscript-syntax" }
-muscript-syntax-derive = { path = "muscript-syntax-derive" }
+muscript-analysis = { path = "crates/muscript-analysis" }
+muscript-foundation = { path = "crates/muscript-foundation" }
+muscript-lexer = { path = "crates/muscript-lexer" }
+muscript-preprocessor = { path = "crates/muscript-preprocessor" }
+muscript-syntax = { path = "crates/muscript-syntax" }
+muscript-syntax-derive = { path = "crates/muscript-syntax-derive" }
